@@ -13,7 +13,7 @@ Projekt u sklopu predmeta Programsko inženjerstvo
 # Članovi tima
 >  Matija Akrap - matija.akrap@fer.unizg.hr   
 >  Jurica Šlibar - jurica.slibar@fer.unizg.hr  
->  Fran Kramberger - jurica.slibar@fer.unizg.hr  
+>  Fran Kramberger - fran.kramberger@fer.unizg.hr  
 >  Luka Volarević - luka.volarevic@fer.unizg.hr  
 >  Helena Floreani - helena.floreani@fer.unizg.hr  
 >  Nora Milolović - nora.milolovic@fer.unizg.hr  
