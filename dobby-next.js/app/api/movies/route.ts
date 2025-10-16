@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Movie } from '@/lib/types/Movie';
+import { Movies } from '@/lib/types/Movies';
 import { get_options } from '@/lib/TMDB_API/requestOptions';
 
 export async function GET(request: Request) {
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 
     const data = await response.json();
 
-    const movies: Movie[] = data.results;
+    const movies: Movies[] = data.results;
     return NextResponse.json(movies);
 
   } catch (error) {

@@ -1,5 +1,5 @@
 import { get_options } from '@/lib/TMDB_API/requestOptions';
-import { Movie } from '@/lib/types/Movie';
+import { Movies } from '@/lib/types/Movies';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     }
 
     const data = await response.json();
-    const trendingMovies: Movie[] = data.results;
+    const trendingMovies: Movies[] = data.results;
     return NextResponse.json(trendingMovies);
     
   } catch (error) {

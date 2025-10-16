@@ -1,17 +1,57 @@
-export interface Movie {
-  adult: boolean;  //adult content, 18+
-  backdrop_path: string | null; //large backdrop image
-  genre_ids: number[];
+export interface Genre {
   id: number;
+  name: string;
+}
+export interface ProductionCompany {
+  id: number;
+  logo_path: string | null;
+  name: string;
+  origin_country: string;
+}
+
+export interface ProductionCountry {
+  iso_3166_1: string;
+  name: string;
+}
+
+export interface SpokenLanguage {
+  english_name: string;
+  iso_639_1: string;
+  name: string;
+}
+
+export interface MovieCollection {
+  id: number;
+  name: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+}
+
+export interface Movie {
+  adult: boolean;
+  backdrop_path: string | null;
+  belongs_to_collection: MovieCollection | null;
+  budget: number;
+  genres: Genre[];
+  homepage: string | null;
+  id: number;
+  imdb_id: string | null;
   original_language: string;
   original_title: string;
-  overview: string; //description of a movie
-  popularity: number; // popularity score by TMDB
-  poster_path: string | null; //large poster image
+  overview: string;
+  popularity: number;
+  poster_path: string | null;
+  production_companies: ProductionCompany[];
+  production_countries: ProductionCountry[];
   release_date: string;
-  title: string; //localized title, based on language query 
-  video: boolean; //indicates if the item is actually a video file/trailer instead of a full movie (rarely true).
-  vote_average: number; //average rating of a movie from 0 to 10
-  vote_count: number; //no. of ratings for the movie
-
+  revenue: number;
+  runtime: number | null;
+  spoken_languages: SpokenLanguage[];
+  status: string;
+  tagline: string | null;
+  title: string;
+  video: boolean;
+  vote_average: number;
+  vote_count: number;
+  genre_ids?: number[]; // Optional for compatibility with trending movies
 }
