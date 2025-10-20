@@ -55,15 +55,15 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
 
   return (
     <div className={cn('flex flex-col gap-6', className)} {...props}>
-      <Card>
+      <Card >
         <CardHeader>
-          <CardTitle className="text-2xl">Sign up</CardTitle>
-          <CardDescription>Create a new account</CardDescription>
+          <CardTitle className="text-2xl text-white ">Sign up</CardTitle>
+          <CardDescription className='text-white'>Create a new account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignUp}>
             <div className="flex flex-col gap-6">
-              <div className="grid gap-2">
+              <div className="grid gap-2 text-white">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
@@ -72,10 +72,11 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  className="border-gray-300"
                 />
               </div>
               <div className="grid gap-2">
-                <div className="flex items-center">
+                <div className="flex items-center text-white">
                   <Label htmlFor="password">Password</Label>
                 </div>
                 <Input
@@ -84,10 +85,11 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className="border-gray-300"
                 />
               </div>
               <div className="grid gap-2">
-                <div className="flex items-center">
+                <div className="flex items-center text-white">
                   <Label htmlFor="repeat-password">Repeat Password</Label>
                 </div>
                 <Input
@@ -96,16 +98,17 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
                   required
                   value={repeatPassword}
                   onChange={(e) => setRepeatPassword(e.target.value)}
+                  className="border-gray-300"
                 />
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full bg-blue-950 hover:bg-blue-400 text-white" disabled={isLoading}>
                 {isLoading ? 'Creating an account...' : 'Sign up'}
               </Button>
             </div>
-            <div className="mt-4 text-center text-sm">
+            <div className="mt-4 text-center text-sm text-white">
               Already have an account?{' '}
-              <Link href="/auth/login" className="underline underline-offset-4">
+              <Link href="/auth/login" className="underline underline-offset-4 font-semibold text-white hover:text-indigo-30">
                 Login
               </Link>
             </div>
