@@ -116,10 +116,40 @@
 
 @layer base {
   body {
-    @apply bg-gradient-to-r from-black via-blue-500 to-black;
+    @apply bg-gradient-to-r from-black via-purple-500 to-black;
     @apply text-foreground;
   }
   * {
     @apply border-border outline-ring/50;
   }
 }
+  @tailwind base;
+  @tailwind components;
+  @tailwind utilities;
+
+  :root {
+    --background: #0d0d0f;
+    --foreground: #f1f1f1;
+    --primary: #9b5cf6;
+    --secondary: #7c3aed;
+    --muted: #a1a1aa;
+    --card: #18181b;
+    --border: #2a2a2e;
+  }
+
+  body {
+    @apply bg-[var(--background)] text-[var(--foreground)] font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  .btn-primary {
+    @apply bg-[var(--primary)] text-white font-semibold py-2 px-6 rounded-md transition-transform hover:scale-105 hover:bg-[var(--secondary)];
+  }
+
+  h1, h2, h3 {
+    @apply font-bold tracking-tight;
+  }
+
+  .card {
+    @apply bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-sm hover:shadow-md transition-all duration-300;
+  }
