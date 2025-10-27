@@ -1,5 +1,7 @@
 'use client';
 
+import { ModeToggle } from "@/components/theme/theme-switcher";
+
 import * as React from 'react';
 import { useEffect, useState, useRef, useId } from 'react';
 import { SearchIcon, BellIcon, UserIcon, ChevronDownIcon } from 'lucide-react';
@@ -367,6 +369,8 @@ export const Navbar08 = React.forwardRef<HTMLElement, Navbar08Props>(
             </div>
             {/* Right side */}
             <div className="flex flex-1 items-center justify-end gap-2">
+              {/* Theme switcher */}
+              <ModeToggle />
               {/* Notification */}
               <NotificationMenu 
                 notificationCount={notificationCount}
