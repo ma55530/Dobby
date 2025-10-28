@@ -1,27 +1,87 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import TrackCard from "@/components/tracks/TrackCard";
 import { Movie } from "@/lib/types/Movie";
+import { Movies } from "@/lib/types/Movies";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+
+interface MovieWithDetails extends Movies {
+  details?: Movie;
+}
 
 export default function Home() {
-  const sampleMovie: Movie = {
-    adult: false,
-    backdrop_path: "/5XNQBqnBwPA9yT0jZ0p3s8bbLh0.jpg",
-    genre_ids: [53, 28, 80, 18, 9648],
-    id: 343611,
-    original_language: "en",
-    original_title: "Jack Reacher: Never Go Back",
-    overview: "Jack Reacher must uncover the truth behind a major government conspiracy in order to clear his name. On the run as a fugitive from the law, Reacher uncovers a potential secret from his past that could change his life forever.",
-    popularity: 26.818468,
-    poster_path: "/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
-    release_date: "2016-10-19",
-    title: "Jack Reacher: Never Go Back",
-    video: false,
-    vote_average: 4.19,
-    vote_count: 201
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<MovieWithDetails[]>([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+
+  const fetchMovieDetails = async (movie: Movies): Promise<MovieWithDetails> => {
+    const res = await fetch(`/api/movies/${movie.id}`);
+    const details = await res.json();
+    return { ...movie, details };
+  };
+
+  const handleSearch = async (searchQuery: string, searchPage: number) => {
+    if (!searchQuery) return;
+    setLoading(true);
+    const res = await fetch(`/api/movies?query=${searchQuery}&page=${searchPage}`);
+    const movies: Movies[] = await res.json();
+    const moviesWithDetails = await Promise.all(movies.map(fetchMovieDetails));
+
+    const filteredMovies = moviesWithDetails.filter(
+      (movie) =>
+        movie.release_date &&
+        movie.poster_path &&
+        movie.details &&
+        movie.details.runtime &&
+        movie.vote_average!=0
+    );
+
+    if (searchPage === 1) {
+      setResults(filteredMovies);
+    } else {
+      setResults((prev) => [...prev, ...filteredMovies]);
+    }
+    setLoading(false);
+  };
+
+  const onSearch = () => {
+    setPage(1);
+    handleSearch(query, 1);
+  };
+
+  const onShowMore = () => {
+    const newPage = page + 1;
+    setPage(newPage);
+    handleSearch(query, newPage);
   };
 
   return (
-    <div className="p-4">
-      <TrackCard movie={sampleMovie} />
+    <div className="p-4 mx-25">
+      <div className="flex w-full max-w-sm items-center space-x-2 mb-4 mx-auto">
+        <Input
+          type="text"
+          placeholder="Search for a movie..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+        />
+        <Button type="submit" onClick={onSearch}>Search</Button>
+      </div>
+      <div className="flex flex-wrap justify-start gap-6">
+        {results.map((movie) => (
+          <TrackCard key={movie.id} movies={movie} movie={movie.details} />
+        ))}
+      </div>
+      {results.length > 0 && (
+        <div className="flex justify-center mt-4">
+          <Button onClick={onShowMore} disabled={loading}>
+            {loading ? "Loading..." : "Show More"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
