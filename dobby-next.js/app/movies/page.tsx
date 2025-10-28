@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import TrackCard from "@/components/tracks/TrackCard";
 import { Movie } from "@/lib/types/Movie";
 import { Movies } from "@/lib/types/Movies";
@@ -36,7 +36,7 @@ export default function Home() {
         movie.poster_path &&
         movie.details &&
         movie.details.runtime &&
-        movie.vote_average!=0
+        movie.vote_average != 0
     );
 
     if (searchPage === 1) {
@@ -72,7 +72,19 @@ export default function Home() {
       </div>
       <div className="flex flex-wrap justify-start gap-6">
         {results.map((movie) => (
-          <TrackCard key={movie.id} movies={movie} movie={movie.details} />
+          movie.details && (
+          <TrackCard
+            id={movie.id}
+            key={movie.id}
+            title={movie.title}
+            poster={movie.poster_path}
+            rating={movie.vote_average}
+            year={movie.release_date}
+            infoAboutTrack={`${movie.details.runtime}m` }
+            onClick={function(): void {
+              throw new Error("Function not implemented.");
+            }} />
+          )
         ))}
       </div>
       {results.length > 0 && (

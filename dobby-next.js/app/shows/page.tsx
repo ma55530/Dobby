@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import TrackCard from "@/components/tracks/TrackCard";
 import { Show } from "@/lib/types/Show";
 import { Shows } from "@/lib/types/Shows";
@@ -72,7 +72,19 @@ export default function Home() {
       </div>
       <div className="flex flex-wrap justify-start gap-6">
         {results.map((show) => (
-          <TrackCard key={show.id} movies={show} movie={show.details} />
+          show.details && (
+            <TrackCard
+              id={show.id}
+              key={show.id}
+              title={show.original_name}
+              poster={show.poster_path}
+              rating={show.vote_average}
+              year={show.first_air_date}
+              infoAboutTrack={`${show.details.number_of_seasons} seasons`}
+              onClick={function(): void {
+                throw new Error("Function not implemented.");
+              }} />
+          )
         ))}
       </div>
       {results.length > 0 && (
