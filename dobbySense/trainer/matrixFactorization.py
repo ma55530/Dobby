@@ -1,19 +1,16 @@
-# train_mf_torch_movies.py
-import os
 import math
 import argparse
-from typing import Tuple, Dict
-
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-
 import torch
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
+from supabase import create_client, Client
 
-# -------- Dataset / utilities --------
+# -------- Dataset & utilities --------
 class RatingsDataset(Dataset):
+    # Holds user, movie, and rating tensors for the dataset
     def __init__(self, user_idx: np.ndarray, movie_idx: np.ndarray, ratings: np.ndarray):
         assert len(user_idx) == len(movie_idx) == len(ratings)
         self.users = torch.as_tensor(user_idx, dtype=torch.long)
@@ -26,22 +23,20 @@ class RatingsDataset(Dataset):
     def __getitem__(self, idx):
         return self.users[idx], self.movies[idx], self.ratings[idx]
 
-
 def build_id_maps(df: pd.DataFrame, user_col='userId', movie_col='movieId'):
+    # Map user/movie IDs to contiguous indices and return encodings
     unique_users = df[user_col].unique()
     unique_movies = df[movie_col].unique()
-
     user2idx = {u: i for i, u in enumerate(np.sort(unique_users))}
     movie2idx = {m: j for j, m in enumerate(np.sort(unique_movies))}
-
     user_idx = df[user_col].map(user2idx).to_numpy()
     movie_idx = df[movie_col].map(movie2idx).to_numpy()
     ratings = df['rating'].to_numpy(dtype=np.float32)
     return user2idx, movie2idx, user_idx, movie_idx, ratings
 
-
 # -------- Model --------
 class MatrixFactorization(nn.Module):
+    # Standard latent factor model with user/movie bias and optional dropout
     def __init__(self, n_users, n_movies, n_factors=50, dropout=0.0):
         super().__init__()
         self.user_factors = nn.Embedding(n_users, n_factors)
@@ -65,12 +60,13 @@ class MatrixFactorization(nn.Module):
         b_i = self.movie_bias(movie).squeeze(1)
         return dot + b_u + b_i + self.global_bias
 
-
-# -------- Training / Eval --------
+# -------- Training / Evaluation --------
 def rmse(preds, targets):
+    # Root mean squared error for predictions vs. targets
     return math.sqrt(((preds - targets) ** 2).mean().item())
 
 def evaluate(model, dataloader, device):
+    # Compute RMSE on the full dataset
     model.eval()
     ys, y_preds = [], []
     with torch.no_grad():
@@ -83,14 +79,13 @@ def evaluate(model, dataloader, device):
     yp = torch.cat(y_preds)
     return rmse(yp, y)
 
-
 def train_fn(model, train_loader, val_loader, device,
-             user2idx, movie2idx, train_r, args,
-             epochs=10, lr=1e-3, weight_decay=1e-6,
-             clip_grad=None, save_path=None):
+             epochs=1, lr=1e-3, weight_decay=1e-6, clip_grad=None):
+    # Training loop with optional gradient clipping, validation RMSE tracking
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.MSELoss()
     best_val = float('inf')
+
     for epoch in range(1, epochs + 1):
         model.train()
         total_loss, cnt = 0.0, 0
@@ -105,59 +100,37 @@ def train_fn(model, train_loader, val_loader, device,
             optimizer.step()
             total_loss += loss.item() * r.size(0)
             cnt += r.size(0)
+
         train_rmse = math.sqrt(total_loss / cnt)
         val_rmse = evaluate(model, val_loader, device)
         print(f"Epoch {epoch:03d} | train_rmse={train_rmse:.4f} | val_rmse={val_rmse:.4f}")
-        if val_rmse < best_val and save_path:
+
+        if val_rmse < best_val:
             best_val = val_rmse
-            # Save model + mappings + metadata
-            idx2movie = {v: k for k, v in movie2idx.items()}
-            torch.save({
-                "model_state": model.state_dict(),
-                "user2idx": user2idx,
-                "movie2idx": movie2idx,
-                "idx2movie": idx2movie,
-                "config": {
-                    "n_factors": args.factors,
-                    "global_bias": float(model.global_bias.item()),
-                    "train_mean_rating": float(train_r.mean())
-                }
-            }, save_path)
+
     return best_val
-
-
-# -------- Recommend --------
-def predict_for_user(model, uid, user2idx, movie2idx, idx2movie, device, known_movies=None, topk=10):
-    if uid not in user2idx:
-        raise KeyError("user not in training set")
-    uidx = user2idx[uid]
-    n_movies = len(movie2idx)
-    model.eval()
-    with torch.no_grad():
-        users = torch.full((n_movies,), uidx, dtype=torch.long, device=device)
-        movies = torch.arange(n_movies, dtype=torch.long, device=device)
-        preds = model(users, movies).cpu().numpy()
-    candidates = []
-    for idx, score in enumerate(preds):
-        orig_movie = idx2movie[idx]
-        if known_movies and orig_movie in known_movies:
-            continue
-        candidates.append((orig_movie, score))
-    candidates.sort(key=lambda x: x[1], reverse=True)
-    return candidates[:topk]
-
 
 # -------- Main --------
 def main(args):
+    # Load ratings from CSV and ensure string user IDs
     df = pd.read_csv(args.ratings_csv)
-    movies_data = pd.read_csv(args.movies_csv)
+    df["userId"] = df["userId"].astype(str)
 
-    # Merge for metadata
-    df = pd.merge(df, movies_data, on='movieId', how='left')
+    # Set up Supabase client and fetch remote ratings table
+    supabase: Client = create_client(args.supabase_url, args.supabase_key)
+    response = supabase.table(args.import_table).select("user_id, movie_id, rating").execute()
 
+    # Merge remote data with local ratings
+    df_supabase = pd.DataFrame(response.data).rename(columns={
+        "user_id": "userId",
+        "movie_id": "movieId",
+        "rating": "rating"
+    })
+    df = pd.concat([df, df_supabase], ignore_index=True)
+
+    # Prepare train/validation splits and map all IDs to indices
     train_df, val_df = train_test_split(df, test_size=args.val_size, random_state=42)
     user2idx, movie2idx, train_u, train_m, train_r = build_id_maps(train_df, 'userId', 'movieId')
-
     val_df = val_df[val_df['userId'].isin(user2idx) & val_df['movieId'].isin(movie2idx)]
     val_u = val_df['userId'].map(user2idx).to_numpy()
     val_m = val_df['movieId'].map(movie2idx).to_numpy()
@@ -166,52 +139,91 @@ def main(args):
     num_users, num_movies = len(user2idx), len(movie2idx)
     print(f"Train samples: {len(train_r)}, Val samples: {len(val_r)} | users: {num_users}, movies: {num_movies}")
 
+    # DataLoader setup
     train_loader = DataLoader(RatingsDataset(train_u, train_m, train_r), batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(RatingsDataset(val_u, val_m, val_r), batch_size=args.batch_size)
 
+    # Device and model initialization
     device = torch.device("cuda" if torch.cuda.is_available() and args.use_cuda else "cpu")
     model = MatrixFactorization(num_users, num_movies, n_factors=args.factors, dropout=args.dropout).to(device)
     model.global_bias.data = torch.tensor([train_r.mean()], device=device)
 
-    best = train_fn(
+    # Run training loop
+    best_val = train_fn(
         model, train_loader, val_loader, device,
-        user2idx, movie2idx, train_r, args,
-        epochs=args.epochs, lr=args.lr,
-        weight_decay=args.weight_decay,
-        clip_grad=args.clip_grad, save_path=args.save_path
-        )
+        epochs=args.epochs, lr=args.lr, weight_decay=args.weight_decay, clip_grad=args.clip_grad
+    )
+    print("Best val RMSE:", best_val)
 
-
-    print("Best val RMSE:", best)
-
+    # Prepare movie embeddings to export
+    movie_embeddings = model.movie_factors.weight.detach().cpu().numpy()
+    movie_embeddings = np.nan_to_num(movie_embeddings, nan=0.0, posinf=0.0, neginf=0.0)
     idx2movie = {v: k for k, v in movie2idx.items()}
-    user_known = {}
-    for u, m in zip(train_df['userId'], train_df['movieId']):
-        user_known.setdefault(u, set()).add(m)
+    movie_ids = [int(idx2movie[i]) for i in range(len(idx2movie))]
 
-    some_user = list(user2idx.keys())[0]
-    recs = predict_for_user(model, some_user, user2idx, movie2idx, idx2movie, device, known_movies=user_known.get(some_user, set()), topk=10)
+    df_embeddings = pd.DataFrame({
+        "movie_id": movie_ids,
+        "embedding": movie_embeddings.tolist()
+    })
 
-    print("\nTop recommendations for user", some_user)
-    for movie, score in recs:
-        title = movies_data.loc[movies_data['movieId'] == movie, 'title'].values
-        title = title[0] if len(title) else str(movie)
-        print(f"{title:50s} | score={score:.3f}")
+    # Clear and populate movie embedding table
+    print(f"Deleting all existing rows from {args.movie_export_table}...")
+    delete_resp = supabase.table(args.movie_export_table).delete().neq("movie_id", -1).execute()
+    print("All existing rows deleted successfully.")
 
+    print("Saving embeddings to Supabase...")
+    records = df_embeddings.to_dict(orient="records")
+    chunk_size = 500
+    for i in range(0, len(records), chunk_size):
+        chunk = records[i:i + chunk_size]
+        response = supabase.table(args.movie_export_table).insert(chunk).execute()
+        if hasattr(response, "error") and response.error:
+            print("Error inserting chunk:", response.error)
+        else:
+            print(f"Inserted rows {i}-{i + len(chunk) - 1}")
+    print("All movie embeddings saved to Supabase.")
 
+    # Prepare and save user embeddings (only Supabase users)
+    user_embeddings = model.user_factors.weight.detach().cpu().numpy()
+    user_embeddings = np.nan_to_num(user_embeddings, nan=0.0, posinf=0.0, neginf=0.0)
+    supabase_user_ids = df_supabase["userId"].unique()
+    idx2user = {v: k for k, v in user2idx.items()}
+    filtered_records = []
+    for idx, emb in enumerate(user_embeddings):
+        user_id = idx2user[idx]
+        if user_id in supabase_user_ids:
+            filtered_records.append({"user_id": user_id, "embedding": emb.tolist()})
+    df_user_embeddings = pd.DataFrame(filtered_records)
+
+    print(f"Deleting all existing rows from {args.user_export_table}...")
+    delete_resp = supabase.table(args.user_export_table).delete().not_.is_("user_id", "null").execute()
+    print("All existing rows deleted successfully.")
+
+    print("Saving USER embeddings to Supabase...")
+    records = df_user_embeddings.to_dict(orient="records")
+    chunk_size = 500
+    for i in range(0, len(records), chunk_size):
+        chunk = records[i:i + chunk_size]
+        response = supabase.table(args.user_export_table).insert(chunk).execute()
+    print("All USER embeddings saved to Supabase.")
+
+# -------- CLI for script entry --------
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ratings_csv", type=str, required=True, help="CSV with userId,movieId,rating")
-    parser.add_argument("--movies_csv", type=str, required=True, help="CSV with movieId,title")
+    parser.add_argument("--ratings_csv", type=str, default="./data/ratings.csv")
     parser.add_argument("--val_size", type=float, default=0.1)
     parser.add_argument("--batch_size", type=int, default=2048)
     parser.add_argument("--factors", type=int, default=64)
-    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight_decay", type=float, default=1e-6)
     parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--clip_grad", type=float, default=None)
     parser.add_argument("--use_cuda", action="store_true")
-    parser.add_argument("--save_path", type=str, default="mf_best_movies.pth")
+    parser.add_argument("--supabase_url", type=str, required=True)
+    parser.add_argument("--supabase_key", type=str, required=True)
+    parser.add_argument("--movie_export_table", type=str, default="movie_embeddings")
+    parser.add_argument("--import_table", type=str, default="ratings")
+    parser.add_argument("--user_export_table", type=str, default="user_embeddings")
     args = parser.parse_args()
     main(args)
