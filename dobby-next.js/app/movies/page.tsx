@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import TrackCard from "@/components/tracks/TrackCard";
 import { Movie } from "@/lib/types/Movie";
@@ -16,6 +17,8 @@ export default function Home() {
   const [results, setResults] = useState<MovieWithDetails[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+
+  const router = useRouter();
 
   const fetchMovieDetails = async (movie: Movies): Promise<MovieWithDetails> => {
     const res = await fetch(`/api/movies/${movie.id}`);
@@ -73,17 +76,16 @@ export default function Home() {
       <div className="flex flex-wrap justify-start gap-6">
         {results.map((movie) => (
           movie.details && (
-          <TrackCard
-            id={movie.id}
-            key={movie.id}
-            title={movie.title}
-            poster={movie.poster_path}
-            rating={movie.vote_average}
-            year={movie.release_date}
-            infoAboutTrack={`${movie.details.runtime}m` }
-            onClick={function(): void {
-              throw new Error("Function not implemented.");
-            }} />
+            <TrackCard
+              id={movie.id}
+              key={movie.id}
+              title={movie.title}
+              poster={movie.poster_path}
+              rating={movie.vote_average}
+              year={movie.release_date}
+              infoAboutTrack={`${movie.details.runtime}m`}
+              onClick={() => router.push(`/movies/${movie.id}`)}
+            />
           )
         ))}
       </div>
