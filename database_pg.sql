@@ -36,6 +36,31 @@ CREATE TRIGGER trigger_update_profiles_updated_at
 BEFORE UPDATE ON profiles
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- Function to create a public.profile and default watchlists for new users
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $
+BEGIN
+  -- Create a profile for the new user
+  INSERT INTO public.profiles (id, email, username)
+  VALUES (NEW.id, NEW.email, split_part(NEW.email, '@', 1)); -- Use part of email as default username
+
+  -- Create "Recently Searched" watchlist
+  INSERT INTO public.watchlists (user_id, name)
+  VALUES (NEW.id, 'Recently Searched');
+
+  -- Create "Favourites" watchlist
+  INSERT INTO public.watchlists (user_id, name)
+  VALUES (NEW.id, 'Favourites');
+
+  RETURN NEW;
+END;
+$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to call the function after a new user is created in auth.users
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
 -- =====================================
 -- 2. MOVIES & SHOWS (Minimal Cache)
 -- =====================================

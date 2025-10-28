@@ -1,12 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import TrackCard from "@/components/tracks/TrackCard";
 import { Movie } from "@/lib/types/Movie";
 import { Movies } from "@/lib/types/Movies";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
+import { addTrackToRecentlySearched } from "@/lib/utils";
+import WatchlistDropdown from "@/components/WatchlistDropdown";
 
 interface MovieWithDetails extends Movies {
   details?: Movie;
@@ -17,8 +20,66 @@ export default function Home() {
   const [results, setResults] = useState<MovieWithDetails[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [recentlySearchedMovies, setRecentlySearchedMovies] = useState<MovieWithDetails[]>([]);
 
   const router = useRouter();
+  const supabase = createClient();
+
+  useEffect(() => {
+    const getUserId = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUserId(user?.id || null);
+    };
+    getUserId();
+  }, []);
+
+  useEffect(() => {
+    const fetchRecentlySearchedMovies = async () => {
+      if (!userId) return;
+
+      const { data: watchlistData, error: watchlistError } = await supabase
+        .from('watchlists')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('name', 'Recently Searched')
+        .single();
+
+      if (watchlistError) {
+        console.error('Error fetching "Recently Searched" watchlist:', watchlistError);
+        return;
+      }
+
+      if (watchlistData) {
+        const { data: watchlistItems, error: itemsError } = await supabase
+          .from('watchlist_items')
+          .select('movie_id')
+          .eq('watchlist_id', watchlistData.id)
+          .not('movie_id', 'is', null)
+          .order('added_at', { ascending: false })
+          .limit(10); // Limit to 10 recently searched items
+
+        if (itemsError) {
+          console.error('Error fetching watchlist items:', itemsError);
+          return;
+        }
+
+        const movieIds = watchlistItems?.map(item => item.movie_id) || [];
+        const fetchedMovies: MovieWithDetails[] = [];
+
+        for (const movieId of movieIds) {
+          const res = await fetch(`/api/movies/${movieId}`);
+          if (res.ok) {
+            const movieData: Movie = await res.json();
+            fetchedMovies.push({ ...movieData, details: movieData });
+          }
+        }
+        setRecentlySearchedMovies(fetchedMovies);
+      }
+    };
+
+    fetchRecentlySearchedMovies();
+  }, [userId, supabase]);
 
   const fetchMovieDetails = async (movie: Movies): Promise<MovieWithDetails> => {
     const res = await fetch(`/api/movies/${movie.id}`);
@@ -61,8 +122,39 @@ export default function Home() {
     handleSearch(query, newPage);
   };
 
+  const handleTrackCardClick = async (movieId: number) => {
+    if (userId) {
+      await addTrackToRecentlySearched(userId, movieId, 'movie');
+    }
+    router.push(`/movies/${movieId}`);
+  };
+
   return (
     <div className="p-4 mx-25">
+      {recentlySearchedMovies.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold mb-4">Recently Searched Movies</h2>
+          <div className="flex flex-wrap justify-start gap-6">
+            {recentlySearchedMovies.map((movie) => (
+              movie.details && (
+                <TrackCard
+                  id={movie.id}
+                  key={movie.id}
+                  title={movie.title}
+                  poster={movie.poster_path}
+                  rating={movie.vote_average}
+                  year={movie.release_date}
+                  infoAboutTrack={`${movie.details.runtime}m`}
+                  onClick={() => handleTrackCardClick(movie.id)}
+                />
+              )
+            ))}
+          </div>
+        </div>
+      )}
+
+      <WatchlistDropdown />
+
       <div className="flex w-full max-w-sm items-center space-x-2 mb-4 mx-auto">
         <Input
           type="text"
@@ -84,7 +176,7 @@ export default function Home() {
               rating={movie.vote_average}
               year={movie.release_date}
               infoAboutTrack={`${movie.details.runtime}m`}
-              onClick={() => router.push(`/movies/${movie.id}`)}
+              onClick={() => handleTrackCardClick(movie.id)}
             />
           )
         ))}
