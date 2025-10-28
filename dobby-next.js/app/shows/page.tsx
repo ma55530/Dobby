@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import TrackCard from "@/components/tracks/TrackCard";
 import { Show } from "@/lib/types/Show";
@@ -16,6 +17,9 @@ export default function Home() {
   const [results, setResults] = useState<ShowWithDetails[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+
+  const router = useRouter();
+
 
   const fetchShowDetails = async (show: Shows): Promise<ShowWithDetails> => {
     const res = await fetch(`/api/shows/${show.id}`);
@@ -36,7 +40,7 @@ export default function Home() {
         show.poster_path &&
         show.details &&
         show.details.number_of_seasons &&
-        show.vote_average!=0
+        show.vote_average != 0
     );
 
     if (searchPage === 1) {
@@ -81,9 +85,8 @@ export default function Home() {
               rating={show.vote_average}
               year={show.first_air_date}
               infoAboutTrack={`${show.details.number_of_seasons} seasons`}
-              onClick={function(): void {
-                throw new Error("Function not implemented.");
-              }} />
+              onClick={() => router.push(`/shows/${show.id}`)}
+            />
           )
         ))}
       </div>
