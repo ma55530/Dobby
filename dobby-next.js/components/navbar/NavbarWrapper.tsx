@@ -1,20 +1,33 @@
 "use client"; // client component because of the usePathname, if we didn't create the seperate component, we would have had to put this into the root layout making our entire app client side (bad :( , no SEO)
-import { usePathname } from "next/navigation";
-import { Navbar08 } from "@/components/ui/shadcn-io/navbar-08";
+import { usePathname, useRouter } from "next/navigation";
+import { Navbar05 } from "@/components/ui/shadcn-io/navbar-05";
 import Image from "next/image";
 
 export default function NavbarWrapper() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const showNavbarOn = [
+    "/",
+    "/home",
+    "/movies",
+    "/shows",
+    "/moviesForYou",
+    "/showsForYou",
+  ];
 
-const pathname = usePathname();
-const showNavbarOn = ["/home", "/movies", "/shows", "/moviesForYou", "/showsForYou"];
-
-// Check if pathname starts with any of the array entries
-const shouldHideNavbar = !showNavbarOn.some((route) => pathname.startsWith(route));
+  // Check if pathname starts with any of the array entries
+  const shouldHideNavbar = !showNavbarOn.some((route) =>
+    pathname.startsWith(route)
+  );
 
   if (shouldHideNavbar) return null;
 
+  const handleNavItemClick = (href: string) => {
+    router.push(href);
+  };
+
   return (
-    <Navbar08
+    <Navbar05
       logo={
         <div className="flex items-center gap-2">
           <Image
@@ -25,7 +38,9 @@ const shouldHideNavbar = !showNavbarOn.some((route) => pathname.startsWith(route
             priority
           />
           <span className="font-bold text-xl">Dobby</span>
-        </div>}
+        </div>
+      }
+      onNavItemClick={handleNavItemClick}
       navigationLinks={[
         { label: "Home", href: "/" },
         { label: "Movies", href: "/movies" },
@@ -36,6 +51,7 @@ const shouldHideNavbar = !showNavbarOn.some((route) => pathname.startsWith(route
       userName="Jane Doe"
       userEmail="jane@myapp.com"
       notificationCount={6}
-    />);
+    />
+  );
 }
 
