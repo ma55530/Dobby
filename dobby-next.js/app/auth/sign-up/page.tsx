@@ -1,11 +1,15 @@
 import { SignUpForm } from '@/components/auth/sign-up-form'
+import AuthTabs from '@/components/auth/auth-tabs'
 
 export default function Page() {
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
-        <SignUpForm />
-      </div>
-    </div>
+    <div className="relative min-h-screen w-full flex items-center justify-center">
+          <div className="absolute top-6 left-8 z-10">
+            <span className="text-4xl font-montserrat text-white drop-shadow-lg">Dobby</span>
+          </div>
+          <div className="w-full max-w-md p-6 md:p-10 rounded-2xl shadow-9xl">
+            <SignUpForm />
+          </div>
+        </div>
   )
 }
