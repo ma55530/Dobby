@@ -41,7 +41,7 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Function to create a public.profile and default watchlists for new users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $
+RETURNS TRIGGER AS $$
 BEGIN
   -- Create a profile for the new user
   INSERT INTO public.profiles (id, email, username)
@@ -57,7 +57,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger to call the function after a new user is created in auth.users
 CREATE TRIGGER on_auth_user_created
@@ -195,19 +195,52 @@ CREATE TABLE IF NOT EXISTS user_embeddings (
 );
 
 -- =====================================
--- 8. INDEXES
+-- 8. RECOMMENDATIONS
+-- =====================================
+
+CREATE TABLE IF NOT EXISTS movie_recommendations (
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    movie_id BIGINT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, movie_id)
+);
+
+
+CREATE TABLE IF NOT EXISTS show_recommendations (
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    show_id BIGINT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (user_id, show_id)
+);
+
+
+CREATE TRIGGER trigger_update_movie_recommendations_updated_at
+BEFORE UPDATE ON movie_recommendations
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_update_show_recommendations_updated_at
+BEFORE UPDATE ON show_recommendations
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- =====================================
+-- 9. INDEXES
 -- =====================================
 CREATE INDEX idx_profiles_username ON profiles(username);
 CREATE INDEX idx_movies_title ON movies(title);
 CREATE INDEX idx_shows_title ON shows(title);
 CREATE INDEX idx_follows_follower ON follows(follower_id);
 CREATE INDEX idx_follows_following ON follows(following_id);
+CREATE INDEX idx_movie_recommendations_movie_id ON movie_recommendations(movie_id);
+CREATE INDEX idx_show_recommendations_show_id ON show_recommendations(show_id);
 
 -- =====================================
--- 9. ENABLE ROW LEVEL SECURITY (RLS) for Supabase
+-- 10. ENABLE ROW LEVEL SECURITY (RLS) for Supabase
 -- =====================================
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE movie_ratings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE show_ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE watchlists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE watchlist_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
