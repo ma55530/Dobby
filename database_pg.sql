@@ -12,9 +12,11 @@ CREATE EXTENSION IF NOT EXISTS "vector";
 -- =====================================
 -- 1. USERS & PROFILES
 -- =====================================
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     username TEXT UNIQUE NOT NULL,
+    first_name TEXT,
+    last_name TEXT,
     email TEXT UNIQUE NOT NULL,
     age INT CHECK (age >= 0),
     avatar_url TEXT,
