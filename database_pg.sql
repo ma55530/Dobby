@@ -7,6 +7,7 @@
 -- Extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "vector";
 
 -- =====================================
 -- 1. USERS & PROFILES
@@ -64,7 +65,7 @@ FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 -- =====================================
 -- 2. MOVIES & SHOWS (Minimal Cache)
 -- =====================================
-CREATE TABLE movies (
+CREATE TABLE IF NOT EXISTS movies (
     id BIGSERIAL PRIMARY KEY,
     tmdb_id INTEGER UNIQUE NOT NULL,
     title TEXT NOT NULL,
@@ -75,7 +76,7 @@ CREATE TABLE movies (
     last_fetched TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE shows (
+CREATE TABLE IF NOT EXISTS shows (
     id BIGSERIAL PRIMARY KEY,
     tmdb_id INTEGER UNIQUE NOT NULL,
     title TEXT NOT NULL,
@@ -89,7 +90,7 @@ CREATE TABLE shows (
 -- =====================================
 -- 3. RATINGS
 -- =====================================
-CREATE TABLE ratings (
+CREATE TABLE IF NOT EXISTS ratings (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     movie_id BIGINT REFERENCES movies(id) ON DELETE CASCADE,
@@ -109,7 +110,7 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 -- =====================================
 -- 4. WATCHLISTS (Multiple per user)
 -- =====================================
-CREATE TABLE watchlists (
+CREATE TABLE IF NOT EXISTS watchlists (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -117,7 +118,7 @@ CREATE TABLE watchlists (
     UNIQUE(user_id, name)
 );
 
-CREATE TABLE watchlist_items (
+CREATE TABLE IF NOT EXISTS watchlist_items (
     id BIGSERIAL PRIMARY KEY,
     watchlist_id BIGINT REFERENCES watchlists(id) ON DELETE CASCADE,
     movie_id BIGINT REFERENCES movies(id) ON DELETE CASCADE,
@@ -130,7 +131,7 @@ CREATE TABLE watchlist_items (
 -- =====================================
 -- 5. FOLLOWS (SOCIAL GRAPH)
 -- =====================================
-CREATE TABLE follows (
+CREATE TABLE IF NOT EXISTS follows (
     follower_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     following_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     followed_at TIMESTAMPTZ DEFAULT NOW(),
@@ -141,26 +142,44 @@ CREATE TABLE follows (
 -- =====================================
 -- 6. STREAM CHAT REFERENCES
 -- =====================================
-CREATE TABLE stream_users (
+CREATE TABLE IF NOT EXISTS stream_users (
     user_id UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
     stream_user_id TEXT UNIQUE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE stream_conversations (
+CREATE TABLE IF NOT EXISTS stream_conversations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     stream_channel_id TEXT UNIQUE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE stream_conversation_participants (
+CREATE TABLE IF NOT EXISTS stream_conversation_participants (
     conversation_id UUID REFERENCES stream_conversations(id) ON DELETE CASCADE,
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     PRIMARY KEY (conversation_id, user_id)
 );
 
 -- =====================================
--- 7. INDEXES
+-- 7. EMBEDDINGS FOR PYTHON MICROSERVICE
+-- =====================================
+CREATE TABLE IF NOT EXISTS movie_embeddings (
+    movie_id BIGINT primary key,
+    embedding vector(64)
+);
+
+CREATE TABLE IF NOT EXISTS show_embeddings (
+    show_id BIGINT primary key,
+    embedding vector(64)
+);
+
+CREATE TABLE IF NOT EXISTS user_embeddings (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    embedding VECTOR(64)
+);
+
+-- =====================================
+-- 8. INDEXES
 -- =====================================
 CREATE INDEX idx_profiles_username ON profiles(username);
 CREATE INDEX idx_movies_title ON movies(title);
@@ -169,7 +188,7 @@ CREATE INDEX idx_follows_follower ON follows(follower_id);
 CREATE INDEX idx_follows_following ON follows(following_id);
 
 -- =====================================
--- 8. ENABLE ROW LEVEL SECURITY (RLS) for Supabase
+-- 9. ENABLE ROW LEVEL SECURITY (RLS) for Supabase
 -- =====================================
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
