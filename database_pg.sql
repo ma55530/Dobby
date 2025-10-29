@@ -90,21 +90,35 @@ CREATE TABLE IF NOT EXISTS shows (
 -- =====================================
 -- 3. RATINGS
 -- =====================================
-CREATE TABLE IF NOT EXISTS ratings (
+CREATE TABLE IF NOT EXISTS movie_ratings (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     movie_id BIGINT REFERENCES movies(id) ON DELETE CASCADE,
+    rating INTEGER CHECK (rating >= 1 AND rating <= 10),
+    review TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, movie_id)
+);
+
+CREATE TABLE IF NOT EXISTS show_ratings (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     show_id BIGINT REFERENCES shows(id) ON DELETE CASCADE,
     rating INTEGER CHECK (rating >= 1 AND rating <= 10),
     review TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, movie_id, show_id),
-    CHECK ((movie_id IS NOT NULL AND show_id IS NULL) OR (movie_id IS NULL AND show_id IS NOT NULL)) -- This makes sure we either rated the movie or the show
+    UNIQUE(user_id, show_id)
 );
 
-CREATE TRIGGER trigger_update_ratings_updated_at
-BEFORE UPDATE ON ratings
+
+CREATE TRIGGER trigger_update_movie_ratings_updated_at
+BEFORE UPDATE ON movie_ratings
+FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_update_show_ratings_updated_at
+BEFORE UPDATE ON show_ratings
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================
