@@ -130,9 +130,55 @@ CREATE TABLE IF NOT EXISTS watchlists (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    visibility TEXT NOT NULL DEFAULT 'public' CHECK (visibility IN ('private','public','followers')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(user_id, name)
 );
+
+ALTER TABLE watchlists ENABLE ROW LEVEL SECURITY;
+
+-- Users can view their own watchlists
+CREATE POLICY "Users can view their own watchlists"
+ON watchlists
+FOR SELECT
+USING (user_id = auth.uid());
+
+-- Users can view public watchlists
+CREATE POLICY "Users can view public watchlists"
+ON watchlists
+FOR SELECT
+USING (visibility = 'public');
+
+-- Users can view watchlists from people they follow
+CREATE POLICY "Users can view watchlists of followed users"
+ON watchlists
+FOR SELECT
+USING (
+  visibility = 'followers'
+  AND user_id IN (
+    SELECT following_id
+    FROM follows
+    WHERE follower_id = auth.uid()
+  )
+);
+
+-- Users can insert their own watchlists
+CREATE POLICY "Users can insert their own watchlists"
+ON watchlists
+FOR INSERT
+WITH CHECK (user_id = auth.uid());
+
+-- Users can update their own watchlists
+CREATE POLICY "Users can update their own watchlists"
+ON watchlists
+FOR UPDATE
+USING (user_id = auth.uid());
+
+-- Users can delete their own watchlists
+CREATE POLICY "Users can delete their own watchlists"
+ON watchlists
+FOR DELETE
+USING (user_id = auth.uid());
 
 CREATE TABLE IF NOT EXISTS watchlist_items (
     id BIGSERIAL PRIMARY KEY,
@@ -143,6 +189,59 @@ CREATE TABLE IF NOT EXISTS watchlist_items (
     UNIQUE(watchlist_id, movie_id, show_id),
     CHECK ((movie_id IS NOT NULL AND show_id IS NULL) OR (movie_id IS NULL AND show_id IS NOT NULL)) -- This makes sure we either added the movie or the show
 );
+
+ALTER TABLE watchlist_items ENABLE ROW LEVEL SECURITY;
+
+-- Users can see items in watchlists they can access
+CREATE POLICY "Users can view items in accessible watchlists"
+ON watchlist_items
+FOR SELECT
+USING (
+  watchlist_id IN (
+    SELECT id FROM watchlists
+    WHERE user_id = auth.uid()
+       OR visibility = 'public'
+       OR (visibility = 'followers' AND user_id IN (
+           SELECT following_id FROM follows WHERE follower_id = auth.uid()
+       ))
+  )
+);
+
+-- Users can insert items only into their own watchlists
+CREATE POLICY "Users can insert items into their own watchlists"
+ON watchlist_items
+FOR INSERT
+WITH CHECK (
+  watchlist_id IN (
+    SELECT id FROM watchlists WHERE user_id = auth.uid()
+  )
+);
+
+-- Users can update items only in their own watchlists
+CREATE POLICY "Users can update items in their own watchlists"
+ON watchlist_items
+FOR UPDATE
+USING (
+  watchlist_id IN (
+    SELECT id FROM watchlists WHERE user_id = auth.uid()
+  )
+)
+WITH CHECK (
+  watchlist_id IN (
+    SELECT id FROM watchlists WHERE user_id = auth.uid()
+  )
+);
+
+-- Users can delete items only from their own watchlists
+CREATE POLICY "Users can delete items from their own watchlists"
+ON watchlist_items
+FOR DELETE
+USING (
+  watchlist_id IN (
+    SELECT id FROM watchlists WHERE user_id = auth.uid()
+  )
+);
+
 
 -- =====================================
 -- 5. FOLLOWS (SOCIAL GRAPH)
