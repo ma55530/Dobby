@@ -1,36 +1,72 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { get_options } from "@/lib/TMDB_API/requestOptions";
-import { Movie } from "@/data/mockData";
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { Movie } from '@/lib/types/Movie';
 
-export async function GET() {
-  const supabase = await createClient();
+export async function GET(request: Request) {
+    try {
+        const supabase = await createClient()
 
-  const { data: userData, error: userError } = await supabase.auth.getSession();  
-  
-  if (userError || !userData?.session?.user.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  
-  const userId = userData.session?.user.id;
+        
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError) return NextResponse.json({ error: sessionError.message }, { status: 500 })
 
-  const { data, error } = await supabase.from("movie_recommendations").select("movie_id").eq("user_id", userId);
+        const userId = sessionData?.session?.user?.id
+        if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+        
+        const url = new URL(request.url)
+        const limitParam = url.searchParams.get('limit')
+        const limit = limitParam ? parseInt(limitParam, 10) : 20
 
-  const movieIds = data.map((item: { movie_id: number }) => item.movie_id);
+        if (limit > 100) {
+            return NextResponse.json({ error: 'Limit too high' }, { status: 400 })
+        }
+        
+        const { data, error } = await supabase.rpc('get_top_movies_for_user', {
+            p_user_id: userId,
+            p_limit: limit,
+        })
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+        if (!data) return NextResponse.json([], { status: 200 })
 
-  const moviesForYou: Movie[] = await Promise.all(
-    movieIds.map(async (id: number) => {
-      const url = `https://api.themoviedb.org/3/movie/${id}`;
-      const res = await fetch(url, get_options);
-      if (!res.ok) return null;
-      return await res.json();
-    })
-  );
+        const items = Array.isArray(data) ? data : [data]
 
+        
+        const ids = items
+            .map((it: any) => {
+                if (typeof it === 'number' || typeof it === 'string') return it
+                return it.movie_id ?? it.id ?? it.movieId ?? null
+            })
+            .filter(Boolean)
 
-  return NextResponse.json(moviesForYou);
+        
+        const cookie = request.headers.get('cookie') ?? ''
+        const fetchOptions = {
+            headers: {
+                cookie,
+                accept: 'application/json',
+            },
+        }
+
+        const fetches = ids.map((id) =>
+            fetch(new URL(`/api/movies/${encodeURIComponent(String(id))}`, request.url).toString(), fetchOptions)
+                .then(async (res) => {
+                    if (!res.ok) {
+                        const txt = await res.text().catch(() => '')
+                        throw new Error(`/api/movies/${id} failed (${res.status}): ${txt}`)
+                    }
+                    return res.json()
+                })
+        )
+
+            const settled = await Promise.allSettled(fetches)
+
+        const movies: Movie[] = settled
+            .map((r) => (r.status === 'fulfilled' ? r.value : null))
+            .filter(Boolean)
+
+        return NextResponse.json(movies, { status: 200 })
+    } catch (err: any) {
+        return NextResponse.json({ error: err?.message ?? 'unknown error' }, { status: 500 })
+    }
 }

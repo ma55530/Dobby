@@ -215,6 +215,28 @@ CREATE TABLE IF NOT EXISTS show_recommendations (
     PRIMARY KEY (user_id, show_id)
 );
 
+CREATE OR REPLACE FUNCTION get_top_movies_for_user(p_user_id UUID, p_limit INT)
+RETURNS TABLE(movie_id BIGINT) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT m.movie_id
+  FROM movie_embeddings AS m
+  ORDER BY m.embedding <#> (SELECT u.embedding FROM user_embeddings AS u WHERE u.user_id = p_user_id)
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_top_shows_for_user(p_user_id UUID, p_limit INT)
+RETURNS TABLE(show_id BIGINT) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT s.show_id
+  FROM show_embeddings AS s
+  ORDER BY s.embedding <#> (SELECT u.embedding FROM user_embeddings AS u WHERE u.user_id = p_user_id)
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
 
 CREATE TRIGGER trigger_update_movie_recommendations_updated_at
 BEFORE UPDATE ON movie_recommendations
