@@ -23,22 +23,13 @@ export async function GET(request: Request) {
         }
 
         
-        const { data, error } = await supabase.rpc('get_top_shows_for_user', {
-            p_user_id: userId,
-            p_limit: limit,
-        })
+        const { data, error } = await supabase.rpc('get_top_shows_for_user', { p_user_id: userId, p_limit: limit, });
         if (error) return NextResponse.json({ error: error.message }, { status: 500 })
         if (!data) return NextResponse.json([], { status: 200 })
 
         const items = Array.isArray(data) ? data : [data]
 
-        
-        const ids = items
-            .map((it: any) => {
-                if (typeof it === 'number' || typeof it === 'string') return it
-                return it.show_id ?? it.id ?? it.showId ?? null
-            })
-            .filter(Boolean)
+         const ids = items.map((it: {show_id: number}) => { return it.show_id });
 
         
         const cookie = request.headers.get('cookie') ?? ''
@@ -68,6 +59,7 @@ export async function GET(request: Request) {
             .filter(Boolean)
 
         return NextResponse.json(shows, { status: 200 })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
         return NextResponse.json({ error: err?.message ?? 'unknown error' }, { status: 500 })
     }

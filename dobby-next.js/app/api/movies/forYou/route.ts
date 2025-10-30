@@ -22,23 +22,13 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Limit too high' }, { status: 400 })
         }
         
-        const { data, error } = await supabase.rpc('get_top_movies_for_user', {
-            p_user_id: userId,
-            p_limit: limit,
-        })
+        const { data, error } = await supabase.rpc('get_top_movies_for_user', { p_user_id: userId, p_limit: limit,});
         if (error) return NextResponse.json({ error: error.message }, { status: 500 })
         if (!data) return NextResponse.json([], { status: 200 })
 
         const items = Array.isArray(data) ? data : [data]
 
-        
-        const ids = items
-            .map((it: any) => {
-                if (typeof it === 'number' || typeof it === 'string') return it
-                return it.movie_id ?? it.id ?? it.movieId ?? null
-            })
-            .filter(Boolean)
-
+        const ids = items.map((it: {movie_id: number}) => { return it.movie_id });
         
         const cookie = request.headers.get('cookie') ?? ''
         const fetchOptions = {
@@ -61,11 +51,10 @@ export async function GET(request: Request) {
 
             const settled = await Promise.allSettled(fetches)
 
-        const movies: Movie[] = settled
-            .map((r) => (r.status === 'fulfilled' ? r.value : null))
-            .filter(Boolean)
+        const movies: Movie[] = settled.map((r) => (r.status === 'fulfilled' ? r.value : null)).filter(Boolean)
 
         return NextResponse.json(movies, { status: 200 })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
         return NextResponse.json({ error: err?.message ?? 'unknown error' }, { status: 500 })
     }
