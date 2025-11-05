@@ -5,6 +5,7 @@ import { Play, TrendingUp, Star } from "lucide-react";
 import { trendingMovies, recentReviews } from "@/data/mockData";
 import { Button } from "@/components/ui/button";
 import NavbarWrapper from "@/components/navbar/NavbarWrapper";
+import TrendingMovies from '@/components/trending/TrendingMovies'
 
 export default function HomePage() {
   const heroImage = "/assets/cinema.jpg";
@@ -44,38 +45,12 @@ export default function HomePage() {
       </section>
 
       {/* Trending */}
-      <section className="w-full py-16 px-6 max-w-6xl">
+      <section className="w-full py-8 px-6 max-w-6xl">
         <div className="flex items-center gap-3 mb-8">
           <TrendingUp className="w-8 h-8 text-purple-400" />
-          <h2 className="text-3xl md:text-4xl font-bold text-white">
-            Trending Now
-          </h2>
+          <h2 className="text-3xl md:text-4xl font-bold text-white">Trending Now</h2>
         </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {trendingMovies.map((movie) => (
-            <div
-              key={movie.id}
-              className="relative group overflow-hidden rounded-lg bg-zinc-900 border border-zinc-800 hover:border-purple-500/50 transition-all duration-300"
-            >
-              <Image
-                src={movie.poster}
-                alt={movie.title}
-                width={400}
-                height={600}
-                className="w-full h-auto object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="absolute bottom-0 left-0 right-0 p-4 text-white opacity-0 group-hover:opacity-100 transition-all duration-300">
-                <h3 className="text-lg font-bold line-clamp-1">{movie.title}</h3>
-                <p className="text-sm text-gray-300">{movie.year}</p>
-                <p className="text-sm text-yellow-400 font-semibold">
-                  ★ {movie.rating.toFixed(1)}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <TrendingMovies />
       </section>
 
       {/* Recent Reviews */}
