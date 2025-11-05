@@ -8,7 +8,7 @@ export default function AuthTabs() {
   const [tab, setTab] = useState<"login" | "register">("login");
 
   return (
-    <div className="w-full max-w-sm mx-auto bg-white/10 rounded-lg shadow p-8">
+    <div className="grid w-full mb-8">
       <div className="flex mb-8">
         
         
