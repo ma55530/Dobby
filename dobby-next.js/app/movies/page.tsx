@@ -6,7 +6,6 @@ import { Movies } from "@/lib/types/Movies";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-// Helper function to fetch a movie category
 async function fetchMovieCategory(endpoint: string): Promise<Movies[]> {
   const res = await fetch(endpoint);
   if (!res.ok) return [];
@@ -19,8 +18,29 @@ export default function MoviesPage() {
   const [results, setResults] = useState<Movies[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
-  // State for default categories
+  // Load recent searches from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('recentSearches');
+    if (saved) {
+      setRecentSearches(JSON.parse(saved));
+    }
+  }, []);
+
+  // Add search to recent searches
+  const addToRecentSearches = (searchQuery: string) => {
+    if (!searchQuery.trim()) return;
+    
+    const newSearches = [
+      searchQuery,
+      ...recentSearches.filter(s => s !== searchQuery)
+    ].slice(0, 5); // Keep only last 5 searches
+    
+    setRecentSearches(newSearches);
+    localStorage.setItem('recentSearches', JSON.stringify(newSearches));
+  };
+
   const [popular, setPopular] = useState<Movies[]>([]);
   const [upcoming, setUpcoming] = useState<Movies[]>([]);
   const [trending, setTrending] = useState<Movies[]>([]);
@@ -64,7 +84,9 @@ export default function MoviesPage() {
   };
 
   const onSearch = () => {
+    if (!query.trim()) return;
     setPage(1);
+    addToRecentSearches(query);
     handleSearch(query, 1);
   };
 
@@ -76,18 +98,54 @@ export default function MoviesPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <div className="flex w-full max-w-sm items-center space-x-2 mb-8 mx-auto">
-        <Input
-          type="text"
-          placeholder="Search for a movie..."
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setResults([]); // clear results when typing
-          }}
-          onKeyDown={(e) => e.key === 'Enter' && onSearch()}
-        />
-        <Button type="submit" onClick={onSearch}>Search</Button>
+      <div className="w-full max-w-sm mx-auto mb-8">
+        <div className="flex items-center space-x-2">
+          <div className="relative flex-1">
+            <Input
+              type="text"
+              placeholder="Search for a movie..."
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setResults([]); // clear results when typing
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+            />
+            {query && (
+              <button
+                onClick={() => {
+                  setQuery('');
+                  setResults([]);
+                }}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-200"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <Button type="submit" onClick={onSearch}>Search</Button>
+        </div>
+        
+        {/* Recent Searches */}
+        {recentSearches.length > 0 && (
+          <div className="mt-2">
+            <div className="text-sm text-gray-400 mb-1">Recent searches:</div>
+            <div className="flex flex-wrap gap-2">
+              {recentSearches.map((search, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setQuery(search);
+                    handleSearch(search, 1);
+                  }}
+                  className="text-sm px-3 py-1 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
+                >
+                  {search}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {query ? (
