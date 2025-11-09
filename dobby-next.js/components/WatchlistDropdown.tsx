@@ -16,21 +16,17 @@ interface Watchlist {
   name: string;
 }
 
-interface WatchlistItem {
-  movie_id: number | null;
-  show_id: number | null;
-}
 
 interface TrackWithDetails {
   id: number;
   title?: string;
   original_name?: string;
-  poster_path?: string;
+  poster_path?: string | null;
   vote_average?: number;
   release_date?: string;
   first_air_date?: string;
-  runtime?: number;
-  number_of_seasons?: number;
+  runtime?: number | null; 
+  number_of_seasons?: number | null; 
   details?: Movie | Show;
 }
 
@@ -48,6 +44,7 @@ export default function WatchlistDropdown() {
       setUserId(user?.id || null);
     };
     getUserId();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -61,7 +58,7 @@ export default function WatchlistDropdown() {
 
       if (error) {
         console.error('Error fetching watchlists:', error);
-      } else {
+      } else if (data) {
         setWatchlists(data);
         // Automatically select "Recently Searched" if it exists
         const recentlySearched = data.find(wl => wl.name === 'Recently Searched');
@@ -74,7 +71,8 @@ export default function WatchlistDropdown() {
     };
 
     fetchWatchlists();
-  }, [userId, supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   useEffect(() => {
     const fetchWatchlistItems = async () => {
@@ -96,7 +94,7 @@ export default function WatchlistDropdown() {
       }
 
       const fetchedTracks: TrackWithDetails[] = [];
-      for (const item of data) {
+      for (const item of data ?? []) {
         if (item.movie_id) {
           const res = await fetch(`/api/movies/${item.movie_id}`);
           if (res.ok) {
@@ -115,7 +113,8 @@ export default function WatchlistDropdown() {
     };
 
     fetchWatchlistItems();
-  }, [selectedWatchlist, supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWatchlist]);
 
   const handleTrackCardClick = async (trackId: number, trackType: 'movie' | 'show') => {
     if (userId) {
@@ -153,10 +152,16 @@ export default function WatchlistDropdown() {
                 id={track.id}
                 key={track.id}
                 title={track.title || track.original_name || 'N/A'}
-                poster={track.poster_path}
-                rating={track.vote_average}
-                year={track.release_date || track.first_air_date}
-                infoAboutTrack={track.runtime ? `${track.runtime}m` : track.number_of_seasons ? `${track.number_of_seasons} seasons` : 'N/A'}
+                poster={track.poster_path ?? ''}
+                rating={track.vote_average ?? 0} 
+                year={track.release_date || track.first_air_date || ''}
+                infoAboutTrack={
+                  track.runtime != null
+                    ? `${track.runtime}m`
+                    : track.number_of_seasons != null
+                    ? `${track.number_of_seasons} seasons`
+                    : 'N/A'
+                }
                 onClick={() => handleTrackCardClick(track.id, track.release_date ? 'movie' : 'show')}
               />
             )
