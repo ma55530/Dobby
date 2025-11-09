@@ -2,36 +2,64 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Mail, Calendar, User as UserIcon, Film, Star, Heart } from "lucide-react";
+import { Mail, Calendar, User as UserIcon, Star } from "lucide-react";
 import type { UserProfile } from "@/lib/types/UserProfile";
-import { fetchCurrentUser } from "@/lib/user";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 export default function MePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatedProfile, setUpdatedProfile] = useState<Partial<UserProfile>>({});
+  const [open, setOpen] = useState(false);
 
   const favoriteGenres = ["Sci‑Fi", "Drama", "Thriller", "Mystery", "Animation"];
   const topMovies = ["Interstellar", "Parasite", "The Godfather", "Whiplash"];
   const topShows = ["Dark", "Chernobyl", "Breaking Bad", "True Detective"];
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const data = await fetchCurrentUser();
-        if (!active) return;
-        setProfile(data);
-      } catch (e: any) {
-        if (!active) return;
-        setError(e?.message || "Could not load profile");
-        setProfile(null); //fallback?
-      } finally {
-        if (active) setLoading(false);
+    const fetchProfile = async () => {
+      const res = await fetch("/api/user");
+      if (!res.ok) {
+        setError("Failed to load profile");
+        return;
       }
-    })();
-    return () => { active = false; };
+      const data = await res.json();
+      setProfile(data);
+      setLoading(false);
+    };
+
+    fetchProfile();
   }, []);
+
+  const updateProfile = async () => {
+    const res = await fetch("/api/user", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updatedProfile),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      setError(errorText);
+      return;
+    }
+
+    const updatedData = await res.json();
+    setProfile(updatedData);
+  };
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
@@ -57,6 +85,7 @@ export default function MePage() {
           </div>
         ) : profile ? (
           <div className="grid gap-6 md:grid-cols-3">
+            {/* Left: profile card */}
             <div className="p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
               <div className="flex flex-col items-center text-center">
                 <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-purple-400 to-yellow-400 overflow-hidden ring-2 ring-purple-400/40">
@@ -88,9 +117,120 @@ export default function MePage() {
                     </div>
                   )}
                 </div>
+
+                {/* Edit controls */}
+                <div className="mt-5 w-full flex justify-center">
+                  <Dialog
+                    open={open}
+                    onOpenChange={(o) => {
+                      setOpen(o);
+                      if (o && profile) {
+                        setUpdatedProfile({
+                          username: profile.username,
+                          first_name: profile.first_name ?? "",
+                          last_name: profile.last_name ?? "",
+                          age: profile.age,
+                          bio: profile.bio ?? "",
+                        });
+                      }
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <button
+                        className="px-3 py-1.5 rounded-md bg-zinc-900/60 border border-zinc-700 text-gray-200 hover:bg-zinc-900 hover:border-purple-400 transition"
+                      >
+                        Edit Profile
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px] bg-zinc-900 border border-zinc-700 text-gray-200">
+                    <DialogHeader className="space-y-2">
+                        <DialogTitle className="text-2xl font-semibold text-white text-left">
+                            Edit Profile
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-400 text-sm text-center max-w-sm mx-auto">
+                            Update your profile info and save changes.
+                        </DialogDescription>
+                        </DialogHeader>
+
+                      <div className="grid gap-3">
+                        <div className="grid gap-2.5">
+                          <Label htmlFor="username">Username</Label>
+                          <Input
+                            id="username"
+                            className="bg-zinc-900 border-zinc-700 text-gray-200"
+                            value={updatedProfile.username ?? profile.username ?? ""}
+                            onChange={(e) => setUpdatedProfile({ ...updatedProfile, username: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid gap-2.5">
+                          <Label htmlFor="first_name">First name</Label>
+                          <Input
+                            id="first_name"
+                            className="bg-zinc-900 border-zinc-700 text-gray-200"
+                            value={updatedProfile.first_name ?? profile.first_name ?? ""}
+                            onChange={(e) => setUpdatedProfile({ ...updatedProfile, first_name: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid gap-2.5">
+                          <Label htmlFor="last_name">Last name</Label>
+                          <Input
+                            id="last_name"
+                            className="bg-zinc-900 border-zinc-700 text-gray-200"
+                            value={updatedProfile.last_name ?? profile.last_name ?? ""}
+                            onChange={(e) => setUpdatedProfile({ ...updatedProfile, last_name: e.target.value })}
+                          />
+                        </div>
+                        <div className="grid gap-2.5">
+                          <Label htmlFor="age">Age</Label>
+                          <Input
+                            id="age"
+                            type="number"
+                            className="bg-zinc-900 border-zinc-700 text-gray-200"
+                            value={updatedProfile.age ?? profile.age ?? ""}
+                            onChange={(e) =>
+                              setUpdatedProfile({
+                                ...updatedProfile,
+                                age: e.target.value === "" ? undefined : Number(e.target.value),
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="grid gap-2.5">
+                          <Label htmlFor="bio">Bio</Label>
+                          <Textarea
+                            id="bio"
+                            rows={3}
+                            className="bg-zinc-900 border-zinc-700 text-gray-200"
+                            value={updatedProfile.bio ?? profile.bio ?? ""}
+                            onChange={(e) => setUpdatedProfile({ ...updatedProfile, bio: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex justify-end gap-2">
+                        <button
+                          onClick={() => setOpen(false)}
+                          className="px-3 py-1.5 rounded-md bg-zinc-800/80 border border-zinc-700 text-gray-300 hover:bg-zinc-800 transition"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={async () => {
+                            await updateProfile();
+                            setOpen(false);
+                          }}
+                          className="px-3 py-1.5 rounded-md bg-purple-600/80 border border-purple-400 text-white hover:bg-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-400/60 transition"
+                        >
+                          Save Changes
+                        </button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
             </div>
 
+            {/* Right: bio and lists */}
             <div className="md:col-span-2 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
               <h3 className="text-white font-semibold text-lg mb-3">Bio</h3>
               <p className="text-gray-300 leading-relaxed">
@@ -103,7 +243,7 @@ export default function MePage() {
                     <span className="text-white font-medium">Favorite genres</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {favoriteGenres.map(g => (
+                    {favoriteGenres.map((g) => (
                       <span key={g} className="text-xs px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-gray-300">
                         {g}
                       </span>
@@ -116,7 +256,7 @@ export default function MePage() {
                     <span className="text-white font-medium">Top movies</span>
                   </div>
                   <ul className="text-gray-300 text-sm space-y-1">
-                    {topMovies.map(m => (
+                    {topMovies.map((m) => (
                       <li key={m} className="flex items-center gap-2">
                         <Star className="w-3 h-3 text-yellow-400" />
                         {m}
@@ -131,7 +271,7 @@ export default function MePage() {
                   <span className="text-white font-medium">Top shows</span>
                 </div>
                 <ul className="text-gray-300 text-sm space-y-1">
-                  {topShows.map(s => (
+                  {topShows.map((s) => (
                     <li key={s} className="flex items-center gap-2">
                       <Star className="w-3 h-3 text-purple-300" />
                       {s}
