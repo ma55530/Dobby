@@ -47,7 +47,7 @@ export default function MoviesForYouPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6">
-      <h1 className="text-5xl font-bold mb-10">Dobby thinks you'll like...</h1>
+      <h1 className="text-5xl font-bold mb-10">Dobby thinks you&apos;ll like...</h1>
 
       <div className="relative w-full max-w-5xl flex items-center justify-center">
         {/* left arrow */}
