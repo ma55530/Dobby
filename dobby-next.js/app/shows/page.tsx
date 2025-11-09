@@ -123,14 +123,16 @@ export default function ShowsPage() {
               </button>
             )}
           </div>
-          <Button type="submit" onClick={onSearch} className="bg-purple-950 text-gray-300 hover:bg-purple-950/60">Search</Button>
+          <Button type="submit" onClick={onSearch} 
+          className="bg-purple-800 text-gray-300 hover:bg-purple-800/60"
+            >Search</Button>
         </div>
 
         {/* Recent Searches*/}
         {isFocused && recentSearches.length > 0 && (
           <div className="absolute w-76 mt-2 bg-gray-300/80 p-3 rounded-xl shadow-lg z-10 animate-fadeIn">
             {/*<div className="flex text-sm  text-gray-700 mb-1">Recent searches:</div>*/}
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 items-start text-left">
               {recentSearches.map((search, index) => (
                 <button
                   key={index}

@@ -116,7 +116,7 @@
 
 @layer base {
   body {
-    @apply bg-gradient-to-r from-black via-purple-500 to-black;
+    @apply bg-gradient-to-b from-[#1a1625] to-[#0f0c18];
     @apply text-foreground;
   }
   * {
