@@ -11,7 +11,7 @@ interface TrackCardProps {
   poster: string | null;
   rating: number;
   year: string;
-  infoAboutTrack?: string | number | null; // This is either duration for movies or number of seasons per show
+  infoAboutTrack?: string | number | null; 
   onClick: () => void;
 }
 
@@ -33,19 +33,19 @@ export default function TrackCard({id, title, poster, rating, year, infoAboutTra
       />
 
       {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
       {/* Content overlay */}
-      <div className="absolute bottom-0 p-3 text-white w-full">
-        <h3 className="text-sm font-semibold line-clamp-1">{title}</h3>
+      <div className="absolute bottom-0 p-3 space-y-1 bg-black/25 text-white w-full opacity-0 transition-opacity duration-300 group-hover:opacity-100 ">
+        <h3 className="text-sm font-semibold line-clamp-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">{title}</h3>
 
-        <div className="flex items-center justify-between mt-1 text-xs text-gray-300">
+        <div className="flex items-center justify-between mt-1 text-xs text-gray-300 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
           <span>
             {(year ? format(new Date(year), "yyyy") : "—") + (infoAboutTrack ? ` • ${infoAboutTrack}` : "")}
           </span>
           <Badge
             variant="secondary"
-            className="bg-transparent text-white text-xs font-semibold px-1.5"
+            className="bg-transparent text-white text-xs font-semibold px-1.5 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
           >
             ⭐ {rating.toFixed(1)}
           </Badge>

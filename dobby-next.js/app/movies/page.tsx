@@ -19,21 +19,19 @@ export default function MoviesPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [isFocused, setIsFocused] = useState(false); 
 
   const [popular, setPopular] = useState<Movies[]>([]);
   const [upcoming, setUpcoming] = useState<Movies[]>([]);
   const [trending, setTrending] = useState<Movies[]>([]);
   const [loadingDefault, setLoadingDefault] = useState(true);
 
-  // Load recent searches from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('recentSearches');
-    if (saved) {
-      setRecentSearches(JSON.parse(saved));
-    }
+    const saved = localStorage.getItem("recentSearches");
+    if (saved) setRecentSearches(JSON.parse(saved));
   }, []);
 
-  // Fetch default categories
+  
   useEffect(() => {
     setLoadingDefault(true);
     Promise.all([
@@ -51,14 +49,12 @@ export default function MoviesPage() {
 
   const addToRecentSearches = (searchQuery: string) => {
     if (!searchQuery.trim()) return;
-    
     const newSearches = [
       searchQuery,
-      ...recentSearches.filter(s => s !== searchQuery)
-    ].slice(0, 5); // Keep only last 5 searches
-    
+      ...recentSearches.filter((s) => s !== searchQuery),
+    ].slice(0, 5);
     setRecentSearches(newSearches);
-    localStorage.setItem('recentSearches', JSON.stringify(newSearches));
+    localStorage.setItem("recentSearches", JSON.stringify(newSearches));
   };
 
   const handleSearch = async (searchQuery: string, searchPage: number) => {
@@ -87,6 +83,7 @@ export default function MoviesPage() {
     setPage(1);
     addToRecentSearches(query);
     handleSearch(query, 1);
+    setIsFocused(false); 
   };
 
   const onShowMore = () => {
@@ -96,25 +93,32 @@ export default function MoviesPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <div className="w-full max-w-sm mx-auto mb-8">
-        <div className="flex items-center space-x-2">
+    <div
+      className="flex flex-col items-center justify-center min-h-screen p-4"
+      onClick={() => setIsFocused(false)} 
+    >
+      <div
+        className="w-full max-w-sm mx-auto mb-8 relative"
+        onClick={(e) => e.stopPropagation()} 
+      >
+        <div className="flex items-center space-x-2 relative">
           <div className="relative flex-1">
             <Input
               type="text"
               placeholder="Search for a movie..."
               value={query}
+              onFocus={() => setIsFocused(true)} 
               onChange={(e) => {
                 setQuery(e.target.value);
-                setResults([]); 
+                setResults([]);
               }}
-              onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+              onKeyDown={(e) => e.key === "Enter" && onSearch()}
             />
-           {query && (
+            {query && (
               <button
                 onClick={() => {
                   setQuery("");
-                  setResults([]); 
+                  setResults([]);
                 }}
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-200"
               >
@@ -122,32 +126,37 @@ export default function MoviesPage() {
               </button>
             )}
           </div>
-          <Button type="submit" onClick={onSearch}>Search</Button>
+          <Button
+            type="submit"
+            onClick={onSearch}
+            className="bg-purple-950 text-gray-300 hover:bg-purple-950/60"
+          >
+            Search
+          </Button>
         </div>
 
-        {/* Recent Searches */}
-        {recentSearches.length > 0 && (
-          <div className="mt-2">
-            <div className="text-sm text-gray-400 mb-1">Recent searches:</div>
-            <div className="flex flex-wrap gap-2">
+        {/* Recent Searches*/}
+        {isFocused && recentSearches.length > 0 && (
+          <div className="absolute w-76 mt-2 bg-gray-300/80 p-3 rounded-xl shadow-lg z-10 animate-fadeIn">
+            {/*<div className="flex text-sm  text-gray-700 mb-1">Recent searches:</div>*/}
+            <div className="flex flex-col gap-1">
               {recentSearches.map((search, index) => (
                 <button
                   key={index}
                   onClick={() => {
                     setQuery(search);
                     handleSearch(search, 1);
+                    setIsFocused(false);
                   }}
-                  className="text-sm px-3 py-1 rounded-full bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors"
+                  className="text-sm px-3 py-1  text-gray-700 hover:text-purple-800 transition-colors"
                 >
                   {search}
                 </button>
-                
               ))}
             </div>
           </div>
         )}
       </div>
-
 
       {query && results.length > 0 ? (
         <div className="flex flex-wrap justify-center gap-6 w-full max-w-6xl">
@@ -174,11 +183,10 @@ export default function MoviesPage() {
           )}
         </div>
       ) : (
-        
         <div className="flex flex-col gap-12 w-full max-w-6xl">
           {/* Popular */}
           <section>
-            <h2 className="text-2xl font-bold mb-4 text-white">Popular Movies</h2>
+            <h2 className="text-2xl font-sans mb-4 text-white">Popular Movies</h2>
             {loadingDefault ? (
               <div className="text-gray-400">Loading...</div>
             ) : (
@@ -206,7 +214,7 @@ export default function MoviesPage() {
 
           {/* Upcoming */}
           <section>
-            <h2 className="text-2xl font-bold mb-4 text-white">Upcoming Movies</h2>
+            <h2 className="text-2xl font-sans mb-4 text-white">Upcoming Movies</h2>
             {loadingDefault ? (
               <div className="text-gray-400">Loading...</div>
             ) : (
@@ -234,7 +242,7 @@ export default function MoviesPage() {
 
           {/* Trending */}
           <section>
-            <h2 className="text-2xl font-bold mb-4 text-white">Trending Movies</h2>
+            <h2 className="text-2xl font-sans mb-4 text-white">Trending Movies</h2>
             {loadingDefault ? (
               <div className="text-gray-400">Loading...</div>
             ) : (
@@ -264,4 +272,3 @@ export default function MoviesPage() {
     </div>
   );
 }
-
