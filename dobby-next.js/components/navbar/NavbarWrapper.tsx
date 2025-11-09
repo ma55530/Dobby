@@ -11,8 +11,8 @@ export default function NavbarWrapper() {
     "/home",
     "/movies",
     "/shows",
-    "/moviesForYou",
-    "/showsForYou",
+    "/movies/forYou",
+    "/shows/forYou",
   ];
 
   // Check if pathname starts with any of the array entries
@@ -29,15 +29,9 @@ export default function NavbarWrapper() {
   return (
     <Navbar05
       logo={
-        <div className="flex items-center gap-2">
-          <Image
-            src="/vercel.svg"
-            alt="Next.js Logo"
-            width={28}
-            height={28}
-            priority
-          />
-          <span className="font-bold text-xl">Dobby</span>
+        <div className="flex items-center gap-2 bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 bg-clip-text text-transparent font-semibold tracking-wide text-2xl">
+          <Image src="/vercel.svg" alt="Next.js Logo" width={24} height={24} />
+          <span>Dobby</span>
         </div>
       }
       onNavItemClick={handleNavItemClick}
@@ -45,8 +39,6 @@ export default function NavbarWrapper() {
         { label: "Home", href: "/" },
         { label: "Movies", href: "/movies" },
         { label: "Shows", href: "/shows" },
-        { label: "Movies For You", href: "/moviesForYou" },
-        { label: "Shows For You", href: "/showsForYou" },
       ]}
       userName="Jane Doe"
       userEmail="jane@myapp.com"
@@ -54,4 +46,3 @@ export default function NavbarWrapper() {
     />
   );
 }
-

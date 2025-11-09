@@ -10,10 +10,10 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           <Link
             href="/"
-            className="relative text-2xl font-black tracking-tight bg-gradient-to-br from-primary via-purple-500 to-purple-300 bg-clip-text text-transparent hover:scale-105 transition-transform"
+            className="bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 bg-clip-text text-transparent font-semibold tracking-wide text-2xl"
             style={{
-              textShadow: "0 0 20px rgba(147, 51, 234, 0.4)",
-              WebkitTextStroke: "0.3px rgba(147, 51, 234, 0.2)",
+              textShadow: "0 0 25px rgba(168, 85, 247, 0.6), 0 0 50px rgba(236, 72, 153, 0.4)",
+              WebkitTextStroke: "0.5px rgba(255, 255, 255, 0.15)",
             }}
           >
             Dobby
