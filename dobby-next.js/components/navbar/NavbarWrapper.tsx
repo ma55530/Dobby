@@ -1,11 +1,14 @@
 "use client"; // client component because of the usePathname, if we didn't create the seperate component, we would have had to put this into the root layout making our entire app client side (bad :( , no SEO)
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Navbar05 } from "@/components/ui/shadcn-io/navbar-05";
 import Image from "next/image";
+import { createClient } from "@/lib/supabase/client";
 
 export default function NavbarWrapper() {
   const pathname = usePathname();
   const router = useRouter();
+  const [sessionUser, setSessionUser] = useState<{ email: string; name: string; avatar?: string } | null>(null);
   const showNavbarOn = [
     "/",
     "/home",
@@ -14,6 +17,20 @@ export default function NavbarWrapper() {
     "/movies/forYou",
     "/shows/forYou",
   ];
+
+  useEffect(() => {
+  const fetchProfile = async () => {
+    const res = await fetch("/api/user");
+    if (!res.ok) return;
+    const profile = await res.json();
+    setSessionUser({
+      email: profile.email,
+      name: profile.username,
+      avatar: profile.avatar_url,
+    });
+  };
+  fetchProfile();
+}, []);
 
   // Check if pathname starts with any of the array entries
   const shouldHideNavbar = !showNavbarOn.some((route) =>
@@ -40,8 +57,8 @@ export default function NavbarWrapper() {
         { label: "Movies", href: "/movies" },
         { label: "Shows", href: "/shows" },
       ]}
-      userName="Jane Doe"
-      userEmail="jane@myapp.com"
+      userName={sessionUser?.name || "Guest"}
+      userEmail={sessionUser?.email || ""}
       notificationCount={6}
     />
   );

@@ -203,13 +203,13 @@ const UserMenu = ({
           Profile
         </Link>
       </DropdownMenuItem>
-      <DropdownMenuItem className="hover:!text-primary hover:!bg-transparent" onClick={() => onItemClick?.('settings')}>
+      {/* <DropdownMenuItem className="hover:!text-primary hover:!bg-transparent" onClick={() => onItemClick?.('settings')}>
         Settings
       </DropdownMenuItem>
       <DropdownMenuItem className="hover:!text-primary hover:!bg-transparent" onClick={() => onItemClick?.('billing')}>
         Billing
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
+      </DropdownMenuItem> */}
+      <DropdownMenuSeparator /> 
       <DropdownMenuItem className="hover:!text-primary hover:!bg-transparent" onClick={() => onItemClick?.('logout')}>
         Log out
       </DropdownMenuItem>
