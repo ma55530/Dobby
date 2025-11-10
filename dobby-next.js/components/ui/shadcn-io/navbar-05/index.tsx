@@ -198,8 +198,10 @@ const UserMenu = ({
         </div>
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
-      <DropdownMenuItem className="hover:!text-primary hover:!bg-transparent" onClick={() => onItemClick?.('profile')}>
-        Profile
+      <DropdownMenuItem asChild className="hover:!text-primary hover:!bg-transparent" onClick={() => onItemClick?.('profile')}>
+        <Link href="/users" className="hover:text-primary">
+          Profile
+        </Link>
       </DropdownMenuItem>
       <DropdownMenuItem className="hover:!text-primary hover:!bg-transparent" onClick={() => onItemClick?.('settings')}>
         Settings
@@ -331,7 +333,7 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
       <header
         ref={combinedRef}
         className={cn(
-          'sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 px-4 md:px-6 shadow-lg rounded-b-xl',
+          'sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 px-4 md:px-6 shadow-lg',
           className
         )}
         {...props}
