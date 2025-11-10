@@ -2,9 +2,7 @@
 
 import Image from "next/image";
 import { Play, TrendingUp, Star } from "lucide-react";
-import { trendingMovies, recentReviews } from "@/data/mockData";
-import { Button } from "@/components/ui/button";
-import NavbarWrapper from "@/components/navbar/NavbarWrapper";
+import { recentReviews } from "@/data/mockData";
 import TrendingMovies from '@/components/trending/TrendingMovies'
 
 export default function HomePage() {

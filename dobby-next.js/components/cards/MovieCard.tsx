@@ -19,7 +19,7 @@ const MovieCard = ({ id, title, poster, rating, year, type }: MovieCardProps) =>
   const [isFavorite, setIsFavorite] = useState(false);
 
   return (
-    <Card className="group relative overflow-hidden bg-card border-border hover:border-primary/50 transition-all duration-300 hover:shadow-[0_8px_30px_hsl(var(--primary)/0.3)]">
+    <Card className="group relative overflow-hidden bg-card border-border shadow-lg hover:border-primary/50 transition-all duration-300 hover:shadow-[0_8px_30px_hsl(var(--primary)/0.3)]">
       <div className="relative aspect-[2/3] overflow-hidden">
         <img 
           src={poster} 
