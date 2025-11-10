@@ -1,9 +1,8 @@
-"use client";
+"use client"; // client component because of the usePathname, if we didn't create the seperate component, we would have had to put this into the root layout making our entire app client side (bad :( , no SEO)
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Navbar05 } from "@/components/ui/shadcn-io/navbar-05";
 import Image from "next/image";
-import { createClient } from "@/lib/supabase/client";
 
 export default function NavbarWrapper() {
   const pathname = usePathname();
@@ -17,47 +16,32 @@ export default function NavbarWrapper() {
     "/shows",
     "/movies/forYou",
     "/shows/forYou",
-    "/profile"
   ];
 
   useEffect(() => {
-    const shouldShowNavbar = showNavbarOn.some(route => pathname === route);
-    if (!shouldShowNavbar) {
-      setSessionUser(null);
-      return;
-    }
-    
-    const fetchProfile = async () => {
-      const res = await fetch("/api/user");
-      if (!res.ok) {
-        setSessionUser(null);
-        return;
-      }
-      const profile = await res.json();
-      setSessionUser({
-        email: profile.email,
-        name: profile.username,
-        avatar: profile.avatar_url,
-      });
-    };
-
-    fetchProfile();
-  }, [pathname, showNavbarOn]); 
-
-  const handleLogout = async () => {
-    const supabase = createClient();
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Logout failed:", error.message);
-      return;
-    }
-    setSessionUser(null);
-    router.push("/auth/login");
+  const fetchProfile = async () => {
+    const res = await fetch("/api/user");
+    if (!res.ok) return;
+    const profile = await res.json();
+    setSessionUser({
+      email: profile.email,
+      name: profile.username,
+      avatar: profile.avatar_url,
+    });
   };
+  fetchProfile();
+}, []);
 
-  if (!sessionUser) return null;
+  // Check if pathname starts with any of the array entries
+  const shouldHideNavbar = !showNavbarOn.some((route) =>
+    pathname.startsWith(route)
+  );
 
-  const handleNavItemClick = (href: string) => router.push(href);
+  if (shouldHideNavbar) return null;
+
+  const handleNavItemClick = (href: string) => {
+    router.push(href);
+  };
 
   return (
     <Navbar05
@@ -68,9 +52,6 @@ export default function NavbarWrapper() {
         </div>
       }
       onNavItemClick={handleNavItemClick}
-      onUserItemClick={(item) => {
-        if (item === "logout") handleLogout();
-      }}
       navigationLinks={[
         { label: "Home", href: "/" },
         { label: "Movies", href: "/movies" },
