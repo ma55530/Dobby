@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Show } from "@/lib/types/Show";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import Image from "next/image";
 
 export default function ShowsForYouPage() {
   const [shows, setShows] = useState<Show[]>([]);
@@ -82,10 +83,13 @@ export default function ShowsForYouPage() {
   <div className="flex flex-col md:flex-row items-center md:items-stretch bg-gray-900/60 backdrop-blur rounded-2xl shadow-[0_0_30px_rgba(0,0,0,0.8)] border border-purple-500/40 overflow-hidden w-full mx-8 transition-shadow hover:shadow-[0_0_50px_rgba(0,0,0,1)]">
     {/* Poster */}
     <div className="w-full md:w-1/3 lg:w-1/4">
-      <img
+      <Image
         src={`https://image.tmdb.org/t/p/w500${show.poster_path}`}
         alt={show.name}
+        width={400}
+        height={600}
         className="w-full h-full object-cover md:rounded-l-2xl"
+        priority
       />
     </div>
 

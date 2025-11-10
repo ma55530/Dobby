@@ -17,10 +17,15 @@ export default function NavbarWrapper() {
     "/shows",
     "/movies/forYou",
     "/shows/forYou",
+    "/profile"
   ];
 
   useEffect(() => {
-    if (pathname != "/") return;
+    const shouldShowNavbar = showNavbarOn.some(route => pathname === route);
+    if (!shouldShowNavbar) {
+      setSessionUser(null);
+      return;
+    }
     
     const fetchProfile = async () => {
       const res = await fetch("/api/user");
@@ -37,7 +42,7 @@ export default function NavbarWrapper() {
     };
 
     fetchProfile();
-  }, [pathname]); 
+  }, [pathname, showNavbarOn]); 
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -50,8 +55,7 @@ export default function NavbarWrapper() {
     router.push("/auth/login");
   };
 
-  const shouldShowNavbar = showNavbarOn.some(route => pathname === route);
-  if (!shouldShowNavbar || pathname === "/auth/login") return null;
+  if (!sessionUser) return null;
 
   const handleNavItemClick = (href: string) => router.push(href);
 
