@@ -199,7 +199,7 @@ const UserMenu = ({
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
       <DropdownMenuItem asChild className="hover:!text-primary hover:!bg-transparent" onClick={() => onItemClick?.('profile')}>
-        <Link href="/users" className="hover:text-primary">
+        <Link href="/profile" className="hover:text-primary">
           Profile
         </Link>
       </DropdownMenuItem>
@@ -211,7 +211,9 @@ const UserMenu = ({
       </DropdownMenuItem> */}
       <DropdownMenuSeparator /> 
       <DropdownMenuItem className="hover:!text-primary hover:!bg-transparent" onClick={() => onItemClick?.('logout')}>
-        Log out
+        <Link href="/auth/login" className="hover:text-primary">
+          Log out
+        </Link>
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
