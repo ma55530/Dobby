@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-export async function GET(request: Request) {
+export async function GET() {
     const supabase = await createClient();
 
     // Get the authenticated user
@@ -11,21 +11,22 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Parse query parameters
-    const { searchParams } = new URL(request.url);
-    const watchlistName = searchParams.get('name'); // Optional: filter by watchlist name
-
     try {
         // Build query
         let query = supabase
             .from('watchlists')
-            .select('*')
-            .eq('user_id', user.id);
-
-        // Filter by name if provided
-        if (watchlistName) {
-            query = query.eq('name', watchlistName);
-        }
+            .select(`
+            id,
+            name,
+            visibility,
+            created_at,
+            watchlist_items (
+            id,
+            movie_id,
+            show_id,
+            added_at
+            )
+        `).eq('user_id', user.id);
 
         const { data, error } = await query;
 
