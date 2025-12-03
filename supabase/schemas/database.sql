@@ -141,8 +141,8 @@ ALTER TABLE watchlists ENABLE ROW LEVEL SECURITY;
 CREATE TABLE IF NOT EXISTS watchlist_items (
     id BIGSERIAL PRIMARY KEY,
     watchlist_id BIGINT REFERENCES watchlists(id) ON DELETE CASCADE,
-    movie_id BIGINT NOT NULL,
-    show_id BIGINT NOT NULL,
+    movie_id BIGINT,
+    show_id BIGINT,
     added_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(watchlist_id, movie_id, show_id),
     CHECK ((movie_id IS NOT NULL AND show_id IS NULL) OR (movie_id IS NULL AND show_id IS NOT NULL)) -- This makes sure we either added the movie or the show
