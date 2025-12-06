@@ -2,9 +2,9 @@
 import { Heart, Play } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import StarRating from "./StarRating";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import StarRating from "../StarRating";
 
 interface MovieCardProps {
   id: number;
@@ -15,7 +15,7 @@ interface MovieCardProps {
   type: "movie" | "tv";
 }
 
-const MovieCard = ({ id, title, poster, rating, year, type }: MovieCardProps) => {
+const MovieCard = ({ title, poster, rating, year, type }: MovieCardProps) => {
   const [isFavorite, setIsFavorite] = useState(false);
 
   return (
