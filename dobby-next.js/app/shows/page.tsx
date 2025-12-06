@@ -69,7 +69,6 @@ export default function ShowsPage() {
     const filteredShows = shows.filter(
       (show) =>
         show.first_air_date &&
-        show.poster_path &&
         show.vote_average !== 0
     );
 

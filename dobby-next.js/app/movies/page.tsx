@@ -6,6 +6,13 @@ import { Movies } from "@/lib/types/Movies";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+type MoviesSearchResponse = {
+  results: Movies[];
+  page: number;
+  total_pages: number;
+  total_results: number;
+};
+
 async function fetchMovieCategory(endpoint: string): Promise<Movies[]> {
   const res = await fetch(endpoint);
   if (!res.ok) return [];
@@ -18,6 +25,7 @@ export default function MoviesPage() {
   const [results, setResults] = useState<Movies[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isFocused, setIsFocused] = useState(false); 
 
@@ -61,13 +69,16 @@ export default function MoviesPage() {
     if (!searchQuery) return;
     setLoading(true);
     const res = await fetch(`/api/movies?query=${searchQuery}&page=${searchPage}`);
-    const movies: Movies[] = await res.json();
+    if (!res.ok) {
+      setHasMore(false);
+      setLoading(false);
+      return;
+    }
 
-    const filteredMovies = movies.filter(
-      (movie) =>
-        movie.release_date &&
-        movie.poster_path &&
-        movie.vote_average !== 0
+    const data: MoviesSearchResponse = await res.json();
+
+    const filteredMovies = data.results.filter(
+      (movie) => movie.release_date && movie.vote_average !== 0
     );
 
     if (searchPage === 1) {
@@ -75,18 +86,23 @@ export default function MoviesPage() {
     } else {
       setResults((prev) => [...prev, ...filteredMovies]);
     }
+
+    const moreAvailable = searchPage < data.total_pages && filteredMovies.length > 0;
+    setHasMore(moreAvailable);
     setLoading(false);
   };
 
   const onSearch = () => {
     if (!query.trim()) return;
     setPage(1);
+    setHasMore(true);
     addToRecentSearches(query);
     handleSearch(query, 1);
     setIsFocused(false); 
   };
 
   const onShowMore = () => {
+    if (!hasMore || loading) return;
     const newPage = page + 1;
     setPage(newPage);
     handleSearch(query, newPage);
@@ -94,7 +110,7 @@ export default function MoviesPage() {
 
   return (
     <div
-      className="flex flex-col items-center justify-center min-h-screen p-4"
+      className="flex flex-col items-center justify-start min-h-screen p-4 pt-10 gap-10"
       onClick={() => setIsFocused(false)} 
     >
       <div
@@ -172,7 +188,7 @@ export default function MoviesPage() {
               href={`/movies/${movie.id}`}
             />
           ))}
-          {results.length > 0 && (
+          {results.length > 0 && hasMore && (
             <div className="flex justify-center mt-4 w-full">
               <Button onClick={onShowMore} disabled={loading}>
                 {loading ? "Loading..." : "Show More"}

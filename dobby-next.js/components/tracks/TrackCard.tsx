@@ -28,30 +28,21 @@ export default function TrackCard({
 }: TrackCardProps) {
   const [imageError, setImageError] = useState(false);
   const imageUrl = getImageUrl(poster || "");
+  const fallbackUrl = "/assets/placeholder-upload.svg";
 
-  // Fallback
-  const placeholderUrl = "/assets/placeholder-movie.png";
 
   return (
     <Link href={href}>
       <div className="group relative h-72 w-48 cursor-pointer overflow-hidden rounded-2xl border border-border/40 bg-card shadow-soft transition-all duration-500 ease-out hover:-translate-y-1 hover:shadow-magic hover:ring-2 hover:ring-primary/40 hover:animate-glow">
-        {!imageError && poster ? (
-          <Image
-            src={imageUrl}
-            alt={title}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-110"
-            sizes="(max-width: 768px) 100vw, 200px"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-zinc-800/80">
-            <div className="text-center p-4">
-              <div className="text-4xl mb-2">🎬</div>
-              <p className="text-sm text-gray-400 font-semibold line-clamp-2">{title}</p>
-            </div>
-          </div>
-        )}
+        <Image
+          src={!imageError && poster ? imageUrl : fallbackUrl}
+          alt={title}
+          fill
+          className="object-cover transition-transform duration-500 group-hover:scale-110"
+          sizes="(max-width: 768px) 100vw, 200px"
+          onError={() => setImageError(true)}
+          priority={false}
+        />
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 w-full translate-y-2 space-y-1 bg-black/35 px-3 pb-3 pt-2 backdrop-blur-sm opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
