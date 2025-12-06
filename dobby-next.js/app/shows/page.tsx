@@ -163,7 +163,7 @@ export default function ShowsPage() {
               rating={show.vote_average}
               year={show.first_air_date}
               infoAboutTrack={""}
-              onClick={() => {}}
+              href={`/shows/${show.id}`}
             />
           ))}
           {results.length > 0 && (
@@ -195,7 +195,7 @@ export default function ShowsPage() {
                       rating={show.vote_average}
                       year={show.first_air_date}
                       infoAboutTrack={""}
-                      onClick={() => {}}
+                      href={`/shows/${show.id}`}
                     />
                   ))}
               </div>
@@ -221,7 +221,7 @@ export default function ShowsPage() {
                       rating={show.vote_average}
                       year={show.first_air_date}
                       infoAboutTrack={""}
-                      onClick={() => {}}
+                      href={`/shows/${show.id}`}
                     />
                   ))}
               </div>
@@ -247,7 +247,7 @@ export default function ShowsPage() {
                       rating={show.vote_average}
                       year={show.first_air_date}
                       infoAboutTrack={""}
-                      onClick={() => {}}
+                      href={`/shows/${show.id}`}
                     />
                   ))}
               </div>

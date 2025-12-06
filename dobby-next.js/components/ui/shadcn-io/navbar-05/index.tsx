@@ -177,7 +177,7 @@ const UserMenu = ({
 }) => (
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button className="h-9 px-2 py-0 focus:border-white bg-transparent hover:bg-purple-600/20 hover:backdrop-blur-md transition-colors rounded-md flex items-center">
+      <Button className="h-9 px-2 py-0 focus:border-white bg-transparent hover:bg-purple-600/20 hover:backdrop-blur-md transition-colors rounded-md flex items-center cursor-pointer">
         <Avatar className="h-7 w-7">
           <AvatarImage src={userAvatar} alt={userName} />
           <AvatarFallback className="text-xs bg-purple-600 text-white">
@@ -199,7 +199,7 @@ const UserMenu = ({
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
       <DropdownMenuItem asChild className="hover:!text-primary hover:!bg-transparent" onClick={() => onItemClick?.('profile')}>
-        <Link href="/profile" className="hover:text-primary">
+        <Link href="/profile" className="hover:text-primary cursor-pointer">
           Profile
         </Link>
       </DropdownMenuItem>

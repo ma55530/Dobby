@@ -169,9 +169,7 @@ export default function MoviesPage() {
               rating={movie.vote_average}
               year={movie.release_date}
               infoAboutTrack={""}
-              onClick={function (): void {
-                throw new Error("Function not implemented.");
-              }}
+              href={`/movies/${movie.id}`}
             />
           ))}
           {results.length > 0 && (
@@ -203,9 +201,7 @@ export default function MoviesPage() {
                       rating={movie.vote_average}
                       year={movie.release_date}
                       infoAboutTrack={""}
-                      onClick={function (): void {
-                        throw new Error("Function not implemented.");
-                      }}
+                      href={`/movies/${movie.id}`}
                     />
                   ))}
               </div>
@@ -231,9 +227,7 @@ export default function MoviesPage() {
                       rating={movie.vote_average}
                       year={movie.release_date}
                       infoAboutTrack={""}
-                      onClick={function (): void {
-                        throw new Error("Function not implemented.");
-                      }}
+                      href={`/movies/${movie.id}`}
                     />
                   ))}
               </div>
@@ -259,9 +253,7 @@ export default function MoviesPage() {
                       rating={movie.vote_average}
                       year={movie.release_date}
                       infoAboutTrack={""}
-                      onClick={function (): void {
-                        throw new Error("Function not implemented.");
-                      }}
+                      href={`/movies/${movie.id}`}
                     />
                   ))}
               </div>
