@@ -8,6 +8,7 @@ import { getImageUrl } from "@/lib/TMDB_API/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { Bookmark, BookmarkCheck } from "lucide-react";
 
 interface MoviePageProps {
   params: Promise<{
@@ -20,6 +21,10 @@ export default function MoviePage({ params }: MoviePageProps) {
   const [movie, setMovie] = useState<Movie | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [addingToWatchlist, setAddingToWatchlist] = useState(false);
+  const [watchlistMessage, setWatchlistMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [checkingWatchlist, setCheckingWatchlist] = useState(true);
 
   useEffect(() => {
     const fetchMovie = async () => {
@@ -42,6 +47,92 @@ export default function MoviePage({ params }: MoviePageProps) {
 
     fetchMovie();
   }, [id]);
+
+  useEffect(() => {
+    const checkWatchlist = async () => {
+      try {
+        const res = await fetch('/api/watchlist');
+        if (res.ok) {
+          const data = await res.json();
+          const inWatchlist = data.watchlists?.some((watchlist: any) =>
+            watchlist.items?.some((item: any) => 
+              item.type === 'movie' && item.id === parseInt(id)
+            )
+          );
+          setIsInWatchlist(inWatchlist);
+        }
+      } catch (err) {
+        console.error('Failed to check watchlist:', err);
+      } finally {
+        setCheckingWatchlist(false);
+      }
+    };
+
+    checkWatchlist();
+  }, [id]);
+
+  const handleAddToWatchlist = async () => {
+    setAddingToWatchlist(true);
+    setWatchlistMessage(null);
+
+    try {
+      const res = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ movieId: parseInt(id) }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setWatchlistMessage({ type: 'success', text: 'Added to watchlist!' });
+        setIsInWatchlist(true);
+        setTimeout(() => setWatchlistMessage(null), 3000);
+      } else {
+        if (res.status === 409) {
+          setWatchlistMessage({ type: 'error', text: 'Already in watchlist' });
+        } else if (res.status === 401) {
+          setWatchlistMessage({ type: 'error', text: 'Please log in first' });
+        } else {
+          setWatchlistMessage({ type: 'error', text: data.error || 'Failed to add' });
+        }
+        setTimeout(() => setWatchlistMessage(null), 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      setWatchlistMessage({ type: 'error', text: 'Something went wrong' });
+      setTimeout(() => setWatchlistMessage(null), 3000);
+    } finally {
+      setAddingToWatchlist(false);
+    }
+  };
+
+  const handleRemoveFromWatchlist = async () => {
+    setAddingToWatchlist(true);
+    setWatchlistMessage(null);
+
+    try {
+      const res = await fetch(`/api/watchlist?movieId=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setWatchlistMessage({ type: 'success', text: 'Removed from watchlist!' });
+        setIsInWatchlist(false);
+        setTimeout(() => setWatchlistMessage(null), 3000);
+      } else {
+        const data = await res.json();
+        setWatchlistMessage({ type: 'error', text: data.error || 'Failed to remove' });
+        setTimeout(() => setWatchlistMessage(null), 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      setWatchlistMessage({ type: 'error', text: 'Something went wrong' });
+      setTimeout(() => setWatchlistMessage(null), 3000);
+    } finally {
+      setAddingToWatchlist(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -122,6 +213,49 @@ export default function MoviePage({ params }: MoviePageProps) {
                 <Badge variant="outline" className="text-base py-2 px-3">
                   {format(new Date(movie.release_date), "MMMM yyyy")}
                 </Badge>
+              )}
+            </div>
+
+            {/* Watchlist Button */}
+            <div className="flex items-center gap-3">
+              {!checkingWatchlist && (
+                <Button
+                  onClick={isInWatchlist ? handleRemoveFromWatchlist : handleAddToWatchlist}
+                  disabled={addingToWatchlist}
+                  className={isInWatchlist 
+                    ? "bg-red-600 hover:bg-red-700 text-white" 
+                    : "bg-purple-600 hover:bg-purple-700 text-white"
+                  }
+                >
+                  {addingToWatchlist ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {isInWatchlist ? 'Removing...' : 'Adding...'}
+                    </>
+                  ) : (
+                    <>
+                      {isInWatchlist ? (
+                        <>
+                          <BookmarkCheck className="w-4 h-4 mr-2" />
+                          Remove from Watchlist
+                        </>
+                      ) : (
+                        <>
+                          <Bookmark className="w-4 h-4 mr-2" />
+                          Add to Watchlist
+                        </>
+                      )}
+                    </>
+                  )}
+                </Button>
+              )}
+              {watchlistMessage && (
+                <span className={`text-sm ${
+                  watchlistMessage.type === 'success' ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {watchlistMessage.type === 'success' && <BookmarkCheck className="w-4 h-4 inline mr-1" />}
+                  {watchlistMessage.text}
+                </span>
               )}
             </div>
 

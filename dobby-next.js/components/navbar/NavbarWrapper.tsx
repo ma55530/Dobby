@@ -16,6 +16,8 @@ export default function NavbarWrapper() {
     "/shows",
     "/movies/forYou",
     "/shows/forYou",
+    "/watchlist",
+    "/profile",
   ];
 
   useEffect(() => {
@@ -56,6 +58,7 @@ export default function NavbarWrapper() {
         { label: "Home", href: "/" },
         { label: "Movies", href: "/movies" },
         { label: "Shows", href: "/shows" },
+        { label: "Watchlist", href: "/watchlist" },
       ]}
       userName={sessionUser?.name || "Guest"}
       userEmail={sessionUser?.email || ""}
