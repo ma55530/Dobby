@@ -22,10 +22,15 @@ export default function MePage() {
   const [error, setError] = useState<string | null>(null);
   const [updatedProfile, setUpdatedProfile] = useState<Partial<UserProfile>>({});
   const [open, setOpen] = useState(false);
-
-  const favoriteGenres = ["Sci‑Fi", "Drama", "Thriller", "Mystery", "Animation"];
-  const topMovies = ["Interstellar", "Parasite", "The Godfather", "Whiplash"];
-  const topShows = ["Dark", "Chernobyl", "Breaking Bad", "True Detective"];
+  const [profileStats, setProfileStats] = useState<{
+    favoriteGenres: string[];
+    topMovies: Array<{ id: number; title: string; genres: Array<{ id: number; name: string }> }>;
+    topShows: Array<{ id: number; name: string; genres: Array<{ id: number; name: string }> }>;
+  }>({
+    favoriteGenres: [],
+    topMovies: [],
+    topShows: [],
+  });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -39,7 +44,20 @@ export default function MePage() {
       setLoading(false);
     };
 
+    const fetchProfileStats = async () => {
+      try {
+        const res = await fetch("/api/user/profile-stats");
+        if (res.ok) {
+          const stats = await res.json();
+          setProfileStats(stats);
+        }
+      } catch (err) {
+        console.error("Failed to load profile stats:", err);
+      }
+    };
+
     fetchProfile();
+    fetchProfileStats();
   }, []);
 
   const updateProfile = async () => {
@@ -243,11 +261,15 @@ export default function MePage() {
                     <span className="text-white font-medium">Favorite genres</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {favoriteGenres.map((g) => (
-                      <span key={g} className="text-xs px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-gray-300">
-                        {g}
-                      </span>
-                    ))}
+                    {profileStats.favoriteGenres.length > 0 ? (
+                      profileStats.favoriteGenres.map((g) => (
+                        <span key={g} className="text-xs px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-gray-300">
+                          {g}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-gray-500">No genres yet. Watch some movies or shows!</span>
+                    )}
                   </div>
                 </div>
 
@@ -256,12 +278,16 @@ export default function MePage() {
                     <span className="text-white font-medium">Top movies</span>
                   </div>
                   <ul className="text-gray-300 text-sm space-y-1">
-                    {topMovies.map((m) => (
-                      <li key={m} className="flex items-center gap-2">
-                        <Star className="w-3 h-3 text-yellow-400" />
-                        {m}
-                      </li>
-                    ))}
+                    {profileStats.topMovies.length > 0 ? (
+                      profileStats.topMovies.map((m) => (
+                        <li key={m.id} className="flex items-center gap-2">
+                          <Star className="w-3 h-3 text-yellow-400" />
+                          {m.title}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-xs text-gray-500">No movies watched yet</li>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -271,12 +297,16 @@ export default function MePage() {
                   <span className="text-white font-medium">Top shows</span>
                 </div>
                 <ul className="text-gray-300 text-sm space-y-1">
-                  {topShows.map((s) => (
-                    <li key={s} className="flex items-center gap-2">
-                      <Star className="w-3 h-3 text-purple-300" />
-                      {s}
-                    </li>
-                  ))}
+                  {profileStats.topShows.length > 0 ? (
+                    profileStats.topShows.map((s) => (
+                      <li key={s.id} className="flex items-center gap-2">
+                        <Star className="w-3 h-3 text-purple-300" />
+                        {s.name}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-xs text-gray-500">No shows watched yet</li>
+                  )}
                 </ul>
               </div>
             </div>
