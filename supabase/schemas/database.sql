@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS shows (
 -- 3. RATINGS
 -- =====================================
 CREATE TABLE IF NOT EXISTS movie_ratings (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     movie_id BIGINT NOT NULL,
     rating INTEGER CHECK (rating >= 1 AND rating <= 10),
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS movie_ratings (
 );
 
 CREATE TABLE IF NOT EXISTS show_ratings (
-    id BIGSERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     show_id BIGINT NOT NULL,
     rating INTEGER CHECK (rating >= 1 AND rating <= 10),
@@ -219,7 +219,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE, -- The recipient
     actor_id UUID REFERENCES profiles(id) ON DELETE CASCADE, -- The person who triggered the notification
-    type TEXT NOT NULL CHECK (type IN ('follow', 'message', 'like', 'reply')),
+    type TEXT NOT NULL CHECK (type IN ('follow','message','like','reply','review_movie','review_show')),
     resource_id UUID, -- Can be a message_id, or follower_id, etc.
     content TEXT, -- Optional preview text
     is_read BOOLEAN DEFAULT FALSE,
@@ -349,6 +349,30 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Trigger function to create notifications when a review is posted
+CREATE OR REPLACE FUNCTION notify_followers_on_review()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO notifications (user_id, actor_id, type, resource_id, content)
+  SELECT 
+    f.follower_id,
+    NEW.user_id,
+    CASE 
+      WHEN TG_TABLE_NAME = 'movie_ratings' THEN 'review_movie'
+      WHEN TG_TABLE_NAME = 'show_ratings' THEN 'review_show'
+    END,
+    NEW.id,
+    CASE 
+      WHEN TG_TABLE_NAME = 'movie_ratings' THEN 'reviewed a movie with rating ' || NEW.rating || '/10'
+      WHEN TG_TABLE_NAME = 'show_ratings' THEN 'reviewed a show with rating ' || NEW.rating || '/10'
+    END
+  FROM follows f
+  WHERE f.following_id = NEW.user_id AND NEW.review IS NOT NULL;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 
 CREATE TRIGGER trigger_update_movie_recommendations_updated_at
 BEFORE UPDATE ON movie_recommendations
@@ -357,6 +381,18 @@ FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER trigger_update_show_recommendations_updated_at
 BEFORE UPDATE ON show_recommendations
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Trigger on movie_ratings
+CREATE TRIGGER trigger_notify_followers_movie_review
+AFTER INSERT OR UPDATE ON movie_ratings
+FOR EACH ROW
+EXECUTE FUNCTION notify_followers_on_review();
+
+-- Trigger on show_ratings
+CREATE TRIGGER trigger_notify_followers_show_review
+AFTER INSERT OR UPDATE ON show_ratings
+FOR EACH ROW
+EXECUTE FUNCTION notify_followers_on_review();
 
 -- =====================================
 -- 10. INDEXES
@@ -575,6 +611,12 @@ CREATE POLICY "Users can update their own notifications"
 ON notifications FOR UPDATE
 USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
+
+-- Allow system to insert notifications
+CREATE POLICY "Allow system to insert notifications"
+ON notifications
+FOR INSERT
+WITH CHECK (true);
 
 -- =====================================
 -- 12. STORAGE POLICIES (Avatars)

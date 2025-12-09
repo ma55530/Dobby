@@ -1,6 +1,6 @@
 import { UserProfile } from './UserProfile';
 
-export type NotificationType = 'follow' | 'message' | 'like' | 'reply';
+export type NotificationType = 'follow' | 'message' | 'like' | 'reply' | 'review_movie' | 'review_show';
 
 export interface Notification {
   id: string;
