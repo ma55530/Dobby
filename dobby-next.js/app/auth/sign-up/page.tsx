@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import AuthTabs from '@/components/auth/auth-tabs'
-import { SignUpForm } from "@/components/auth/sign-up-form";
 
 export default function Page() {
   const heroImage = "/assets/cinema.jpg";
@@ -21,7 +20,7 @@ export default function Page() {
         
         <div className="relative z-10 flex w-full max-w-7xl mx-auto px-6">
           
-          <div className="w-1/2">
+          <div className="w-1/2 flex flex-col justify-start">
             <h1 className="text-6xl font-bold text-white">
               Discover.<br />Review.<br />Share.
             </h1>
@@ -31,9 +30,9 @@ export default function Page() {
           </div>
           
           
-          <div className="w-1/2 flex justify-center">
+          <div className="w-1/2 flex justify-center items-start">
             <div className="w-full max-w-md">
-              <SignUpForm />
+              <AuthTabs defaultTab="signup" />
             </div>
           </div>
         </div>

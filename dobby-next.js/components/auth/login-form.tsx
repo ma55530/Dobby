@@ -17,7 +17,11 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { GoogleLogo } from '../icons/google-logo'
 
-export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
+interface LoginFormProps extends React.ComponentPropsWithoutRef<'div'> {
+  onSwitchToSignup?: () => void;
+}
+
+export function LoginForm({ className, onSwitchToSignup, ...props }: LoginFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -68,11 +72,11 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
   return (
     <div className={cn('flex flex-col gap-6', className)} {...props}>
       <Card>
-        <CardHeader>
+        <CardHeader className="px-6 pt-6 pb-4">
           <CardTitle className="text-2xl text-white">Login</CardTitle>
           <CardDescription className="text-white">Enter your email below to login to your account</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-6 pb-6">
           <form onSubmit={handleLogin}>
             <div className="flex flex-col gap-6 text-white">
               <div className="grid gap-2 text-white">
@@ -120,9 +124,15 @@ export function LoginForm({ className, ...props }: React.ComponentPropsWithoutRe
             </div>
             <div className="mt-4 text-center text-sm text-white">
               Don&apos;t have an account?{' '}
-              <Link href="/auth/sign-up" className="underline underline-offset-4 font-semibold text-white hover:text-indigo-30">
-                Sign up
-              </Link>
+              {onSwitchToSignup ? (
+                <button type="button" onClick={onSwitchToSignup} className="underline underline-offset-4 font-semibold text-white hover:text-indigo-30">
+                  Sign up
+                </button>
+              ) : (
+                <Link href="/auth/sign-up" className="underline underline-offset-4 font-semibold text-white hover:text-indigo-30">
+                  Sign up
+                </Link>
+              )}
             </div>
           </form>
         </CardContent>
