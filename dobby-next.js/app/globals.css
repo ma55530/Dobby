@@ -153,3 +153,23 @@
   .card {
     @apply bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-sm hover:shadow-md transition-all duration-300;
   }
+
+  /* Custom scrollbar styling */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: #27272a;
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #9333ea;
+    border-radius: 10px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #a855f7;
+  }
+
