@@ -54,14 +54,9 @@ export default function MePage() {
         setAllGenres(genresData.genres || []);
       }
 
-      // Load favorite genres from localStorage
-      const saved = localStorage.getItem('favoriteGenres');
-      if (saved) {
-        try {
-          setFavoriteGenreIds(JSON.parse(saved));
-        } catch (e) {
-          console.error('Failed to parse favorite genres', e);
-        }
+      // Load favorite genres from profile
+      if (profileData.favorite_genres) {
+        setFavoriteGenreIds(profileData.favorite_genres);
       }
 
       setLoading(false);
@@ -160,6 +155,7 @@ export default function MePage() {
                           age: profile.age,
                           bio: profile.bio ?? "",
                         });
+                        setFavoriteGenreIds(profile.favorite_genres ?? []);
                       }
                     }}
                   >
@@ -244,11 +240,12 @@ export default function MePage() {
                                   key={genre.id}
                                   type="button"
                                   onClick={() => {
-                                    if (isSelected) {
-                                      setFavoriteGenreIds(favoriteGenreIds.filter((id) => id !== genre.id));
-                                    } else if (favoriteGenreIds.length < 5) {
-                                      setFavoriteGenreIds([...favoriteGenreIds, genre.id]);
-                                    }
+                                    const newGenres = isSelected
+                                      ? favoriteGenreIds.filter((id) => id !== genre.id)
+                                      : favoriteGenreIds.length < 5
+                                      ? [...favoriteGenreIds, genre.id]
+                                      : favoriteGenreIds;
+                                    setFavoriteGenreIds(newGenres);
                                   }}
                                   className={`px-3 py-1 text-xs rounded-full border transition ${
                                     isSelected
@@ -276,9 +273,22 @@ export default function MePage() {
                         </button>
                         <button
                           onClick={async () => {
-                            await updateProfile();
-                            // Save favorite genres to localStorage
-                            localStorage.setItem('favoriteGenres', JSON.stringify(favoriteGenreIds));
+                            // Include favorite genres in update
+                            await fetch("/api/user", {
+                              method: "PATCH",
+                              headers: {
+                                "Content-Type": "application/json",
+                              },
+                              body: JSON.stringify({
+                                ...updatedProfile,
+                                favorite_genres: favoriteGenreIds,
+                              }),
+                            }).then(async (res) => {
+                              if (res.ok) {
+                                const updatedData = await res.json();
+                                setProfile(updatedData);
+                              }
+                            });
                             setOpen(false);
                           }}
                           className="px-3 py-1.5 rounded-md bg-purple-600/80 border border-purple-400 text-white hover:bg-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-400/60 transition"
