@@ -24,6 +24,7 @@ export default function MePage() {
   const [open, setOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
 
   const favoriteGenres = ["Sci‑Fi", "Drama", "Thriller", "Mystery", "Animation"];
   const topMovies = ["Interstellar", "Parasite", "The Godfather", "Whiplash"];
@@ -38,6 +39,16 @@ export default function MePage() {
       }
       const data = await res.json();
       setProfile(data);
+      
+      // Fetch follow counts
+      if (data.id) {
+        const countsRes = await fetch(`/api/follows/count/${data.id}`);
+        if (countsRes.ok) {
+          const countsData = await countsRes.json();
+          setFollowCounts(countsData);
+        }
+      }
+      
       setLoading(false);
     };
 
@@ -136,6 +147,19 @@ export default function MePage() {
                 {(profile.first_name || profile.last_name) && (
                   <p className="text-gray-400">{profile.first_name} {profile.last_name}</p>
                 )}
+                
+                {/* Follow counts */}
+                <div className="mt-4 flex gap-6 text-sm">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-white">{followCounts.followers}</p>
+                    <p className="text-gray-400">Followers</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-white">{followCounts.following}</p>
+                    <p className="text-gray-400">Following</p>
+                  </div>
+                </div>
+
                 <div className="mt-4 w-full space-y-2 text-sm text-gray-300">
                   <div className="flex items-center justify-center gap-2">
                     <Mail className="w-4 h-4 text-gray-400" />
