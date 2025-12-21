@@ -1,12 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 // Unfriend / remove friendship
 export async function DELETE(
-  request: Request,
-  { params }: { params: { userId: string } }
+  request: NextRequest,
+  context: { params: Promise<{ userId: string }> }
 ) {
   try {
+    const { userId } = await context.params;
     const supabase = await createClient();
 
     // Get current user
@@ -15,7 +16,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const targetUserId = params.userId;
+    const targetUserId = userId;
 
     // Delete the friendship
     const { error } = await supabase

@@ -13,7 +13,7 @@ export async function GET() {
 
     try {
         // Build query
-        let query = supabase
+        const query = supabase
             .from('watchlists')
             .select(`
             id,

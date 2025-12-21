@@ -1,12 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 // Accept friend request
 export async function POST(
-  request: Request,
-  { params }: { params: { requestId: string } }
+  request: NextRequest,
+  context: { params: Promise<{ requestId: string }> }
 ) {
   try {
+    const { requestId } = await context.params;
     const supabase = await createClient();
 
     // Get current user
@@ -19,7 +20,7 @@ export async function POST(
     const { data: friendship, error: fetchError } = await supabase
       .from("friendships")
       .select("*")
-      .eq("id", params.requestId)
+      .eq("id", requestId)
       .eq("recipient_id", user.id)
       .eq("status", "pending")
       .single();
@@ -32,7 +33,7 @@ export async function POST(
     const { error: updateError } = await supabase
       .from("friendships")
       .update({ status: "accepted" })
-      .eq("id", params.requestId);
+      .eq("id", requestId);
 
     if (updateError) {
       console.error("Error accepting request:", updateError);

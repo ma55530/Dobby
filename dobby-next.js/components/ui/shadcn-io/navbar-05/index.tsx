@@ -114,6 +114,18 @@ const InfoMenu = ({ onItemClick }: { onItemClick?: (item: string) => void }) => 
   </DropdownMenu>
 );
 
+interface Notification {
+  id: string;
+  is_read: boolean;
+  actor: {
+    username: string;
+    avatar_url: string;
+    first_name: string;
+    last_name: string;
+  };
+  type: 'follow' | 'message' | 'like' | 'reply';
+}
+
 // Notification Menu Component
 const NotificationMenu = ({ 
   notificationCount = 0, 
@@ -122,7 +134,7 @@ const NotificationMenu = ({
   notificationCount?: number;
   onItemClick?: (item: string) => void;
 }) => {
-  const [notifications, setNotifications] = React.useState<any[]>([]);
+  const [notifications, setNotifications] = React.useState<Notification[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   const fetchNotifications = React.useCallback(async () => {
@@ -130,7 +142,7 @@ const NotificationMenu = ({
       const res = await fetch("/api/notifications");
       if (res.ok) {
         const data = await res.json();
-        setNotifications(Array.isArray(data) ? data.filter((n: any) => !n.is_read) : []);
+        setNotifications(Array.isArray(data) ? data.filter((n: Notification) => !n.is_read) : []);
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);

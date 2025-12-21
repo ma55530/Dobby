@@ -10,7 +10,6 @@ export function getImageUrl(imageUrl: string){
 export async function getMovieDetails(movieId: number): Promise<Movie | null> {
   try {
     const response = await fetch(`/api/movies/${movieId}`, {
-      cache: 'revalidate',
       next: { revalidate: 3600 } // Revalidate every hour
     });
     
@@ -29,7 +28,6 @@ export async function getMovieDetails(movieId: number): Promise<Movie | null> {
 export async function getShowDetails(showId: number): Promise<Show | null> {
   try {
     const response = await fetch(`/api/shows/${showId}`, {
-      cache: 'revalidate',
       next: { revalidate: 3600 } // Revalidate every hour
     });
     

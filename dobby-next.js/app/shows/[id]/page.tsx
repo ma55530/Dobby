@@ -16,6 +16,15 @@ interface ShowPageProps {
   }>;
 }
 
+interface WatchlistItem {
+  type: 'movie' | 'show';
+  id: number;
+}
+
+interface Watchlist {
+  items: WatchlistItem[];
+}
+
 export default function ShowPage({ params }: ShowPageProps) {
   const { id } = use(params);
   const [show, setShow] = useState<Show | null>(null);
@@ -54,8 +63,8 @@ export default function ShowPage({ params }: ShowPageProps) {
         const res = await fetch('/api/watchlist');
         if (res.ok) {
           const data = await res.json();
-          const inWatchlist = data.watchlists?.some((watchlist: any) =>
-            watchlist.items?.some((item: any) => 
+          const inWatchlist = data.watchlists?.some((watchlist: Watchlist) =>
+            watchlist.items?.some((item: WatchlistItem) => 
               item.type === 'show' && item.id === parseInt(id)
             )
           );
