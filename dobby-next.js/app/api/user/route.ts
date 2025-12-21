@@ -16,9 +16,8 @@ const ALLOWED_UPDATE_FIELDS = new Set([
 export async function GET() {
   const supabase = await createClient();
   
-  const { data: { session }, error: sessionError} = await supabase.auth.getSession();
-  const user = session?.user;
-  if (sessionError || !user) {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -42,13 +41,9 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession()
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-  const user = session?.user;
-  if (sessionError || !user) {
+  if (userError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

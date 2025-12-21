@@ -29,6 +29,8 @@ export default function MePage() {
   const [open, setOpen] = useState(false);
   const [allGenres, setAllGenres] = useState<Genre[]>([]);
   const [favoriteGenreIds, setFavoriteGenreIds] = useState<number[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const topMovies = ["Interstellar", "Parasite", "The Godfather", "Whiplash"];
   const topShows = ["Dark", "Chernobyl", "Breaking Bad", "True Detective"];
@@ -66,12 +68,45 @@ export default function MePage() {
   }, []);
 
   const updateProfile = async () => {
+    // 1. Upload avatar if selected
+    let newAvatarUrl = null;
+    if (selectedFile) {
+      const formData = new FormData();
+      formData.append("avatar", selectedFile);
+
+      try {
+        const res = await fetch("/api/user/avatar", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error("Upload failed:", errorText);
+          alert("Failed to upload image");
+          return;
+        }
+
+        const data = await res.json();
+        newAvatarUrl = data.avatar_url;
+      } catch (err) {
+        console.error("Error uploading avatar:", err);
+        alert("Error uploading avatar");
+        return;
+      }
+    }
+    // 2. Update profile data
+    const finalProfileUpdate = { ...updatedProfile };
+    if (newAvatarUrl) {
+      finalProfileUpdate.avatar_url = newAvatarUrl;
+    }
+
     const res = await fetch("/api/user", {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(updatedProfile),
+      body: JSON.stringify(finalProfileUpdate),
     });
 
     if (!res.ok) {
@@ -156,6 +191,8 @@ export default function MePage() {
                           bio: profile.bio ?? "",
                         });
                         setFavoriteGenreIds(profile.favorite_genres ?? []);
+                        setSelectedFile(null);
+                        setPreviewUrl(null);
                       }
                     }}
                   >
@@ -177,6 +214,32 @@ export default function MePage() {
                         </DialogHeader>
 
                       <div className="grid gap-3 overflow-y-auto pr-2 custom-scrollbar">
+                        <div className="grid gap-2.5">
+                          <Label htmlFor="avatar">Profile Picture</Label>
+                          {previewUrl && (
+                            <div className="relative w-20 h-20 rounded-full overflow-hidden mx-auto mb-2 ring-2 ring-purple-400/40">
+                              <Image src={previewUrl} alt="Preview" fill className="object-cover" />
+                            </div>
+                          )}
+                          <Input
+                            id="avatar"
+                            type="file"
+                            accept="image/*"
+                            className="bg-zinc-900 border-zinc-700 text-gray-200"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 5 * 1024 * 1024) {
+                                  alert("File size too large (max 5MB)");
+                                  e.target.value = ""; // Reset input
+                                  return;
+                                }
+                                setSelectedFile(file);
+                                setPreviewUrl(URL.createObjectURL(file));
+                              }
+                            }}
+                          />
+                        </div>
                         <div className="grid gap-2.5">
                           <Label htmlFor="username">Username</Label>
                           <Input
