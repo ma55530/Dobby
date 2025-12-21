@@ -16,30 +16,53 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
+interface Genre {
+  id: number;
+  name: string;
+}
+
 export default function MePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatedProfile, setUpdatedProfile] = useState<Partial<UserProfile>>({});
   const [open, setOpen] = useState(false);
+  const [allGenres, setAllGenres] = useState<Genre[]>([]);
+  const [favoriteGenreIds, setFavoriteGenreIds] = useState<number[]>([]);
 
-  const favoriteGenres = ["Sci‑Fi", "Drama", "Thriller", "Mystery", "Animation"];
   const topMovies = ["Interstellar", "Parasite", "The Godfather", "Whiplash"];
   const topShows = ["Dark", "Chernobyl", "Breaking Bad", "True Detective"];
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const res = await fetch("/api/user");
-      if (!res.ok) {
+    const fetchData = async () => {
+      const [profileRes, genresRes] = await Promise.all([
+        fetch("/api/user"),
+        fetch("/api/genres"),
+      ]);
+
+      if (!profileRes.ok) {
         setError("Failed to load profile");
+        setLoading(false);
         return;
       }
-      const data = await res.json();
-      setProfile(data);
+
+      const profileData = await profileRes.json();
+      setProfile(profileData);
+
+      if (genresRes.ok) {
+        const genresData = await genresRes.json();
+        setAllGenres(genresData.genres || []);
+      }
+
+      // Load favorite genres from profile
+      if (profileData.favorite_genres) {
+        setFavoriteGenreIds(profileData.favorite_genres);
+      }
+
       setLoading(false);
     };
 
-    fetchProfile();
+    fetchData();
   }, []);
 
   const updateProfile = async () => {
@@ -132,6 +155,7 @@ export default function MePage() {
                           age: profile.age,
                           bio: profile.bio ?? "",
                         });
+                        setFavoriteGenreIds(profile.favorite_genres ?? []);
                       }
                     }}
                   >
@@ -142,8 +166,8 @@ export default function MePage() {
                         Edit Profile
                       </button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[500px] bg-zinc-900 border border-zinc-700 text-gray-200">
-                    <DialogHeader className="space-y-2">
+                    <DialogContent className="sm:max-w-[500px] bg-zinc-900 border border-zinc-700 text-gray-200 max-h-[85vh] flex flex-col">
+                    <DialogHeader className="space-y-2 flex-shrink-0">
                         <DialogTitle className="text-2xl font-semibold text-white text-left">
                             Edit Profile
                         </DialogTitle>
@@ -152,7 +176,7 @@ export default function MePage() {
                         </DialogDescription>
                         </DialogHeader>
 
-                      <div className="grid gap-3">
+                      <div className="grid gap-3 overflow-y-auto pr-2 custom-scrollbar">
                         <div className="grid gap-2.5">
                           <Label htmlFor="username">Username</Label>
                           <Input
@@ -205,9 +229,42 @@ export default function MePage() {
                             onChange={(e) => setUpdatedProfile({ ...updatedProfile, bio: e.target.value })}
                           />
                         </div>
+                        <div className="grid gap-2.5">
+                          <Label>Favorite Genres (Top 5)</Label>
+                          <p className="text-xs text-gray-400">Select up to 5 favorite genres</p>
+                          <div className="flex flex-wrap gap-2 p-3 rounded-md bg-zinc-900 border border-zinc-700 max-h-48 overflow-y-auto custom-scrollbar">
+                            {allGenres.map((genre) => {
+                              const isSelected = favoriteGenreIds.includes(genre.id);
+                              return (
+                                <button
+                                  key={genre.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const newGenres = isSelected
+                                      ? favoriteGenreIds.filter((id) => id !== genre.id)
+                                      : favoriteGenreIds.length < 5
+                                      ? [...favoriteGenreIds, genre.id]
+                                      : favoriteGenreIds;
+                                    setFavoriteGenreIds(newGenres);
+                                  }}
+                                  className={`px-3 py-1 text-xs rounded-full border transition ${
+                                    isSelected
+                                      ? "bg-purple-600 border-purple-400 text-white"
+                                      : favoriteGenreIds.length >= 5
+                                      ? "bg-zinc-800 border-zinc-700 text-gray-500 cursor-not-allowed"
+                                      : "bg-zinc-800 border-zinc-700 text-gray-300 hover:border-purple-400"
+                                  }`}
+                                  disabled={!isSelected && favoriteGenreIds.length >= 5}
+                                >
+                                  {genre.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="mt-4 flex justify-end gap-2">
+                      <div className="mt-4 flex justify-end gap-2 flex-shrink-0 pt-4 border-t border-zinc-700">
                         <button
                           onClick={() => setOpen(false)}
                           className="px-3 py-1.5 rounded-md bg-zinc-800/80 border border-zinc-700 text-gray-300 hover:bg-zinc-800 transition"
@@ -216,7 +273,22 @@ export default function MePage() {
                         </button>
                         <button
                           onClick={async () => {
-                            await updateProfile();
+                            // Include favorite genres in update
+                            await fetch("/api/user", {
+                              method: "PATCH",
+                              headers: {
+                                "Content-Type": "application/json",
+                              },
+                              body: JSON.stringify({
+                                ...updatedProfile,
+                                favorite_genres: favoriteGenreIds,
+                              }),
+                            }).then(async (res) => {
+                              if (res.ok) {
+                                const updatedData = await res.json();
+                                setProfile(updatedData);
+                              }
+                            });
                             setOpen(false);
                           }}
                           className="px-3 py-1.5 rounded-md bg-purple-600/80 border border-purple-400 text-white hover:bg-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-400/60 transition"
@@ -243,11 +315,18 @@ export default function MePage() {
                     <span className="text-white font-medium">Favorite genres</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {favoriteGenres.map((g) => (
-                      <span key={g} className="text-xs px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-gray-300">
-                        {g}
-                      </span>
-                    ))}
+                    {(favoriteGenreIds.length > 0) ? (
+                      favoriteGenreIds.map((genreId) => {
+                        const genre = allGenres.find((g) => g.id === genreId);
+                        return genre ? (
+                          <span key={genreId} className="text-xs px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-gray-300">
+                            {genre.name}
+                          </span>
+                        ) : null;
+                      })
+                    ) : (
+                      <span className="text-xs text-gray-500">No favorite genres selected</span>
+                    )}
                   </div>
                 </div>
 
