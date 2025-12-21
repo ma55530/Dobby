@@ -33,7 +33,12 @@ export async function GET(request: Request) {
     const data = await response.json();
 
     const movies: Movies[] = data.results;
-    return NextResponse.json(movies);
+    return NextResponse.json({
+      results: movies,
+      page: data.page,
+      total_pages: data.total_pages,
+      total_results: data.total_results,
+    });
 
   } catch (error) {
     console.error('Internal Server Error:', error);
