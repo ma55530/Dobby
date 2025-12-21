@@ -45,6 +45,7 @@ export async function updateSession(request: NextRequest) {
     '/login',
     '/movies',
     '/shows',
+    '/users',
   ]
   
   const isPublicPath = publicPaths.some(path => 
