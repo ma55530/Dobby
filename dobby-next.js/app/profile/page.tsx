@@ -16,39 +16,125 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
+interface Genre {
+  id: number;
+  name: string;
+}
+
 export default function MePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatedProfile, setUpdatedProfile] = useState<Partial<UserProfile>>({});
   const [open, setOpen] = useState(false);
-
-  const favoriteGenres = ["Sci‑Fi", "Drama", "Thriller", "Mystery", "Animation"];
-  const topMovies = ["Interstellar", "Parasite", "The Godfather", "Whiplash"];
-  const topShows = ["Dark", "Chernobyl", "Breaking Bad", "True Detective"];
+  const [allGenres, setAllGenres] = useState<Genre[]>([]);
+  const [favoriteGenreIds, setFavoriteGenreIds] = useState<number[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
+  const [profileStats, setProfileStats] = useState<{
+    favoriteGenres: string[];
+    topMovies: Array<{ id: number; title: string; genres: Array<{ id: number; name: string }> }>;
+    topShows: Array<{ id: number; name: string; genres: Array<{ id: number; name: string }> }>;
+  }>({
+    favoriteGenres: [],
+    topMovies: [],
+    topShows: [],
+  });
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const res = await fetch("/api/user");
-      if (!res.ok) {
+    const fetchData = async () => {
+      const [profileRes, genresRes] = await Promise.all([
+        fetch("/api/user"),
+        fetch("/api/genres"),
+      ]);
+
+      if (!profileRes.ok) {
         setError("Failed to load profile");
+        setLoading(false);
         return;
       }
-      const data = await res.json();
-      setProfile(data);
+      const profileData = await profileRes.json();
+      setProfile(profileData);
+
+      if (genresRes.ok) {
+        const genresData = await genresRes.json();
+        setAllGenres(genresData.genres || []);
+      }
+
+      // Load favorite genres from profile
+      if (profileData.favorite_genres) {
+        setFavoriteGenreIds(profileData.favorite_genres);
+      }
+      
+      // Fetch follow counts
+      if (profileData.id) {
+        const countsRes = await fetch(`/api/user/follow?id=${profileData.id}`);
+        if (countsRes.ok) {
+          const countsData = await countsRes.json();
+          setFollowCounts(countsData);
+        }
+      }
+      
       setLoading(false);
     };
 
-    fetchProfile();
+    const fetchProfileStats = async () => {
+      try {
+        const res = await fetch("/api/user/profile-stats");
+        if (res.ok) {
+          const stats = await res.json();
+          setProfileStats(stats);
+        }
+      } catch (err) {
+        console.error("Failed to load profile stats:", err);
+      }
+    };
+
+    fetchData();
+    fetchProfileStats();
   }, []);
 
   const updateProfile = async () => {
+    // 1. Upload avatar if selected
+    let newAvatarUrl = null;
+    if (selectedFile) {
+      const formData = new FormData();
+      formData.append("avatar", selectedFile);
+
+      try {
+        const res = await fetch("/api/user/avatar", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error("Upload failed:", errorText);
+          alert("Failed to upload image");
+          return;
+        }
+
+        const data = await res.json();
+        newAvatarUrl = data.avatar_url;
+      } catch (err) {
+        console.error("Error uploading avatar:", err);
+        alert("Error uploading avatar");
+        return;
+      }
+    }
+    // 2. Update profile data
+    const finalProfileUpdate = { ...updatedProfile };
+    if (newAvatarUrl) {
+      finalProfileUpdate.avatar_url = newAvatarUrl;
+    }
+
     const res = await fetch("/api/user", {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(updatedProfile),
+      body: JSON.stringify(finalProfileUpdate),
     });
 
     if (!res.ok) {
@@ -101,6 +187,19 @@ export default function MePage() {
                 {(profile.first_name || profile.last_name) && (
                   <p className="text-gray-400">{profile.first_name} {profile.last_name}</p>
                 )}
+                
+                {/* Follow counts */}
+                <div className="mt-4 flex gap-6 text-sm">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-white">{followCounts.followers}</p>
+                    <p className="text-gray-400">Followers</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-white">{followCounts.following}</p>
+                    <p className="text-gray-400">Following</p>
+                  </div>
+                </div>
+
                 <div className="mt-4 w-full space-y-2 text-sm text-gray-300">
                   <div className="flex items-center justify-center gap-2">
                     <Mail className="w-4 h-4 text-gray-400" />
@@ -132,6 +231,9 @@ export default function MePage() {
                           age: profile.age,
                           bio: profile.bio ?? "",
                         });
+                        setFavoriteGenreIds(profile.favorite_genres ?? []);
+                        setSelectedFile(null);
+                        setPreviewUrl(null);
                       }
                     }}
                   >
@@ -142,8 +244,8 @@ export default function MePage() {
                         Edit Profile
                       </button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[500px] bg-zinc-900 border border-zinc-700 text-gray-200">
-                    <DialogHeader className="space-y-2">
+                    <DialogContent className="sm:max-w-[500px] bg-zinc-900 border border-zinc-700 text-gray-200 max-h-[85vh] flex flex-col">
+                    <DialogHeader className="space-y-2 flex-shrink-0">
                         <DialogTitle className="text-2xl font-semibold text-white text-left">
                             Edit Profile
                         </DialogTitle>
@@ -152,7 +254,33 @@ export default function MePage() {
                         </DialogDescription>
                         </DialogHeader>
 
-                      <div className="grid gap-3">
+                      <div className="grid gap-3 overflow-y-auto pr-2 custom-scrollbar">
+                        <div className="grid gap-2.5">
+                          <Label htmlFor="avatar">Profile Picture</Label>
+                          {previewUrl && (
+                            <div className="relative w-20 h-20 rounded-full overflow-hidden mx-auto mb-2 ring-2 ring-purple-400/40">
+                              <Image src={previewUrl} alt="Preview" fill className="object-cover" />
+                            </div>
+                          )}
+                          <Input
+                            id="avatar"
+                            type="file"
+                            accept="image/*"
+                            className="bg-zinc-900 border-zinc-700 text-gray-200"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 5 * 1024 * 1024) {
+                                  alert("File size too large (max 5MB)");
+                                  e.target.value = ""; // Reset input
+                                  return;
+                                }
+                                setSelectedFile(file);
+                                setPreviewUrl(URL.createObjectURL(file));
+                              }
+                            }}
+                          />
+                        </div>
                         <div className="grid gap-2.5">
                           <Label htmlFor="username">Username</Label>
                           <Input
@@ -205,9 +333,42 @@ export default function MePage() {
                             onChange={(e) => setUpdatedProfile({ ...updatedProfile, bio: e.target.value })}
                           />
                         </div>
+                        <div className="grid gap-2.5">
+                          <Label>Favorite Genres (Top 5)</Label>
+                          <p className="text-xs text-gray-400">Select up to 5 favorite genres</p>
+                          <div className="flex flex-wrap gap-2 p-3 rounded-md bg-zinc-900 border border-zinc-700 max-h-48 overflow-y-auto custom-scrollbar">
+                            {allGenres.map((genre) => {
+                              const isSelected = favoriteGenreIds.includes(genre.id);
+                              return (
+                                <button
+                                  key={genre.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const newGenres = isSelected
+                                      ? favoriteGenreIds.filter((id) => id !== genre.id)
+                                      : favoriteGenreIds.length < 5
+                                      ? [...favoriteGenreIds, genre.id]
+                                      : favoriteGenreIds;
+                                    setFavoriteGenreIds(newGenres);
+                                  }}
+                                  className={`px-3 py-1 text-xs rounded-full border transition ${
+                                    isSelected
+                                      ? "bg-purple-600 border-purple-400 text-white"
+                                      : favoriteGenreIds.length >= 5
+                                      ? "bg-zinc-800 border-zinc-700 text-gray-500 cursor-not-allowed"
+                                      : "bg-zinc-800 border-zinc-700 text-gray-300 hover:border-purple-400"
+                                  }`}
+                                  disabled={!isSelected && favoriteGenreIds.length >= 5}
+                                >
+                                  {genre.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="mt-4 flex justify-end gap-2">
+                      <div className="mt-4 flex justify-end gap-2 flex-shrink-0 pt-4 border-t border-zinc-700">
                         <button
                           onClick={() => setOpen(false)}
                           className="px-3 py-1.5 rounded-md bg-zinc-800/80 border border-zinc-700 text-gray-300 hover:bg-zinc-800 transition"
@@ -216,7 +377,22 @@ export default function MePage() {
                         </button>
                         <button
                           onClick={async () => {
-                            await updateProfile();
+                            // Include favorite genres in update
+                            await fetch("/api/user", {
+                              method: "PATCH",
+                              headers: {
+                                "Content-Type": "application/json",
+                              },
+                              body: JSON.stringify({
+                                ...updatedProfile,
+                                favorite_genres: favoriteGenreIds,
+                              }),
+                            }).then(async (res) => {
+                              if (res.ok) {
+                                const updatedData = await res.json();
+                                setProfile(updatedData);
+                              }
+                            });
                             setOpen(false);
                           }}
                           className="px-3 py-1.5 rounded-md bg-purple-600/80 border border-purple-400 text-white hover:bg-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-400/60 transition"
@@ -243,11 +419,15 @@ export default function MePage() {
                     <span className="text-white font-medium">Favorite genres</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {favoriteGenres.map((g) => (
-                      <span key={g} className="text-xs px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-gray-300">
-                        {g}
-                      </span>
-                    ))}
+                    {profileStats.favoriteGenres.length > 0 ? (
+                      profileStats.favoriteGenres.map((g) => (
+                        <span key={g} className="text-xs px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-gray-300">
+                          {g}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-gray-500">No genres yet. Watch some movies or shows!</span>
+                    )}
                   </div>
                 </div>
 
@@ -256,12 +436,16 @@ export default function MePage() {
                     <span className="text-white font-medium">Top movies</span>
                   </div>
                   <ul className="text-gray-300 text-sm space-y-1">
-                    {topMovies.map((m) => (
-                      <li key={m} className="flex items-center gap-2">
-                        <Star className="w-3 h-3 text-yellow-400" />
-                        {m}
-                      </li>
-                    ))}
+                    {profileStats.topMovies.length > 0 ? (
+                      profileStats.topMovies.map((m) => (
+                        <li key={m.id} className="flex items-center gap-2">
+                          <Star className="w-3 h-3 text-yellow-400" />
+                          {m.title}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-xs text-gray-500">No movies watched yet</li>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -271,12 +455,16 @@ export default function MePage() {
                   <span className="text-white font-medium">Top shows</span>
                 </div>
                 <ul className="text-gray-300 text-sm space-y-1">
-                  {topShows.map((s) => (
-                    <li key={s} className="flex items-center gap-2">
-                      <Star className="w-3 h-3 text-purple-300" />
-                      {s}
-                    </li>
-                  ))}
+                  {profileStats.topShows.length > 0 ? (
+                    profileStats.topShows.map((s) => (
+                      <li key={s.id} className="flex items-center gap-2">
+                        <Star className="w-3 h-3 text-purple-300" />
+                        {s.name}
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-xs text-gray-500">No shows watched yet</li>
+                  )}
                 </ul>
               </div>
             </div>
@@ -295,9 +483,7 @@ export default function MePage() {
         )}
       </section>
 
-      <footer className="border-t border-zinc-800 py-6 text-center text-gray-400 w-full mt-auto">
-        © 2025 Dobby. Your social network for cinema.
-      </footer>
+      
     </main>
   );
 }

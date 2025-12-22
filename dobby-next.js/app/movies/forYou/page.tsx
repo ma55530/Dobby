@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Movie } from "@/lib/types/Movie";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
@@ -80,7 +81,8 @@ export default function MoviesForYouPage() {
 </button>
 
   {/* Movie card */}
-  <div className="flex flex-col md:flex-row items-center md:items-stretch bg-gray-900/60 backdrop-blur rounded-2xl shadow-[0_0_30px_rgba(0,0,0,0.8)] border border-purple-500/40 overflow-hidden w-full mx-8 transition-shadow hover:shadow-[0_0_50px_rgba(0,0,0,1)]">
+  <Link href={`/movies/${movie.id}`} className="w-full mx-8">
+    <div className="flex flex-col md:flex-row items-center md:items-stretch bg-gray-900/60 backdrop-blur rounded-2xl shadow-[0_0_30px_rgba(0,0,0,0.8)] border border-purple-500/40 overflow-hidden w-full transition-shadow hover:shadow-[0_0_50px_rgba(0,0,0,1)] cursor-pointer">
     {/* Poster */}
     <div className="w-full md:w-1/3 lg:w-1/4">
       <Image
@@ -127,6 +129,7 @@ export default function MoviesForYouPage() {
       </div>
     </div>
   </div>
+  </Link>
 
   {/* Right arrow */}
   <button

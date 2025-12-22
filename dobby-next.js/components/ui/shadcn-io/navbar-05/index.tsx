@@ -114,54 +114,132 @@ const InfoMenu = ({ onItemClick }: { onItemClick?: (item: string) => void }) => 
   </DropdownMenu>
 );
 
+interface Notification {
+  id: string;
+  is_read: boolean;
+  actor: {
+    username: string;
+    avatar_url: string;
+    first_name: string;
+    last_name: string;
+  };
+  type: 'follow' | 'message' | 'like' | 'reply';
+}
+
 // Notification Menu Component
 const NotificationMenu = ({ 
-  notificationCount = 3, 
+  notificationCount = 0, 
   onItemClick 
 }: { 
   notificationCount?: number;
   onItemClick?: (item: string) => void;
-}) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button variant="ghost" size="icon" className="h-9 w-9 relative">
-        <BellIcon className="h-4 w-4" />
-        {notificationCount > 0 && (
-          <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
-            {notificationCount > 9 ? '9+' : notificationCount}
-          </Badge>
+}) => {
+  const [notifications, setNotifications] = React.useState<Notification[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const fetchNotifications = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications");
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(Array.isArray(data) ? data.filter((n: Notification) => !n.is_read) : []);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      const res = await fetch(`/api/notifications/${notificationId}/read`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        setNotifications(notifications.filter((n) => n.id !== notificationId));
+      }
+    } catch (error) {
+      console.error("Error marking as read:", error);
+    }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-9 w-9 relative">
+          <BellIcon className="h-4 w-4" />
+          {notifications.length > 0 && (
+            <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
+              {notifications.length > 9 ? '9+' : notifications.length}
+            </Badge>
+          )}
+          <span className="sr-only">Notifications</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
+        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {loading && (
+          <div className="p-8 text-center text-muted-foreground">
+            <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+          </div>
         )}
-        <span className="sr-only">Notifications</span>
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" className="w-80">
-      <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={() => onItemClick?.('notification1')}>
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium">New message received</p>
-          <p className="text-xs text-muted-foreground">2 minutes ago</p>
-        </div>
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => onItemClick?.('notification2')}>
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium">System update available</p>
-          <p className="text-xs text-muted-foreground">1 hour ago</p>
-        </div>
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => onItemClick?.('notification3')}>
-        <div className="flex flex-col gap-1">
-          <p className="text-sm font-medium">Weekly report ready</p>
-          <p className="text-xs text-muted-foreground">3 hours ago</p>
-        </div>
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={() => onItemClick?.('view-all')}>
-        View all notifications
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-);
+        {!loading && notifications.length === 0 && (
+          <div className="p-8 text-center text-muted-foreground">
+            <BellIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No new notifications</p>
+          </div>
+        )}
+        {!loading && notifications.length > 0 && notifications.slice(0, 10).map((notification) => (
+          <div key={notification.id} className="p-3 border-b last:border-0 hover:bg-accent/50 transition-colors group">
+            <div className="flex items-start gap-3">
+              <Link href={`/users/${notification.actor.username}`}>
+                <Avatar className="h-10 w-10 cursor-pointer">
+                  <AvatarImage src={notification.actor.avatar_url} alt={notification.actor.username} />
+                  <AvatarFallback>{(notification.actor.first_name?.[0] || notification.actor.username[0]).toUpperCase()}</AvatarFallback>
+                </Avatar>
+              </Link>
+              <div className="flex-1 min-w-0">
+                <Link href={`/users/${notification.actor.username}`} className="hover:underline">
+                  <p className="font-medium text-sm truncate">@{notification.actor.username}</p>
+                  {(notification.actor.first_name || notification.actor.last_name) && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {notification.actor.first_name} {notification.actor.last_name}
+                    </p>
+                  )}
+                </Link>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {notification.type === 'follow' && 'started following you'}
+                  {notification.type === 'message' && 'sent you a message'}
+                  {notification.type === 'like' && 'liked your content'}
+                  {notification.type === 'reply' && 'replied to you'}
+                </p>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleMarkAsRead(notification.id);
+                  }}
+                  className="h-6 text-xs mt-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  Mark as read
+                </Button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
 
 // User Menu Component
 const UserMenu = ({
@@ -177,7 +255,7 @@ const UserMenu = ({
 }) => (
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <Button className="h-9 px-2 py-0 focus:border-white bg-transparent hover:bg-purple-600/20 hover:backdrop-blur-md transition-colors rounded-md flex items-center">
+      <Button className="h-9 px-2 py-0 focus:border-white bg-transparent hover:bg-purple-600/20 hover:backdrop-blur-md transition-colors rounded-md flex items-center cursor-pointer">
         <Avatar className="h-7 w-7">
           <AvatarImage src={userAvatar} alt={userName} />
           <AvatarFallback className="text-xs bg-purple-600 text-white">
@@ -199,7 +277,7 @@ const UserMenu = ({
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
       <DropdownMenuItem asChild className="hover:!text-primary hover:!bg-transparent" onClick={() => onItemClick?.('profile')}>
-        <Link href="/profile" className="hover:text-primary">
+        <Link href="/profile" className="hover:text-primary cursor-pointer">
           Profile
         </Link>
       </DropdownMenuItem>
@@ -225,7 +303,7 @@ function ForYouDropdown({ onNavItemClick }: { onNavItemClick?: (href: string) =>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="inline-flex items-center text-lg font-semibold text-muted-foreground px-4 py-2 rounded-md transition-colors hover:text-primary hover:bg-transparent"
+          className="inline-flex items-center text-lg font-semibold text-muted-foreground px-4 py-2 rounded-md transition-colors hover:text-primary hover:bg-transparent cursor-pointer"
         >
           For You
           <ChevronDownIcon className="ml-1 h-4 w-4" />
@@ -234,14 +312,14 @@ function ForYouDropdown({ onNavItemClick }: { onNavItemClick?: (href: string) =>
       <DropdownMenuContent align="center" sideOffset={10} className="bg-background/80 backdrop-blur-xl border border-border shadow-lg rounded-xl text-large font-semibold text-muted-foreground focus:bg-background/80">
         <DropdownMenuItem asChild className="bg-background/80 backdrop-blur-xl shadow-lg rounded-xl text-large font-semibold text-muted-foreground hover:bg-black hover:backdrop-blur-xl focus:bg-background/80">
           <Link href="/movies/forYou">
-            <button className="border:none w-full text-lg text-left px-6 py-4 rounded-md transition-colors hover:text-primary hover:bg-background/80 hover:backdrop-blur-xl">
+            <button className="border:none w-full text-lg text-left px-6 py-4 rounded-md transition-colors hover:text-primary hover:bg-background/80 hover:backdrop-blur-xl cursor-pointer">
               Movies For You
             </button>
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild className="bg-background/80 backdrop-blur-xl shadow-lg rounded-xl text-large font-semibold text-muted-foreground hover:bg-black hover:backdrop-blur-xl focus:bg-background/80">
+        <DropdownMenuItem asChild className="bg-background/80 backdrop-blur-xl shadow-lg rounded-xl text-large font-semibold text-muted-foreground hover:bg-black hover:backdrop-blur-xl focus:bg-background/80 cursor-pointer">
           <Link href="/shows/forYou">
-            <button className="border:none w-full text-lg text-left px-6 py-4 rounded-md transition-colors hover:text-primary hover:bg-background/80 hover:backdrop-blur-xl">
+            <button className="border:none w-full text-lg text-left px-6 py-4 rounded-md transition-colors hover:text-primary hover:bg-background/80 hover:backdrop-blur-xl cursor-pointer">
               Shows For You
             </button>
           </Link>
@@ -373,7 +451,7 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
                           e.preventDefault();
                           if (onNavItemClick && link.href) onNavItemClick(link.href);
                         }}
-                        className="text-lg font-semibold text-muted-foreground px-4 py-2 rounded-md transition-colors hover:text-primary hover:bg-transparent focus:bg-primary/50 focus:text-white focus:outline-none"
+                        className="text-lg font-semibold text-muted-foreground px-4 py-2 rounded-md transition-colors hover:text-primary hover:bg-transparent focus:bg-primary/50 focus:text-white focus:outline-none hover: cursor-pointer"
                       >
                         {link.label}
                       </NavigationMenuLink>
@@ -389,13 +467,13 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
           </div>
           {/* Right: User and notifications */}
           <div className="flex items-center gap-4">
-            {/* <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <ModeToggle />
               <NotificationMenu 
                 notificationCount={notificationCount}
                 onItemClick={onNotificationItemClick}
               />
-            </div> */}
+            </div>
             <UserMenu 
               userName={userName}
               userEmail={userEmail}

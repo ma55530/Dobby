@@ -21,6 +21,13 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "en.wikipedia.org",
       },
+      // Supabase storage public URL for avatars
+      {
+        protocol: "https",
+        hostname: "mgagzgashuexrnkoqkzy.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+      
     ],
   },
 };

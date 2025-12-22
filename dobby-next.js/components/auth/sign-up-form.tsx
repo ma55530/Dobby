@@ -17,7 +17,11 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { GoogleLogo } from '../icons/google-logo'
 
-export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutRef<'div'>) {
+interface SignUpFormProps extends React.ComponentPropsWithoutRef<'div'> {
+  onSwitchToLogin?: () => void;
+}
+
+export function SignUpForm({ className, onSwitchToLogin, ...props }: SignUpFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [repeatPassword, setRepeatPassword] = useState('')
@@ -77,11 +81,11 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
   return (
     <div className={cn('flex flex-col gap-6', className)} {...props}>
       <Card >
-        <CardHeader>
+        <CardHeader className="px-6 pt-6 pb-4">
           <CardTitle className="text-2xl text-white ">Sign up</CardTitle>
           <CardDescription className='text-white'>Create a new account</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-6 pb-6">
           <form onSubmit={handleSignUp}>
             <div className="flex flex-col gap-6">
               <div className="grid gap-2 text-white">
@@ -138,9 +142,15 @@ export function SignUpForm({ className, ...props }: React.ComponentPropsWithoutR
             </div>
             <div className="mt-4 text-center text-sm text-white">
               Already have an account?{' '}
-              <Link href="/auth/login" className="underline underline-offset-4 font-semibold text-white hover:text-indigo-30">
-                Login
-              </Link>
+              {onSwitchToLogin ? (
+                <button type="button" onClick={onSwitchToLogin} className="underline underline-offset-4 font-semibold text-white hover:text-indigo-30">
+                  Login
+                </button>
+              ) : (
+                <Link href="/auth/login" className="underline underline-offset-4 font-semibold text-white hover:text-indigo-30">
+                  Login
+                </Link>
+              )}
             </div>
           </form>
         </CardContent>

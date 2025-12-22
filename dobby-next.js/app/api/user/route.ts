@@ -10,14 +10,14 @@ const ALLOWED_UPDATE_FIELDS = new Set([
   'avatar_url',
   'bio',
   'theme',
+  'favorite_genres',
 ]);
 
 export async function GET() {
   const supabase = await createClient();
   
-  const { data: { session }, error: sessionError} = await supabase.auth.getSession();
-  const user = session?.user;
-  if (sessionError || !user) {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -41,13 +41,9 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const supabase = await createClient();
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession()
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-  const user = session?.user;
-  if (sessionError || !user) {
+  if (userError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -79,6 +75,16 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: 'Invalid theme' }, { status: 400 });
       }
       updateData.theme = normalized;
+      continue;
+    }
+    if (key === 'favorite_genres') {
+      if (!Array.isArray(value)) {
+        return NextResponse.json({ error: 'favorite_genres must be an array' }, { status: 400 });
+      }
+      if (!value.every((id) => typeof id === 'number' && Number.isInteger(id))) {
+        return NextResponse.json({ error: 'favorite_genres must contain only integers' }, { status: 400 });
+      }
+      updateData.favorite_genres = value;
       continue;
     }
     if (typeof value !== 'string') {

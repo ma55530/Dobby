@@ -57,7 +57,7 @@ export default function TrendingMovies({ timeWindow = "day" }: { timeWindow?: "d
             rating={movie.vote_average}
             year={movie.release_date}
             infoAboutTrack={""}
-            onClick={() => { /* open details - implement later */ }}
+            href={`/movies/${movie.id}`}
           />
         ))}
     </div>
