@@ -93,35 +93,39 @@ CREATE TABLE IF NOT EXISTS shows (
 -- =====================================
 -- 3. RATINGS
 -- =====================================
-CREATE TABLE IF NOT EXISTS movie_ratings (
+
+CREATE TABLE IF NOT EXISTS ratings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-    movie_id BIGINT NOT NULL,
-    rating INTEGER CHECK (rating >= 1 AND rating <= 10),
+    media_id BIGINT NOT NULL,
+    media_type TEXT CHECK (media_type IN ('SHOW', 'MOVIE')),
+    rating INTEGER CHECK (rating >= 1 AND rating <= 10) NOT NULL,
+    review_title TEXT,
     review TEXT,
+    likes INTEGER NOT NULL DEFAULT 0,
+    dislikes INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, movie_id)
+    UNIQUE (user_id, media_id, media_type)
 );
 
-CREATE TABLE IF NOT EXISTS show_ratings (
+CREATE TABLE IF NOT EXISTS subratings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    origin_rating_id UUID REFERENCES ratings(id) ON DELETE CASCADE,
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-    show_id BIGINT NOT NULL,
-    rating INTEGER CHECK (rating >= 1 AND rating <= 10),
     review TEXT,
+    likes INTEGER NOT NULL DEFAULT 0,
+    dislikes INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, show_id)
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-
-CREATE TRIGGER trigger_update_movie_ratings_updated_at
-BEFORE UPDATE ON movie_ratings
+CREATE TRIGGER trigger_update_ratings_updated_at
+BEFORE UPDATE ON ratings
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_show_ratings_updated_at
-BEFORE UPDATE ON show_ratings
+CREATE TRIGGER trigger_update_subratings_updated_at
+BEFORE UPDATE ON subratings
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================
@@ -219,7 +223,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE, -- The recipient
     actor_id UUID REFERENCES profiles(id) ON DELETE CASCADE, -- The person who triggered the notification
-    type TEXT NOT NULL CHECK (type IN ('follow','message','like','reply','review_movie','review_show')),
+    type TEXT NOT NULL CHECK (type IN ('follow','message','like','reply','review_movie','review_show','rating','subrating')),
     resource_id UUID, -- Can be a message_id, or follower_id, etc.
     content TEXT, -- Optional preview text
     is_read BOOLEAN DEFAULT FALSE,
@@ -358,13 +362,13 @@ BEGIN
     f.follower_id,
     NEW.user_id,
     CASE 
-      WHEN TG_TABLE_NAME = 'movie_ratings' THEN 'review_movie'
-      WHEN TG_TABLE_NAME = 'show_ratings' THEN 'review_show'
+      WHEN TG_TABLE_NAME = 'ratings' THEN 'review_rating'
+      WHEN TG_TABLE_NAME = 'subratings' THEN 'review_subrating'
     END,
     NEW.id,
     CASE 
-      WHEN TG_TABLE_NAME = 'movie_ratings' THEN 'reviewed a movie with rating ' || NEW.rating || '/10'
-      WHEN TG_TABLE_NAME = 'show_ratings' THEN 'reviewed a show with rating ' || NEW.rating || '/10'
+      WHEN TG_TABLE_NAME = 'ratings' THEN 'reviewed' || NEW.rating || '/10'
+      WHEN TG_TABLE_NAME = 'subratings' THEN 'subreviewed' || NEW.rating || '/10'
     END
   FROM follows f
   WHERE f.following_id = NEW.user_id AND NEW.review IS NOT NULL;
@@ -382,15 +386,9 @@ CREATE TRIGGER trigger_update_show_recommendations_updated_at
 BEFORE UPDATE ON show_recommendations
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Trigger on movie_ratings
-CREATE TRIGGER trigger_notify_followers_movie_review
-AFTER INSERT OR UPDATE ON movie_ratings
-FOR EACH ROW
-EXECUTE FUNCTION notify_followers_on_review();
-
--- Trigger on show_ratings
-CREATE TRIGGER trigger_notify_followers_show_review
-AFTER INSERT OR UPDATE ON show_ratings
+-- Trigger on ratings
+CREATE TRIGGER trigger_notify_followers_media_review
+AFTER INSERT OR UPDATE ON ratings
 FOR EACH ROW
 EXECUTE FUNCTION notify_followers_on_review();
 
@@ -400,6 +398,10 @@ EXECUTE FUNCTION notify_followers_on_review();
 CREATE INDEX idx_profiles_username ON profiles(username);
 CREATE INDEX idx_movies_title ON movies(title);
 CREATE INDEX idx_shows_title ON shows(title);
+CREATE INDEX idx_ratings ON ratings(media_id)
+CREATE INDEX idx_ratings_user ON ratings(user_id)
+CREATE INDEX idx_subratings ON subratings(origin_rating_id)
+CREATE INDEX idx_subratings_user on subratings(user_id)
 CREATE INDEX idx_follows_follower ON follows(follower_id);
 CREATE INDEX idx_follows_following ON follows(following_id);
 CREATE INDEX idx_movie_recommendations_movie_id ON movie_recommendations(movie_id);
@@ -407,13 +409,11 @@ CREATE INDEX idx_show_recommendations_show_id ON show_recommendations(show_id);
 CREATE INDEX idx_watchlist_items_movie ON watchlist_items(watchlist_id, movie_id);
 CREATE INDEX idx_watchlist_items_show ON watchlist_items(watchlist_id, show_id);
 
-
 -- =====================================
 -- 11. ENABLE ROW LEVEL SECURITY (RLS) for Supabase
 -- =====================================
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE movie_ratings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE show_ratings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE watchlists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE watchlist_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
@@ -529,16 +529,28 @@ USING (
   )
 );
 
--- Users can manage their own movie ratings
-CREATE POLICY "Users can manage their own movie ratings"
-ON movie_ratings
+-- Users can manage their own ratings
+CREATE POLICY "Users can manage their own ratings"
+ON ratings
+FOR SELECT
+USING (true);
+
+-- Users can see other's ratings
+CREATE POLICY "Users can see ratings"
+ON ratings
 FOR ALL
 USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
 
--- Users can manage their own show ratings
-CREATE POLICY "Users can manage their own show ratings"
-ON show_ratings
+-- Users can manage their own subratings
+CREATE POLICY "Users can manage their own subratings"
+ON subratings
+FOR SELECT
+USING (true);
+
+-- Users can see other's subratings
+CREATE POLICY "Users can see subratings"
+ON subratings
 FOR ALL
 USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
