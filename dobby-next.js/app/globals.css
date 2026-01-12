@@ -173,3 +173,6 @@
     background: #a855f7;
   }
 
+  button:not(:disabled) {
+  cursor: pointer;
+  }

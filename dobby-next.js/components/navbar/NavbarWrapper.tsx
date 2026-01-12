@@ -60,7 +60,6 @@ export default function NavbarWrapper() {
         { label: "Movies", href: "/movies" },
         { label: "Shows", href: "/shows" },
         { label: "Users", href: "/users" },
-        { label: "Watchlist", href: "/watchlist" },
       ]}
       userName={sessionUser?.name || "Guest"}
       userEmail={sessionUser?.email || ""}

@@ -176,7 +176,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
             <Button
               onClick={handleFollow}
               disabled={actionLoading}
-              className="bg-purple-600 hover:bg-purple-500"
+              className="cursor-pointer bg-purple-600 hover:bg-purple-500 "
             >
               <UserPlus className="w-4 h-4 mr-2" />
               {actionLoading ? "Following..." : "Follow"}
@@ -283,9 +283,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
         </div>
       </section>
 
-      <footer className="border-t border-zinc-800 py-6 text-center text-gray-400 w-full mt-auto">
-        © 2025 Dobby. Your social network for cinema.
-      </footer>
+      
     </main>
   );
 }

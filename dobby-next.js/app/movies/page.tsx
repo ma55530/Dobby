@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Fuse from "fuse.js";
 import TrackCard from "@/components/tracks/TrackCard";
 import { Movies } from "@/lib/types/Movies";
 import { Input } from "@/components/ui/input";
@@ -77,9 +78,20 @@ export default function MoviesPage() {
 
     const data: MoviesSearchResponse = await res.json();
 
-    const filteredMovies = data.results.filter(
+    let filteredMovies = data.results.filter(
       (movie) => movie.release_date && movie.vote_average !== 0
     );
+
+    // Apply fuzzy search for better matching
+    const fuse = new Fuse(filteredMovies, {
+      keys: ["title"],
+      threshold: 0.3, // Lower = stricter matching
+    });
+
+    const fuzzyResults = fuse.search(searchQuery).map((result) => result.item);
+
+    // Use fuzzy results if found, otherwise use filtered results
+    filteredMovies = fuzzyResults.length > 0 ? fuzzyResults : filteredMovies;
 
     if (searchPage === 1) {
       setResults(filteredMovies);

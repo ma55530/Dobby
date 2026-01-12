@@ -239,15 +239,41 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    const { searchParams } = new URL(request.url)
-    const movieId = searchParams.get('movieId')
-    const showId = searchParams.get('showId')
+    const body = await request.json()
+    const { movieId, showId, watchlistName } = body
 
     if (!movieId && !showId) {
       return NextResponse.json({ error: 'Either movieId or showId is required' }, { status: 400 })
     }
 
-    // Get user's watchlists
+    // If watchlistName is provided, delete from that specific watchlist only
+    if (watchlistName) {
+      const { data: watchlist } = await supabase
+        .from('watchlists')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('name', watchlistName)
+        .maybeSingle()
+
+      if (!watchlist) {
+        return NextResponse.json({ error: 'Watchlist not found' }, { status: 404 })
+      }
+
+      const { error: deleteError } = await supabase
+        .from('watchlist_items')
+        .delete()
+        .eq('watchlist_id', watchlist.id)
+        .eq(movieId ? 'movie_id' : 'show_id', movieId || showId)
+
+      if (deleteError) {
+        console.error('Error removing from watchlist:', deleteError)
+        return NextResponse.json({ error: 'Failed to remove from watchlist' }, { status: 400 })
+      }
+
+      return NextResponse.json({ success: true, message: 'Removed from watchlist' })
+    }
+
+    // Otherwise, delete from all watchlists (original behavior)
     const { data: watchlists, error: watchlistsError } = await supabase
       .from('watchlists')
       .select('id')

@@ -1,9 +1,15 @@
 import { Movie } from '@/lib/types/Movie';
 import { Show } from '@/lib/types/Show';
 
-export function getImageUrl(imageUrl: string){
+export function getImageUrl(imageUrl: string, size: 'small' | 'medium' | 'large' | 'original' = 'medium'){
+  const sizes: Record<string, string> = {
+    small: 'w342',
+    medium: 'w500',
+    large: 'w1280',
+    original: 'original'
+  };
   return(
-    'https://image.tmdb.org/t/p/w500' + imageUrl
+    'https://image.tmdb.org/t/p/' + sizes[size] + imageUrl
   )
 }
 

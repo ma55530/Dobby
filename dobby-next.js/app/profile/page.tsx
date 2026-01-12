@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Mail, Calendar, User as UserIcon, Star } from "lucide-react";
+import Link from "next/link";
+import { Mail, Calendar, User as UserIcon, Star, Bookmark, Film, Tv } from "lucide-react";
 import type { UserProfile } from "@/lib/types/UserProfile";
+import { Button } from "@/components/ui/button";
+import { getImageUrl } from "@/lib/TMDB_API/utils";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +22,19 @@ import { Label } from "@/components/ui/label";
 interface Genre {
   id: number;
   name: string;
+}
+
+interface WatchlistItem {
+  type: 'movie' | 'show';
+  id: number;
+  title: string;
+  poster_path: string | null;
+}
+
+interface Watchlist {
+  id: string;
+  name: string;
+  items: WatchlistItem[];
 }
 
 export default function MePage() {
@@ -41,6 +57,7 @@ export default function MePage() {
     topMovies: [],
     topShows: [],
   });
+  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,8 +108,21 @@ export default function MePage() {
       }
     };
 
+    const fetchWatchlists = async () => {
+      try {
+        const res = await fetch("/api/watchlist");
+        if (res.ok) {
+          const data = await res.json();
+          setWatchlists(data.watchlists || []);
+        }
+      } catch (err) {
+        console.error("Failed to load watchlists:", err);
+      }
+    };
+
     fetchData();
     fetchProfileStats();
+    fetchWatchlists();
   }, []);
 
   const updateProfile = async () => {
@@ -467,6 +497,82 @@ export default function MePage() {
                   )}
                 </ul>
               </div>
+            </div>
+
+            {/* Watchlists Section */}
+            <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
+              <div className="flex items-center mb-4">
+                <h3 className="text-white font-semibold text-lg flex items-center gap-2">
+                  <Bookmark className="w-5 h-5" />
+                  My Watchlists
+                </h3>
+              </div>
+              
+              {watchlists.length === 0 ? (
+                <div className="text-center py-8">
+                  <Bookmark className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-400">No watchlists yet</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {watchlists.slice(0, 2).map((watchlist) => (
+                    <div key={watchlist.id} className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-white font-medium">{watchlist.name}</h4>
+                        <span className="text-sm text-gray-400">{watchlist.items.length} items</span>
+                      </div>
+                      
+                      {watchlist.items.length > 0 ? (
+                        <div className="flex gap-2 overflow-x-auto">
+                          {watchlist.items.slice(0, 5).map((item) => (
+                            <Link
+                              key={`${item.type}-${item.id}`}
+                              href={`/${item.type === 'movie' ? 'movies' : 'shows'}/${item.id}`}
+                              className="flex-shrink-0 cursor-pointer hover:opacity-80 transition"
+                            >
+                              <div className="relative w-20 h-28 rounded-md overflow-hidden bg-zinc-900 hover:ring-2 hover:ring-purple-400 transition">
+                                {item.poster_path ? (
+                                  <Image
+                                    src={getImageUrl(item.poster_path)}
+                                    alt={item.title}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-gray-600">
+                                    {item.type === 'movie' ? (
+                                      <Film className="w-6 h-6" />
+                                    ) : (
+                                      <Tv className="w-6 h-6" />
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </Link>
+                          ))}
+                          {watchlist.items.length > 5 && (
+                            <div className="flex-shrink-0 w-20 h-28 rounded-md bg-zinc-900 border border-zinc-700 flex items-center justify-center">
+                              <span className="text-gray-400 text-sm font-medium">+{watchlist.items.length - 5}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500">No items yet</p>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {watchlists.length > 2 && (
+                    <div className="text-center pt-2">
+                      <Link href="/watchlist">
+                        <Button variant="outline" className="border-zinc-700 hover:bg-zinc-800 text-purple-400 cursor-pointer">
+                          +{watchlists.length - 2} more watchlists
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">

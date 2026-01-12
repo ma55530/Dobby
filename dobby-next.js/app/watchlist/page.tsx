@@ -3,9 +3,19 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Bookmark, Calendar, Star, Film, Tv, Trash2 } from "lucide-react";
+import { Bookmark, Calendar, Star, Film, Tv, Trash2, Plus } from "lucide-react";
 import { getImageUrl } from "@/lib/TMDB_API/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface WatchlistItem {
   type: 'movie' | 'show';
@@ -30,6 +40,11 @@ export default function WatchlistPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedWatchlist, setSelectedWatchlist] = useState<string | null>(null);
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set());
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newWatchlistName, setNewWatchlistName] = useState("");
+  const [creatingWatchlist, setCreatingWatchlist] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingWatchlist, setDeletingWatchlist] = useState(false);
 
   useEffect(() => {
     const fetchWatchlists = async () => {
@@ -95,8 +110,74 @@ export default function WatchlistPage() {
   };
 
   const currentWatchlist = watchlists.find(w => w.id === selectedWatchlist);
-  const currentMovies = currentWatchlist?.items.filter(item => item.type === 'movie') || [];
-  const currentShows = currentWatchlist?.items.filter(item => item.type === 'show') || [];
+  const allItems = currentWatchlist?.items || [];
+  
+  const handleCreateWatchlist = async () => {
+    if (!newWatchlistName.trim()) {
+      setError('Please enter a watchlist name');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    setCreatingWatchlist(true);
+
+    try {
+      const res = await fetch('/api/watchlist/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newWatchlistName.trim() }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setWatchlists(prev => [...prev, { id: data.watchlist.id, name: data.watchlist.name, items: [] }]);
+        setSelectedWatchlist(data.watchlist.id);
+        setNewWatchlistName('');
+        setCreateDialogOpen(false);
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Failed to create watchlist');
+        setTimeout(() => setError(null), 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Failed to create watchlist');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setCreatingWatchlist(false);
+    }
+  };
+
+  const handleDeleteWatchlist = async () => {
+    if (!selectedWatchlist || !currentWatchlist) return;
+
+    setDeletingWatchlist(true);
+
+    try {
+      const res = await fetch(`/api/watchlist/delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ watchlistId: selectedWatchlist }),
+      });
+
+      if (res.ok) {
+        const newWatchlists = watchlists.filter(w => w.id !== selectedWatchlist);
+        setWatchlists(newWatchlists);
+        setSelectedWatchlist(newWatchlists.length > 0 ? newWatchlists[0].id : null);
+        setDeleteDialogOpen(false);
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Failed to delete watchlist');
+        setTimeout(() => setError(null), 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Failed to delete watchlist');
+      setTimeout(() => setError(null), 3000);
+    } finally {
+      setDeletingWatchlist(false);
+    }
+  };
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
@@ -121,7 +202,7 @@ export default function WatchlistPage() {
               >
                 <Link
                   href={`/${item.type === 'movie' ? 'movies' : 'shows'}/${item.id}`}
-                  className="block"
+                  className="block cursor-pointer"
                 >
                   <div className="flex gap-4">
                   {/* Poster */}
@@ -196,7 +277,7 @@ export default function WatchlistPage() {
                   disabled={isRemoving}
                   variant="ghost"
                   size="icon"
-                  className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600/80 hover:bg-red-700 text-white z-10"
+                  className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-600/80 hover:bg-red-700 text-white z-10 cursor-pointer"
                 >
                   {isRemoving ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -242,55 +323,144 @@ export default function WatchlistPage() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Create Watchlist Button */}
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Watchlist
+                </Button>
+              </DialogTrigger>
+                <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
+                  <DialogHeader>
+                    <DialogTitle>Create New Watchlist</DialogTitle>
+                    <DialogDescription className="text-gray-400">
+                      Give your watchlist a name like "Best stuff for when I'm sad"
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
+                    <div>
+                      <Label htmlFor="watchlistName" className="text-gray-300">
+                        Watchlist Name
+                      </Label>
+                      <Input
+                        id="watchlistName"
+                        value={newWatchlistName}
+                        onChange={(e) => setNewWatchlistName(e.target.value)}
+                        placeholder="e.g., Best stuff for when I'm sad"
+                        className="bg-zinc-800 border-zinc-700 text-white mt-2 cursor-text"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleCreateWatchlist();
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        onClick={() => {
+                          setCreateDialogOpen(false);
+                          setNewWatchlistName('');
+                        }}
+                        variant="outline"
+                        className="border-zinc-700 hover:bg-zinc-800 cursor-pointer"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleCreateWatchlist}
+                        disabled={creatingWatchlist || !newWatchlistName.trim()}
+                        className="bg-purple-600 hover:bg-purple-700 cursor-pointer"
+                      >
+                        {creatingWatchlist ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Creating...
+                          </>
+                        ) : (
+                          'Create'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
             {/* Watchlist Tabs */}
             {watchlists.length > 1 && (
               <div className="flex flex-wrap gap-3">
                 {watchlists.map((watchlist) => (
-                  <button
+                  <div
                     key={watchlist.id}
-                    onClick={() => setSelectedWatchlist(watchlist.id)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    className={`group rounded-lg font-medium transition-all cursor-pointer flex items-center pl-4 pr-2 py-2 ${
                       selectedWatchlist === watchlist.id
                         ? "bg-purple-600 text-white"
                         : "bg-zinc-800/60 text-gray-300 hover:bg-zinc-700"
                     }`}
                   >
-                    {watchlist.name}
-                    <span className="ml-2 text-sm opacity-75">
-                      ({watchlist.items.length})
-                    </span>
-                  </button>
+                    <button
+                      onClick={() => setSelectedWatchlist(watchlist.id)}
+                      className="flex-1 text-left flex items-center cursor-pointer"
+                    >
+                      {watchlist.name}
+                      <span className="ml-2 text-sm opacity-75">
+                        ({watchlist.items.length})
+                      </span>
+                    </button>
+                    
+                    {/* Delete icon on hover - inside border, to the right */}
+                    {selectedWatchlist === watchlist.id && (
+                      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                        <DialogTrigger asChild>
+                          <button
+                            className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 text-red-400 hover:text-red-300 cursor-pointer flex items-center"
+                            title="Delete watchlist"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
+                          <DialogHeader>
+                            <DialogTitle>Delete Watchlist</DialogTitle>
+                            <DialogDescription className="text-gray-400">
+                              Are you sure you want to delete "{watchlist.name}"? This will remove all {watchlist.items.length} items in it. This action cannot be undone.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="flex justify-end gap-2 mt-4">
+                            <Button
+                              onClick={() => setDeleteDialogOpen(false)}
+                              variant="outline"
+                              className="border-zinc-700 hover:bg-zinc-800 cursor-pointer"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={handleDeleteWatchlist}
+                              disabled={deletingWatchlist}
+                              className="bg-red-600 hover:bg-red-700 cursor-pointer"
+                            >
+                              {deletingWatchlist ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                  Deleting...
+                                </>
+                              ) : (
+                                'Delete'
+                              )}
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
 
-            {/* Watchlist Items - Separated by Type */}
+            {/* Watchlist Items - All Together */}
             {currentWatchlist && (
-              <div className="space-y-8">
-                {/* Movies Section */}
-                {currentMovies.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-4">
-                      <Film className="w-6 h-6 text-blue-400" />
-                      <h2 className="text-2xl font-bold text-white">Movies ({currentMovies.length})</h2>
-                    </div>
-                    {renderItemsGrid(currentMovies)}
-                  </div>
-                )}
-
-                {/* Shows Section */}
-                {currentShows.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-4">
-                      <Tv className="w-6 h-6 text-purple-400" />
-                      <h2 className="text-2xl font-bold text-white">TV Shows ({currentShows.length})</h2>
-                    </div>
-                    {renderItemsGrid(currentShows)}
-                  </div>
-                )}
-
-                {/* Empty state */}
-                {currentMovies.length === 0 && currentShows.length === 0 && (
+              <div className="space-y-4">
+                {allItems.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-center">
                     <Bookmark className="w-16 h-16 text-gray-600 mb-4" />
                     <p className="text-gray-400 text-lg mb-2">This watchlist is empty</p>
@@ -298,6 +468,14 @@ export default function WatchlistPage() {
                       Add some movies or shows to get started
                     </p>
                   </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 mb-4">
+                      <Bookmark className="w-6 h-6 text-purple-400" />
+                      <h2 className="text-2xl font-bold text-white">All Items ({allItems.length})</h2>
+                    </div>
+                    {renderItemsGrid(allItems)}
+                  </>
                 )}
               </div>
             )}

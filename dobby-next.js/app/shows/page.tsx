@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Fuse from "fuse.js";
 import TrackCard from "@/components/tracks/TrackCard";
 import { Shows } from "@/lib/types/Shows";
 import { Input } from "@/components/ui/input";
@@ -66,11 +67,22 @@ export default function ShowsPage() {
     const res = await fetch(`/api/shows?query=${searchQuery}&page=${searchPage}`);
     const shows: Shows[] = await res.json();
 
-    const filteredShows = shows.filter(
+    let filteredShows = shows.filter(
       (show) =>
         show.first_air_date &&
         show.vote_average !== 0
     );
+
+    // Apply fuzzy search for better matching
+    const fuse = new Fuse(filteredShows, {
+      keys: ["name"],
+      threshold: 0.3, // Lower = stricter matching
+    });
+
+    const fuzzyResults = fuse.search(searchQuery).map((result) => result.item);
+
+    // Use fuzzy results if found, otherwise use filtered results
+    filteredShows = fuzzyResults.length > 0 ? fuzzyResults : filteredShows;
 
     if (searchPage === 1) {
       setResults(filteredShows);

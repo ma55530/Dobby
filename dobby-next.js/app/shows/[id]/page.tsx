@@ -8,7 +8,24 @@ import { getImageUrl } from "@/lib/TMDB_API/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Bookmark, BookmarkCheck } from "lucide-react";
+import { Bookmark, BookmarkCheck, Plus, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface ShowPageProps {
   params: Promise<{
@@ -34,6 +51,13 @@ export default function ShowPage({ params }: ShowPageProps) {
   const [watchlistMessage, setWatchlistMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [checkingWatchlist, setCheckingWatchlist] = useState(true);
+  const [watchlistsWithItem, setWatchlistsWithItem] = useState<string[]>([]);
+  const [availableWatchlists, setAvailableWatchlists] = useState<Array<{ id: string; name: string }>>([]);
+  const [loadingWatchlists, setLoadingWatchlists] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newWatchlistName, setNewWatchlistName] = useState("");
+  const [creatingNewWatchlist, setCreatingNewWatchlist] = useState(false);
+  const [hoveredWatchlistId, setHoveredWatchlistId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchShow = async () => {
@@ -55,6 +79,30 @@ export default function ShowPage({ params }: ShowPageProps) {
     };
 
     fetchShow();
+  }, [id]);
+
+  useEffect(() => {
+    const checkWatchlist = async () => {
+      try {
+        const res = await fetch('/api/watchlist');
+        if (res.ok) {
+          const data = await res.json();
+          const containingIds: string[] = (data.watchlists || [])
+            .filter((watchlist: any) =>
+              (watchlist.items || []).some((item: WatchlistItem) => item.type === 'show' && item.id === parseInt(id))
+            )
+            .map((wl: any) => wl.id);
+          setWatchlistsWithItem(containingIds);
+          setIsInWatchlist(containingIds.length > 0);
+        }
+      } catch (err) {
+        console.error('Failed to check watchlist:', err);
+      } finally {
+        setCheckingWatchlist(false);
+      }
+    };
+
+    checkWatchlist();
   }, [id]);
 
   useEffect(() => {
@@ -127,6 +175,7 @@ export default function ShowPage({ params }: ShowPageProps) {
 
       if (res.ok) {
         setIsInWatchlist(false);
+        setWatchlistsWithItem([]);
         setWatchlistMessage({ type: 'success', text: 'Removed from watchlist' });
         setTimeout(() => setWatchlistMessage(null), 3000);
       } else {
@@ -139,6 +188,130 @@ export default function ShowPage({ params }: ShowPageProps) {
       setTimeout(() => setWatchlistMessage(null), 3000);
     } finally {
       setAddingToWatchlist(false);
+    }
+  };
+
+  const openWatchlistDropdown = async () => {
+    setLoadingWatchlists(true);
+    try {
+      const res = await fetch('/api/watchlist');
+      if (res.ok) {
+        const data = await res.json();
+        const lists = (data.watchlists || []).map((wl: any) => ({ id: wl.id, name: wl.name }));
+        setAvailableWatchlists(lists);
+      }
+    } catch (err) {
+      console.error('Failed to load watchlists:', err);
+    } finally {
+      setLoadingWatchlists(false);
+    }
+  };
+
+  const handleAddToSpecificWatchlist = async (watchlistName: string) => {
+    setAddingToWatchlist(true);
+    setWatchlistMessage(null);
+    try {
+      const res = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ showId: parseInt(id), watchlistName }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const wl = availableWatchlists.find((w) => w.name === watchlistName);
+        if (wl && !watchlistsWithItem.includes(wl.id)) {
+          setWatchlistsWithItem([...watchlistsWithItem, wl.id]);
+        }
+        setWatchlistMessage({ type: 'success', text: `Added to '${watchlistName}'!` });
+        setIsInWatchlist(true);
+        setTimeout(() => setWatchlistMessage(null), 3000);
+      } else {
+        if (res.status === 409) {
+          setWatchlistMessage({ type: 'error', text: 'Already in watchlist' });
+        } else if (res.status === 401) {
+          setWatchlistMessage({ type: 'error', text: 'Please log in first' });
+        } else {
+          setWatchlistMessage({ type: 'error', text: data.error || 'Failed to add' });
+        }
+        setTimeout(() => setWatchlistMessage(null), 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      setWatchlistMessage({ type: 'error', text: 'Something went wrong' });
+      setTimeout(() => setWatchlistMessage(null), 3000);
+    } finally {
+      setAddingToWatchlist(false);
+    }
+  };
+
+  const handleToggleWatchlistItem = async (watchlistName: string, isCurrentlyAdded: boolean) => {
+    setAddingToWatchlist(true);
+    setWatchlistMessage(null);
+
+    try {
+      if (isCurrentlyAdded) {
+        // Remove from this specific watchlist
+        const res = await fetch('/api/watchlist', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ showId: parseInt(id), watchlistName }),
+        });
+
+        if (res.ok) {
+          const wl = availableWatchlists.find((w) => w.name === watchlistName);
+          if (wl) {
+            setWatchlistsWithItem(watchlistsWithItem.filter((wlId) => wlId !== wl.id));
+          }
+          setWatchlistMessage({ type: 'success', text: `Removed from '${watchlistName}'` });
+          setTimeout(() => setWatchlistMessage(null), 3000);
+        } else {
+          setWatchlistMessage({ type: 'error', text: 'Failed to remove' });
+          setTimeout(() => setWatchlistMessage(null), 3000);
+        }
+      } else {
+        // Add to watchlist
+        await handleAddToSpecificWatchlist(watchlistName);
+      }
+    } catch (err) {
+      console.error(err);
+      setWatchlistMessage({ type: 'error', text: 'Something went wrong' });
+      setTimeout(() => setWatchlistMessage(null), 3000);
+    } finally {
+      setAddingToWatchlist(false);
+    }
+  };
+
+  const handleCreateAndAddToWatchlist = async () => {
+    if (!newWatchlistName.trim()) return;
+    setCreatingNewWatchlist(true);
+    try {
+      const res = await fetch('/api/watchlist/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newWatchlistName.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const created = data.watchlist;
+        if (created) {
+          setAvailableWatchlists((prev) => {
+            const exists = prev.some((w) => w.id === created.id);
+            return exists ? prev : [...prev, created];
+          });
+        }
+        await handleAddToSpecificWatchlist(created?.name ?? newWatchlistName.trim());
+        setCreateDialogOpen(false);
+        setNewWatchlistName("");
+      } else {
+        setWatchlistMessage({ type: 'error', text: data.error || 'Failed to create' });
+        setTimeout(() => setWatchlistMessage(null), 3000);
+      }
+    } catch (err) {
+      console.error(err);
+      setWatchlistMessage({ type: 'error', text: 'Something went wrong' });
+      setTimeout(() => setWatchlistMessage(null), 3000);
+    } finally {
+      setCreatingNewWatchlist(false);
     }
   };
 
@@ -164,7 +337,7 @@ export default function ShowPage({ params }: ShowPageProps) {
     );
   }
 
-  const backdropUrl = show.backdrop_path ? getImageUrl(show.backdrop_path) : null;
+  const backdropUrl = show.backdrop_path ? getImageUrl(show.backdrop_path, 'large') : null;
   const posterUrl = show.poster_path ? getImageUrl(show.poster_path) : "/assets/placeholder-movie.png";
 
   return (
@@ -240,29 +413,75 @@ export default function ShowPage({ params }: ShowPageProps) {
               )}
             </div>
 
-            {/* Watchlist Button */}
+            {/* Watchlist Button / Dropdown */
+            }
             <div className="flex items-center gap-3">
-              <Button
-                onClick={isInWatchlist ? handleRemoveFromWatchlist : handleAddToWatchlist}
-                disabled={addingToWatchlist || checkingWatchlist}
-                className={
-                  isInWatchlist
-                    ? "bg-red-600 hover:bg-red-700 text-white"
-                    : "bg-purple-600 hover:bg-purple-700 text-white"
-                }
-              >
-                {addingToWatchlist ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    {isInWatchlist ? 'Removing...' : 'Adding...'}
-                  </>
-                ) : (
-                  <>
-                    <Bookmark className="w-4 h-4 mr-2" />
-                    {isInWatchlist ? 'Remove from Watchlist' : 'Add to Watchlist'}
-                  </>
-                )}
-              </Button>
+              {!checkingWatchlist && (
+                <DropdownMenu onOpenChange={(open) => { if (open) openWatchlistDropdown(); }}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      disabled={addingToWatchlist}
+                      className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer"
+                    >
+                      <Bookmark className="w-4 h-4 mr-2" />
+                      Add to Watchlist
+                      <ChevronDown className="w-4 h-4 ml-2" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-64 bg-zinc-900 border-zinc-700 max-h-64 overflow-y-auto">
+                    <DropdownMenuLabel className="text-gray-300">Choose Watchlist</DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-zinc-700" />
+                    {loadingWatchlists ? (
+                      <div className="flex justify-center py-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
+                      </div>
+                    ) : availableWatchlists.length === 0 ? (
+                      <DropdownMenuItem
+                        onClick={() => setCreateDialogOpen(true)}
+                        className="text-gray-300 hover:bg-zinc-800 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create New Watchlist
+                      </DropdownMenuItem>
+                    ) : (
+                      <>
+                        {availableWatchlists.map((watchlist) => (
+                          <DropdownMenuItem
+                            key={watchlist.id}
+                            onClick={() => handleToggleWatchlistItem(watchlist.name, watchlistsWithItem.includes(watchlist.id))}
+                            disabled={addingToWatchlist}
+                            className="text-gray-300 hover:bg-zinc-800 cursor-pointer"
+                            onMouseEnter={() => setHoveredWatchlistId(watchlist.id)}
+                            onMouseLeave={() => setHoveredWatchlistId(null)}
+                          >
+                            {watchlistsWithItem.includes(watchlist.id) ? (
+                              <>
+                                <BookmarkCheck className={`w-4 h-4 mr-2 transition-colors ${
+                                  hoveredWatchlistId === watchlist.id ? 'text-red-400' : 'text-green-400'
+                                }`} />
+                                {watchlist.name}
+                              </>
+                            ) : (
+                              <>
+                                <Bookmark className="w-4 h-4 mr-2" />
+                                {watchlist.name}
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator className="bg-zinc-700" />
+                        <DropdownMenuItem
+                          onClick={() => setCreateDialogOpen(true)}
+                          className="text-gray-300 hover:bg-zinc-800 cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create New Watchlist
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               {watchlistMessage && (
                 <span className={`text-sm ${
                   watchlistMessage.type === 'success' ? 'text-green-400' : 'text-red-400'
@@ -272,6 +491,56 @@ export default function ShowPage({ params }: ShowPageProps) {
                 </span>
               )}
             </div>
+            {/* Create New Watchlist Dialog */}
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
+                <DialogHeader>
+                  <DialogTitle>Create New Watchlist</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <Label htmlFor="watchlistName" className="text-gray-300">
+                      Watchlist Name
+                    </Label>
+                    <Input
+                      id="watchlistName"
+                      value={newWatchlistName}
+                      onChange={(e) => setNewWatchlistName(e.target.value)}
+                      placeholder="Enter watchlist name"
+                      className="bg-zinc-800 border-zinc-700 text-white mt-2"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleCreateAndAddToWatchlist();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      className="border-zinc-700 hover:bg-zinc-800 cursor-pointer"
+                      onClick={() => setCreateDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      className="bg-purple-600 hover:bg-purple-700 text-white cursor-pointer"
+                      disabled={creatingNewWatchlist || !newWatchlistName.trim()}
+                      onClick={handleCreateAndAddToWatchlist}
+                    >
+                      {creatingNewWatchlist ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Creating...
+                        </>
+                      ) : (
+                        'Create and Add'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Genres */}
             {show.genres && show.genres.length > 0 && (
@@ -362,14 +631,18 @@ export default function ShowPage({ params }: ShowPageProps) {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
               {show.networks.map((network) => (
                 <div key={network.id} className="flex flex-col items-center gap-2">
-                  {network.logo_path && (
-                    <div className="relative w-24 h-12">
+                  {network.logo_path ? (
+                    <div className="relative w-24 h-12 bg-white rounded p-2 flex items-center justify-center">
                       <Image
                         src={getImageUrl(network.logo_path)}
                         alt={network.name}
                         fill
-                        className="object-contain"
+                        className="object-contain p-1"
                       />
+                    </div>
+                  ) : (
+                    <div className="w-24 h-12 bg-gray-400 rounded p-2 flex items-center justify-center">
+                      <p className="text-xs text-gray-700 text-center font-semibold">No logo</p>
                     </div>
                   )}
                   <p className="text-gray-300 text-center">{network.name}</p>
@@ -386,14 +659,18 @@ export default function ShowPage({ params }: ShowPageProps) {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
               {show.production_companies.map((company) => (
                 <div key={company.id} className="flex flex-col items-center gap-2">
-                  {company.logo_path && (
-                    <div className="relative w-24 h-12">
+                  {company.logo_path ? (
+                    <div className="relative w-24 h-12 bg-white rounded p-2 flex items-center justify-center">
                       <Image
                         src={getImageUrl(company.logo_path)}
                         alt={company.name}
                         fill
-                        className="object-contain"
+                        className="object-contain p-1"
                       />
+                    </div>
+                  ) : (
+                    <div className="w-24 h-12 bg-gray-400 rounded p-2 flex items-center justify-center">
+                      <p className="text-xs text-gray-700 text-center font-semibold">No logo</p>
                     </div>
                   )}
                   <p className="text-gray-300 text-center">{company.name}</p>
