@@ -8,9 +8,9 @@ export default function NavbarWrapper() {
   const pathname = usePathname();
   const router = useRouter();
   const [sessionUser, setSessionUser] = useState<{ email: string; name: string; avatar?: string } | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
   const showNavbarOn = [
-    "/",
     "/home",
     "/movies",
     "/shows",
@@ -22,18 +22,41 @@ export default function NavbarWrapper() {
   ];
 
   useEffect(() => {
-  const fetchProfile = async () => {
-    const res = await fetch("/api/user");
-    if (!res.ok) return;
-    const profile = await res.json();
-    setSessionUser({
-      email: profile.email,
-      name: profile.username,
-      avatar: profile.avatar_url,
-    });
-  };
-  fetchProfile();
-}, []);
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch("/api/user");
+        if (!res.ok) {
+          setAuthChecked(true);
+          return;
+        }
+        
+        // Check if response is JSON before parsing
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          setAuthChecked(true);
+          return;
+        }
+        
+        const profile = await res.json();
+        setSessionUser({
+          email: profile.email,
+          name: profile.username,
+          avatar: profile.avatar_url,
+        });
+      } catch (error) {
+        console.error("Failed to fetch profile:", error);
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  // Hide navbar on root path and all auth pages
+  if (pathname === "/" || pathname.startsWith("/auth")) return null;
+  
+  // On /home, hide navbar if user is not authenticated
+  if (pathname === "/home" && authChecked && !sessionUser) return null;
 
   // Check if pathname starts with any of the array entries
   const shouldHideNavbar = !showNavbarOn.some((route) =>

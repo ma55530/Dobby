@@ -19,6 +19,14 @@ export default function TrendingMovies({ timeWindow = "day" }: { timeWindow?: "d
           setTrending([]);
           return;
         }
+        
+        // Check if response is JSON before parsing
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          setTrending([]);
+          return;
+        }
+        
         const data: Movies[] = await res.json();
         if (!mounted) return;
         setTrending(data || []);
