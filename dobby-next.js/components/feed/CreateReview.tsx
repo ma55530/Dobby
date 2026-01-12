@@ -1,0 +1,237 @@
+"use client";
+import { useState } from "react";
+import { Search } from "lucide-react";
+
+interface MovieResult {
+  id: number;
+  title: string;
+  type: "movie" | "tv";
+  poster_path?: string;
+}
+
+type MoviesSearchResponse = {
+  results: any[];
+  page: number;
+  total_pages: number;
+  total_results: number;
+};
+
+export default function CreateReview() {
+  const [rating, setRating] = useState<number>(0);
+  const [text, setText] = useState("");
+  const [selectedMovie, setSelectedMovie] = useState<MovieResult | null>(null);
+  const [movieSearch, setMovieSearch] = useState("");
+  const [filteredMovies, setFilteredMovies] = useState<MovieResult[]>([]);
+  const [loadingMovies, setLoadingMovies] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleMovieSearch = async (query: string) => {
+    setMovieSearch(query);
+
+    if (!query.trim()) {
+      setFilteredMovies([]);
+      return;
+    }
+
+    setLoadingMovies(true);
+    try {
+      // Search both movies and shows in parallel
+      const [moviesRes, showsRes] = await Promise.all([
+        fetch(`/api/movies?query=${query}&page=1`),
+        fetch(`/api/shows?query=${query}&page=1`),
+      ]);
+
+      let allResults: MovieResult[] = [];
+
+      // Process movies
+      if (moviesRes.ok) {
+        const moviesData: MoviesSearchResponse = await moviesRes.json();
+        const movies: MovieResult[] = moviesData.results
+          .filter((movie: any) => movie.release_date && movie.vote_average !== 0)
+          .slice(0, 4)
+          .map((movie: any) => ({
+            id: movie.id,
+            title: movie.title,
+            type: "movie" as const,
+            poster_path: movie.poster_path,
+          }));
+        allResults.push(...movies);
+      }
+
+      // Process shows
+      if (showsRes.ok) {
+        const showsData: any = await showsRes.json();
+        const shows: MovieResult[] = showsData
+          .filter((show: any) => show.first_air_date && show.vote_average !== 0)
+          .slice(0, 4)
+          .map((show: any) => ({
+            id: show.id,
+            title: show.name,
+            type: "tv" as const,
+            poster_path: show.poster_path,
+          }));
+        allResults.push(...shows);
+      }
+
+      setFilteredMovies(allResults);
+    } catch (error) {
+      console.error("Error searching movies/shows:", error);
+      setFilteredMovies([]);
+    } finally {
+      setLoadingMovies(false);
+    }
+  };
+
+  const submitReview = async () => {
+    if (!selectedMovie || rating === 0) {
+      return alert("Movie and rating are required!");
+    }
+
+    setSubmitting(true);
+    try {
+      // Determine endpoint based on content type
+      const endpoint = selectedMovie.type === "tv" 
+        ? `/api/shows/${selectedMovie.id}/reviews`
+        : `/api/movies/${selectedMovie.id}/reviews`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          rating,
+          review_title: selectedMovie.title,
+          review: text.trim() || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to post review");
+      }
+
+      // Success! Reset form
+      alert("Review posted successfully!");
+      setRating(0);
+      setText("");
+      setSelectedMovie(null);
+      setMovieSearch("");
+
+      // Refresh the feed by reloading the page or dispatching an event
+      window.location.reload();
+    } catch (error) {
+      console.error("Error posting review:", error);
+      alert(
+        error instanceof Error ? error.message : "Failed to post review. Please try again."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/20 border border-purple-700/50 rounded-lg p-6 mb-8">
+      <h3 className="text-xl font-bold text-white mb-5">Share Your Review</h3>
+
+      {/* Movie Selection */}
+      <div className="mb-5">
+        <label className="block text-sm font-semibold text-gray-300 mb-2">
+          Movie or Show
+        </label>
+        <div className="relative">
+          <Search size={18} className="absolute left-3 top-3 text-gray-500" />
+          <input
+            type="text"
+            placeholder="Search for a movie or show..."
+            value={movieSearch}
+            onChange={(e) => handleMovieSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+          />
+
+          {/* Dropdown */}
+          {movieSearch && (loadingMovies || filteredMovies.length > 0) && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-zinc-700 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
+              {loadingMovies ? (
+                <div className="px-4 py-3 text-gray-400 text-sm">Searching...</div>
+              ) : filteredMovies.length > 0 ? (
+                filteredMovies.map((movie) => (
+                  <button
+                    key={movie.id}
+                    onClick={() => {
+                      setSelectedMovie(movie);
+                      setMovieSearch(movie.title);
+                      setFilteredMovies([]);
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-zinc-800 text-white border-b border-zinc-800 last:border-b-0 transition-colors"
+                  >
+                    <span>{movie.title}</span>
+                    <span className="text-xs text-gray-400 ml-2">
+                      {movie.type === "tv" ? "TV Show" : "Movie"}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-4 py-3 text-gray-400 text-sm">No results found</div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {selectedMovie && (
+          <p className="text-sm text-purple-400 mt-2">
+            Selected: <span className="font-semibold">{selectedMovie.title}</span>
+          </p>
+        )}
+      </div>
+
+      {/* Rating Scale */}
+      <div className="mb-5">
+        <label className="block text-sm font-semibold text-gray-300 mb-3">
+          Your Rating
+        </label>
+        <div className="space-y-4">
+          <input
+            type="range"
+            min="1"
+            max="10"
+            value={rating}
+            onChange={(e) => setRating(Number(e.target.value))}
+            className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+          />
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400 text-sm">1</span>
+            {rating > 0 && (
+              <span className="text-2xl font-bold text-yellow-400">{rating}</span>
+            )}
+            <span className="text-gray-400 text-sm">10</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Review Text */}
+      <div className="mb-5">
+        <label className="block text-sm font-semibold text-gray-300 mb-2">
+          Your Thoughts (Optional)
+        </label>
+        <textarea
+          placeholder="What did you think about it?"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="w-full p-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors resize-none"
+          rows={3}
+        />
+      </div>
+
+      {/* Submit Button */}
+      <button
+        onClick={submitReview}
+        disabled={submitting}
+        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-semibold py-2 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100"
+      >
+        {submitting ? "Posting..." : "Post Review"}
+      </button>
+    </div>
+  );
+}
+
