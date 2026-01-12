@@ -292,6 +292,18 @@ CREATE TRIGGER on_new_message
 AFTER INSERT ON messages
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_message();
 
+-- Trigger to refresh recommendations when user embeddings are updated
+CREATE TRIGGER trigger_refresh_recommendations
+AFTER INSERT OR UPDATE ON user_embeddings
+FOR EACH ROW
+EXECUTE FUNCTION trigger_refresh_movie_recommendations();
+
+-- Trigger to refresh show recommendations when user embeddings are updated
+CREATE TRIGGER trigger_refresh_show_recommendations
+AFTER INSERT OR UPDATE ON user_embeddings
+FOR EACH ROW
+EXECUTE FUNCTION trigger_refresh_show_recommendations();
+
 -- =====================================
 -- 8. EMBEDDINGS FOR PYTHON MICROSERVICE
 -- =====================================
@@ -350,6 +362,63 @@ BEGIN
   FROM show_embeddings AS s
   ORDER BY s.embedding <#> (SELECT u.embedding FROM user_embeddings AS u WHERE u.user_id = p_user_id)
   LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION refresh_movie_recommendations(p_user_id UUID, p_limit INT DEFAULT 50)
+RETURNS void AS $$
+BEGIN
+  -- Delete old recommendations for this user
+  DELETE FROM movie_recommendations WHERE user_id = p_user_id;
+  
+  -- Insert new top recommendations with variable limit
+  INSERT INTO movie_recommendations (user_id, movie_id, created_at, updated_at)
+  SELECT 
+    p_user_id, 
+    m.movie_id, 
+    NOW(), 
+    NOW()
+  FROM movie_embeddings AS m
+  ORDER BY m.embedding <#> (SELECT u.embedding FROM user_embeddings AS u WHERE u.user_id = p_user_id)
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger function to refresh recommendations on user embedding update
+CREATE OR REPLACE FUNCTION trigger_refresh_movie_recommendations()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Call the RPC function when embeddings update (store 60 movies)
+  PERFORM refresh_movie_recommendations(NEW.user_id, 60);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE FUNCTION refresh_show_recommendations(p_user_id UUID, p_limit INT DEFAULT 50)
+RETURNS void AS $$
+BEGIN
+  -- Delete old recommendations for this user
+  DELETE FROM show_recommendations WHERE user_id = p_user_id;
+  
+  -- Insert new top recommendations with variable limit
+  INSERT INTO show_recommendations (user_id, show_id, created_at, updated_at)
+  SELECT 
+    p_user_id, 
+    s.show_id, 
+    NOW(), 
+    NOW()
+  FROM show_embeddings AS s
+  ORDER BY s.embedding <#> (SELECT u.embedding FROM user_embeddings AS u WHERE u.user_id = p_user_id)
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE FUNCTION trigger_refresh_show_recommendations()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Call the RPC function when embeddings update (store 60 show)
+  PERFORM refresh_show_recommendations(NEW.user_id, 20);
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
