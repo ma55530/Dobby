@@ -79,14 +79,20 @@ export default function MePage() {
         setAllGenres(genresData.genres || []);
       }
 
-      // Load favorite genres from profile
-      if (profileData.favorite_genres) {
-        setFavoriteGenreIds(profileData.favorite_genres);
+      // Load favorite genres from localStorage
+      const savedGenres = localStorage.getItem(`favorite_genres_${profileData.id}`);
+      if (savedGenres) {
+        try {
+          const genreIds = JSON.parse(savedGenres);
+          setFavoriteGenreIds(genreIds);
+        } catch (e) {
+          console.error("Failed to parse saved genres:", e);
+        }
       }
       
       // Fetch follow counts
       if (profileData.id) {
-        const countsRes = await fetch(`/api/user/follow?id=${profileData.id}`);
+        const countsRes = await fetch(`/api/user/${profileData.id}/follow-stats`);
         if (countsRes.ok) {
           const countsData = await countsRes.json();
           setFollowCounts(countsData);
@@ -94,17 +100,15 @@ export default function MePage() {
       }
       
       setLoading(false);
-    };
-
-    const fetchProfileStats = async () => {
-      try {
-        const res = await fetch("/api/user/profile-stats");
-        if (res.ok) {
-          const stats = await res.json();
-          setProfileStats(stats);
-        }
-      } catch (err) {
-        console.error("Failed to load profile stats:", err);
+      
+      // Fetch profile stats AFTER profile is loaded, with genres from localStorage
+      const savedGenresData = localStorage.getItem(`favorite_genres_${profileData.id}`);
+      const genresParam = savedGenresData ? `?favorite_genres=${encodeURIComponent(savedGenresData)}` : '';
+      
+      const statsRes = await fetch(`/api/user/profile-stats${genresParam}`);
+      if (statsRes.ok) {
+        const stats = await statsRes.json();
+        setProfileStats(stats);
       }
     };
 
@@ -121,7 +125,6 @@ export default function MePage() {
     };
 
     fetchData();
-    fetchProfileStats();
     fetchWatchlists();
   }, []);
 
@@ -261,7 +264,17 @@ export default function MePage() {
                           age: profile.age,
                           bio: profile.bio ?? "",
                         });
-                        setFavoriteGenreIds(profile.favorite_genres ?? []);
+                        // Load favorite genres from localStorage
+                        const savedGenres = localStorage.getItem(`favorite_genres_${profile.id}`);
+                        if (savedGenres) {
+                          try {
+                            setFavoriteGenreIds(JSON.parse(savedGenres));
+                          } catch (e) {
+                            setFavoriteGenreIds([]);
+                          }
+                        } else {
+                          setFavoriteGenreIds([]);
+                        }
                         setSelectedFile(null);
                         setPreviewUrl(null);
                       }
@@ -407,20 +420,33 @@ export default function MePage() {
                         </button>
                         <button
                           onClick={async () => {
-                            // Include favorite genres in update
+                            // Save favorite genres to localStorage
+                            if (profile?.id) {
+                              localStorage.setItem(
+                                `favorite_genres_${profile.id}`,
+                                JSON.stringify(favoriteGenreIds)
+                              );
+                            }
+                            
                             await fetch("/api/user", {
                               method: "PATCH",
                               headers: {
                                 "Content-Type": "application/json",
                               },
-                              body: JSON.stringify({
-                                ...updatedProfile,
-                                favorite_genres: favoriteGenreIds,
-                              }),
+                              body: JSON.stringify(updatedProfile),
                             }).then(async (res) => {
                               if (res.ok) {
                                 const updatedData = await res.json();
                                 setProfile(updatedData);
+                                
+                                // Refresh profile stats with favorite genres from localStorage
+                                const savedGenres = localStorage.getItem(`favorite_genres_${profile.id}`);
+                                const genresParam = savedGenres ? `?favorite_genres=${encodeURIComponent(savedGenres)}` : '';
+                                const statsRes = await fetch(`/api/user/profile-stats${genresParam}`);
+                                if (statsRes.ok) {
+                                  const stats = await statsRes.json();
+                                  setProfileStats(stats);
+                                }
                               }
                             });
                             setOpen(false);
