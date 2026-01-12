@@ -147,6 +147,9 @@ const NotificationMenu = ({
         }
         const data = await res.json();
         setNotifications(Array.isArray(data) ? data.filter((n: Notification) => !n.is_read) : []);
+      } else if (res.status === 401) {
+        // User not authenticated, clear notifications
+        setNotifications([]);
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);

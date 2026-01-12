@@ -116,8 +116,10 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
     if (!profile) return;
     setActionLoading(true);
     try {
-      const res = await fetch(`/api/follows?userId=${profile.id}`, {
+      const res = await fetch(`/api/follows`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: profile.id }),
       });
 
       if (res.ok) {
