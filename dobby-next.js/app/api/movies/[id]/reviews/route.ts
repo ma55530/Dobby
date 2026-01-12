@@ -15,7 +15,10 @@ export async function GET(
       id,
       user_id,
       rating,
+      review_title,
       review,
+      likes,
+      dislikes,
       created_at,
       profiles:user_id (
         username,
@@ -24,7 +27,6 @@ export async function GET(
     `
     )
     .eq("movie_id", movieId)
-    .not("review", "is", null)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -51,13 +53,10 @@ export async function POST(
   }
 
   const body = await request.json();
-  const { rating, review } = body;
+  const { rating, review_title, review } = body;
 
-  if (!rating || !review) {
-    return NextResponse.json(
-      { error: "Rating and review text are required" },
-      { status: 400 }
-    );
+  if (!rating) {
+    return NextResponse.json({ error: "Rating is required" }, { status: 400 });
   }
 
   if (rating < 1 || rating > 10) {
@@ -67,7 +66,7 @@ export async function POST(
     );
   }
 
-  // Upsert movie rating with review
+  // Upsert movie rating with optional review
   const { data: ratingData, error: ratingError } = await supabase
     .from("movie_ratings")
     .upsert(
@@ -75,7 +74,8 @@ export async function POST(
         user_id: user.id,
         movie_id: parseInt(movieId),
         rating,
-        review,
+        review_title: review_title || null,
+        review: review || null,
       },
       { onConflict: "user_id,movie_id" }
     )
