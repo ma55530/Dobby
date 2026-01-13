@@ -33,7 +33,7 @@ const GENRE_MAP: Record<number, string> = {
   10768: 'War & Politics',
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient()
 
   // Get session
@@ -44,6 +44,24 @@ export async function GET() {
   }
 
   try {
+    // Try to get favorite genres from request query params (sent from frontend with localStorage data)
+    const { searchParams } = new URL(request.url);
+    const genresParam = searchParams.get('favorite_genres');
+    let favoriteGenresFromClient: string[] = [];
+    
+    if (genresParam) {
+      try {
+        const genreIds = JSON.parse(genresParam);
+        if (Array.isArray(genreIds)) {
+          favoriteGenresFromClient = genreIds
+            .map((id: number) => GENRE_MAP[id])
+            .filter(Boolean);
+        }
+      } catch (e) {
+        console.error('Failed to parse favorite_genres param:', e);
+      }
+    }
+    
     // Fetch all watchlists for this user
     const { data: watchlists, error: watchlistsError } = await supabase
       .from('watchlists')
@@ -51,9 +69,9 @@ export async function GET() {
       .eq('user_id', user.id)
 
     if (watchlistsError || !watchlists || watchlists.length === 0) {
-      // Return empty stats if no watchlists found
+      // Return favorite genres from client even if no watchlists
       return NextResponse.json({
-        favoriteGenres: [],
+        favoriteGenres: favoriteGenresFromClient,
         topMovies: [],
         topShows: []
       })
@@ -129,22 +147,26 @@ export async function GET() {
       }
     }
 
-    // Calculate favorite genres from all watched content
-    const genreCount: Record<string, number> = {}
+    // Calculate favorite genres from all watched content (if not provided by client)
+    let favoriteGenres = favoriteGenresFromClient;
     
-    ;[...topMovies, ...topShows].forEach(item => {
-      const genres = item.genres as Array<{ id: number; name: string }>
-      genres.forEach(genre => {
-        const genreName = genre.name || GENRE_MAP[genre.id] || 'Unknown'
-        genreCount[genreName] = (genreCount[genreName] || 0) + 1
+    if (favoriteGenres.length === 0) {
+      const genreCount: Record<string, number> = {}
+      
+      ;[...topMovies, ...topShows].forEach(item => {
+        const genres = item.genres as Array<{ id: number; name: string }>
+        genres.forEach(genre => {
+          const genreName = genre.name || GENRE_MAP[genre.id] || 'Unknown'
+          genreCount[genreName] = (genreCount[genreName] || 0) + 1
+        })
       })
-    })
 
-    // Get top 5 genres
-    const favoriteGenres = Object.entries(genreCount)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([genre]) => genre)
+      // Get top 5 genres from watchlist as fallback
+      favoriteGenres = Object.entries(genreCount)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5)
+        .map(([genre]) => genre)
+    }
 
     return NextResponse.json({
       favoriteGenres,

@@ -27,7 +27,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { ComponentProps } from 'react';
-import { ModeToggle } from '@/components/theme/theme-switcher';
+
 import Link from "next/link";
 
 // Simple logo component for the navbar
@@ -143,8 +143,15 @@ const NotificationMenu = ({
     try {
       const res = await fetch("/api/notifications");
       if (res.ok) {
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          return;
+        }
         const data = await res.json();
         setNotifications(Array.isArray(data) ? data.filter((n: Notification) => !n.is_read) : []);
+      } else if (res.status === 401) {
+        // User not authenticated, clear notifications
+        setNotifications([]);
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -287,10 +294,13 @@ const UserMenu = ({
         Billing
       </DropdownMenuItem> */}
       <DropdownMenuSeparator /> 
-      <DropdownMenuItem className="hover:!text-primary hover:!bg-transparent" onClick={() => onItemClick?.('logout')}>
-        <Link href="/auth/login" className="hover:text-primary">
-          Log out
-        </Link>
+      <DropdownMenuItem className="hover:!text-primary hover:!bg-transparent" onClick={async () => {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        await supabase.auth.signOut();
+        window.location.href = '/auth/login';
+      }}>
+        Log out
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
@@ -467,7 +477,6 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
           {/* Right: User and notifications */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <ModeToggle />
               <NotificationMenu 
                 notificationCount={notificationCount}
                 onItemClick={onNotificationItemClick}
