@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Mail, Calendar, User as UserIcon, Star } from "lucide-react";
 import type { UserProfile } from "@/lib/types/UserProfile";
+import ReviewCard from "@/components/cards/ReviewCard";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,7 @@ export default function MePage() {
     topMovies: [],
     topShows: [],
   });
+  const [userReviews, setUserReviews] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,8 +93,21 @@ export default function MePage() {
       }
     };
 
+    const fetchUserReviews = async () => {
+      try {
+        const res = await fetch("/api/user/reviews?limit=10");
+        if (res.ok) {
+          const data = await res.json();
+          setUserReviews(data.reviews || []);
+        }
+      } catch (err) {
+        console.error("Failed to load user reviews:", err);
+      }
+    };
+
     fetchData();
     fetchProfileStats();
+    fetchUserReviews();
   }, []);
 
   const updateProfile = async () => {
@@ -470,8 +485,16 @@ export default function MePage() {
             </div>
 
             <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
-              <h3 className="text-white font-semibold text-lg mb-3">Recent activity</h3>
-              <p className="text-gray-400 text-sm">No recent activity yet.</p>
+              <h3 className="text-white font-semibold text-lg mb-4 text-center">Recent activity</h3>
+              {userReviews.length > 0 ? (
+                <div className="space-y-6 flex flex-col items-center">
+                  {userReviews.map((review) => (
+                    <ReviewCard key={review.id} post={review} isNested={true} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm text-center">No recent activity yet.</p>
+              )}
             </div>
           </div>
         ) : (

@@ -27,51 +27,30 @@ export default function HomePage() {
 
       {/* Main Content */}
       <div className="flex justify-center p-3 sm:p-4 md:p-9 py-8">
-        <div className="w-full px-4">
+        <div className="w-full max-w-7xl">
           <div className="space-y-6">
             
-            {/* Collapsible Create Review Section */}
-            <div className="lg:hidden">
-              <button
-                onClick={() => setIsCreateOpen(!isCreateOpen)}
-                className="w-full flex items-center justify-between bg-gradient-to-r from-purple-900/30 to-pink-900/20 border border-purple-700/50 rounded-lg p-4 hover:from-purple-900/50 hover:to-pink-900/40 transition-all duration-300"
-              >
-                <div className="flex items-center gap-3">
-                  <Plus size={20} className="text-purple-400" />
-                  <span className="font-semibold">Share Your Review</span>
-                </div>
-                <ChevronDown
-                  size={20}
-                  className={`transition-transform duration-300 ${isCreateOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-              {isCreateOpen && (
-                <div className="mt-4 animate-fadeIn">
-                  <CreateReview />
-                </div>
-              )}
+            {/* Create Review - Top Section */}
+            <div className="max-w-2xl mx-auto w-full mb-8">
+              <CreateReview />
             </div>
 
-            {/* Desktop Layout */}
-            <div className="hidden lg:grid grid-cols-4 gap-30">
+            {/* Two Column Layout - Reviews and Ratings */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-15">
               
-              {/* Feed - Main Content */}
-              <div className="col-span-3 flex items-center">
-                <Feed />
+              {/* Left Side - Main Feed (Reviews with text) */}
+              <div className="lg:col-span-2">
+                <Feed type="reviews" />
               </div>
 
-              {/* Right Sidebar - Create Review */}
-              <div className="col-span-1">
-                <div className="sticky top-32">
-                  <CreateReview />
+              {/* Right Side - Ratings Only */}
+              <div className="lg:col-span-1">
+                <div className="sticky top-20 lg:top-25">
+                  <h3 className="text-xl font-bold text-white mb-4">Latest Ratings</h3>
+                  <Feed type="ratings" />
                 </div>
               </div>
 
-            </div>
-
-            {/* Mobile Layout */}
-            <div className="lg:hidden">
-              <Feed />
             </div>
 
           </div>
