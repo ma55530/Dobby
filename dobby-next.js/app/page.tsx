@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CreateReview from "@/components/feed/CreateReview";
 import Feed from "@/components/feed/Feed";
 import MessageButton from "@/components/messaging/MessageButton";
@@ -8,6 +8,12 @@ import { ChevronDown, Plus } from "lucide-react";
 
 export default function HomePage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/FBS?limit=20").catch((err) => console.error("Failed to fetch recommendations", err));
+  }, []);
+
+
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#1a1625] via-[#0f0c18] to-[#1a1625] text-white">
@@ -29,7 +35,7 @@ export default function HomePage() {
       <div className="flex justify-center p-3 sm:p-4 md:p-9 py-8">
         <div className="w-full px-4">
           <div className="space-y-6">
-            
+
             {/* Collapsible Create Review Section */}
             <div className="lg:hidden">
               <button
@@ -54,7 +60,7 @@ export default function HomePage() {
 
             {/* Desktop Layout */}
             <div className="hidden lg:grid grid-cols-4 gap-30">
-              
+
               {/* Feed - Main Content */}
               <div className="col-span-3 flex items-center">
                 <Feed />
