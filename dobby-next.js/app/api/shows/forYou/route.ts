@@ -1,122 +1,92 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { Show } from "@/lib/types/Show";
-import { Shows } from "@/lib/types/Shows";
-
-// Global cache that persists across requests - per user
-const userShowCaches: Record<string, Record<number, Show>> = {};
 
 export async function GET(request: Request) {
   try {
     const supabase = await createClient();
-
-    const { data: sessionData, error: sessionError } =
-      await supabase.auth.getSession();
-    if (sessionError)
-      return NextResponse.json(
-        { error: sessionError.message },
-        { status: 500 }
-      );
-
-    const userId = sessionData?.session?.user?.id;
-    if (!userId)
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !sessionData?.session?.user?.id) {
+       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = sessionData.session.user.id;
     const url = new URL(request.url);
-    const requestedLimit = parseInt(url.searchParams.get("limit") || "20", 10);
+    const requestedLimit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10), 100);
 
-    if (requestedLimit > 100) {
-      return NextResponse.json({ error: "Limit too high" }, { status: 400 });
-    }
-
-    // Initialize user cache if not exists
-    if (!userShowCaches[userId]) {
-      userShowCaches[userId] = {};
-    }
-
-    const userCache = userShowCaches[userId];
-
-    // Extract cookie OUTSIDE of unstable_cache
-    const cookie = request.headers.get("cookie") ?? "";
-
-    // Get recommended show IDs from database (pre-computed by AI)
-    let { data: dbRecommendations } = await supabase
+    // 1. Get Recommended IDs
+    const { data: recs } = await supabase
       .from("show_recommendations")
-      .select("show_id, updated_at")
+      .select("show_id, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: true })
       .limit(requestedLimit);
 
-    const dbShowIds = (dbRecommendations ?? []).map((r) => r.show_id);
+    if (!recs || recs.length === 0) return NextResponse.json([]);
 
-    console.log(`Processing ${dbShowIds.length} show IDs from database`);
+    const tmdbIds = recs.map(r => r.show_id);
 
-    // Find which shows in cache are NO LONGER in DB recommendations
-    const cachedIds = Object.keys(userCache).map(Number);
-    const removedIds = cachedIds.filter((id) => !dbShowIds.includes(id));
+    // 2. Check Local 'shows' Cache Table
+    const { data: localData } = await supabase
+      .from("shows")
+      .select("*")
+      .in("tmdb_id", tmdbIds);
 
-    // Remove stale shows from cache (keep cache same size as DB)
-    removedIds.forEach((id) => {
-      delete userCache[id];
+    const localMap = new Map((localData || []).map(s => [s.tmdb_id, s]));
+    const missingIds: number[] = [];
+
+    // 3. Identify Missing
+    tmdbIds.forEach(id => {
+       if (!localMap.has(id)) {
+           missingIds.push(id);
+       }
     });
 
-    if (removedIds.length > 0) {
-      console.log(`Removed ${removedIds.length} stale shows from cache`);
-    }
-
-    // Find which shows are NOT in cache
-    const missingIds = dbShowIds.filter((id) => !userCache[id]);
-
-    console.log(
-      `Cache: ${Object.keys(userCache).length} shows | Missing: ${
-        missingIds.length
-      } shows`
-    );
-
-    // Only fetch missing shows from TMDB
+    // 4. Fetch Missing Parallel
+    const missingMap = new Map<number, Show>();
     if (missingIds.length > 0) {
-      const fetchOptions = {
-        headers: { cookie, accept: "application/json" },
-      };
+        // Extract headers (including cookies) to pass to sub-request
+        const headers = {
+          cookie: request.headers.get("cookie") || "",
+          accept: "application/json"
+        };
 
-      const fetches = missingIds.map((id) =>
-        fetch(new URL(`/api/shows/${id}`, request.url).toString(), fetchOptions)
-          .then(async (res) => {
-            if (!res.ok) return null;
-            return res.json();
-          })
-          .catch(() => null)
-      );
-
-      const newShows = (await Promise.all(fetches)).filter((s): s is Show =>
-        Boolean(s)
-      );
-
-      console.log(`Fetched ${newShows.length} new shows from TMDB`);
-
-      // Add new shows to cache
-      newShows.forEach((show) => {
-        userCache[show.id] = show;
-      });
+        const fetched = await Promise.all(
+            missingIds.map(async (id) => {
+                try {
+                    const res = await fetch(new URL(`/api/shows/${id}`, request.url).toString(), { headers });
+                    return res.ok ? { id, data: await res.json() as Show } : null;
+                } catch { return null; }
+            })
+        );
+        fetched.forEach(item => { 
+            if(item) missingMap.set(item.id, item.data); 
+        });
     }
 
-    // Get shows from cache in AI order
-    const orderedShows = dbShowIds
-      .map((id) => userCache[id])
-      .filter((s): s is Show => Boolean(s));
+    // 5. Construct Final List (Preserving Order)
+    const finalOrdered = tmdbIds.map(id => {
+        if (localMap.has(id)) {
+            const dbShow = localMap.get(id);
+            // Transform DB shape to frontend Show shape
+            return {
+                id: dbShow.tmdb_id,
+                name: dbShow.title,
+                poster_path: dbShow.poster_url,
+                first_air_date: dbShow.first_air_date,
+                vote_average: dbShow.rating_average,
+                // Add default/missing fields that frontend might need
+                overview: null, // DB might not store overview
+                backdrop_path: null,
+                genres: (dbShow.genre || []).map((name: string) => ({ id: 0, name })) 
+            } as unknown as Show;
+        }
+        if (missingMap.has(id)) return missingMap.get(id);
+        return null;
+    }).filter(Boolean);
 
-    console.log(
-      `Returning ${orderedShows.length} shows to client (Cache size: ${
-        Object.keys(userCache).length
-      })`
-    );
-
-    return NextResponse.json(orderedShows, { status: 200 });
+    return NextResponse.json(finalOrdered);
   } catch (err: any) {
-    console.error("Route error:", err);
-    return NextResponse.json(
-      { error: err?.message ?? "unknown error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

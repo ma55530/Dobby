@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import CreateReview from "@/components/feed/CreateReview";
 import Feed from "@/components/feed/Feed";
 import MessageButton from "@/components/messaging/MessageButton";
@@ -9,9 +9,6 @@ import { ChevronDown, Plus } from "lucide-react";
 export default function HomePage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/FBS?limit=20").catch((err) => console.error("Failed to fetch recommendations", err));
-  }, []);
 
 
 
