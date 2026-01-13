@@ -93,11 +93,15 @@ export default function MoviesPage() {
     // Use fuzzy results if found, otherwise use filtered results
     filteredMovies = fuzzyResults.length > 0 ? fuzzyResults : filteredMovies;
 
-    if (searchPage === 1) {
-      setResults(filteredMovies);
-    } else {
-      setResults((prev) => [...prev, ...filteredMovies]);
-    }
+    setResults((prev) => {
+  const combined =
+    searchPage === 1 ? filteredMovies : [...prev, ...filteredMovies];
+
+  return Array.from(
+    new Map(combined.map((movie) => [movie.id, movie])).values()
+  );
+});
+
 
     const moreAvailable = searchPage < data.total_pages && filteredMovies.length > 0;
     setHasMore(moreAvailable);

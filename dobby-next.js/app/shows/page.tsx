@@ -84,11 +84,15 @@ export default function ShowsPage() {
     // Use fuzzy results if found, otherwise use filtered results
     filteredShows = fuzzyResults.length > 0 ? fuzzyResults : filteredShows;
 
-    if (searchPage === 1) {
-      setResults(filteredShows);
-    } else {
-      setResults((prev) => [...prev, ...filteredShows]);
-    }
+    setResults((prev) => {
+  const combined =
+    searchPage === 1 ? filteredShows : [...prev, ...filteredShows];
+
+  return Array.from(
+    new Map(combined.map((show) => [show.id, show])).values()
+  );
+});
+
     setLoading(false);
   };
 

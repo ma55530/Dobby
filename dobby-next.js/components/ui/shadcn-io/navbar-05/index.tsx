@@ -117,7 +117,9 @@ const InfoMenu = ({ onItemClick }: { onItemClick?: (item: string) => void }) => 
 interface Notification {
   id: string;
   is_read: boolean;
+  resource_id: string;
   actor: {
+    id: string;
     username: string;
     avatar_url: string;
     first_name: string;
@@ -170,6 +172,13 @@ const NotificationMenu = ({
     }
   };
 
+  const getNotificationLink = (notification: Notification) => {
+    if (notification.type === 'message') {
+      return `/messages?conversation=${notification.resource_id}`;
+    }
+    return `/users/${notification.actor.username}`;
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -198,43 +207,33 @@ const NotificationMenu = ({
           </div>
         )}
         {!loading && notifications.length > 0 && notifications.slice(0, 10).map((notification) => (
-          <div key={notification.id} className="p-3 border-b last:border-0 hover:bg-accent/50 transition-colors group">
+          <Link 
+            key={notification.id} 
+            href={getNotificationLink(notification)}
+            onClick={() => handleMarkAsRead(notification.id)}
+            className="block p-3 border-b last:border-0 hover:bg-accent/50 transition-colors"
+          >
             <div className="flex items-start gap-3">
-              <Link href={`/users/${notification.actor.username}`}>
-                <Avatar className="h-10 w-10 cursor-pointer">
-                  <AvatarImage src={notification.actor.avatar_url} alt={notification.actor.username} />
-                  <AvatarFallback>{(notification.actor.first_name?.[0] || notification.actor.username[0]).toUpperCase()}</AvatarFallback>
-                </Avatar>
-              </Link>
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={notification.actor.avatar_url} alt={notification.actor.username} />
+                <AvatarFallback>{(notification.actor.first_name?.[0] || notification.actor.username[0]).toUpperCase()}</AvatarFallback>
+              </Avatar>
               <div className="flex-1 min-w-0">
-                <Link href={`/users/${notification.actor.username}`} className="hover:underline">
-                  <p className="font-medium text-sm truncate">@{notification.actor.username}</p>
-                  {(notification.actor.first_name || notification.actor.last_name) && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {notification.actor.first_name} {notification.actor.last_name}
-                    </p>
-                  )}
-                </Link>
+                <p className="font-medium text-sm truncate">@{notification.actor.username}</p>
+                {(notification.actor.first_name || notification.actor.last_name) && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {notification.actor.first_name} {notification.actor.last_name}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground mt-1">
                   {notification.type === 'follow' && 'started following you'}
                   {notification.type === 'message' && 'sent you a message'}
                   {notification.type === 'like' && 'liked your content'}
                   {notification.type === 'reply' && 'replied to you'}
                 </p>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleMarkAsRead(notification.id);
-                  }}
-                  className="h-6 text-xs mt-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  Mark as read
-                </Button>
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>

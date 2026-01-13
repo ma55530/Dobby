@@ -7,4 +7,5 @@ export interface Conversation {
   updated_at: string;
   participants?: UserProfile[];
   last_message?: Message;
+  unread_count?: number;
 }

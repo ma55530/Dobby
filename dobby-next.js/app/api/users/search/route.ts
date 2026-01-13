@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   // Search by username, first_name, or last_name
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, first_name, last_name, avatar_url, bio')
+    .select('id, username, first_name, last_name, avatar_url, bio, email')
     .or(`username.ilike.%${query}%,first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
     .limit(20)
 

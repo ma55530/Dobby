@@ -19,6 +19,7 @@ export default function NavbarWrapper() {
     "/users",
     "/watchlist",
     "/profile",
+    "/messages",
   ];
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function NavbarWrapper() {
         { label: "Movies", href: "/movies" },
         { label: "Shows", href: "/shows" },
         { label: "Users", href: "/users" },
+        { label: "Messages", href: "/messages" },
       ]}
       userName={sessionUser?.name || "Guest"}
       userEmail={sessionUser?.email || ""}

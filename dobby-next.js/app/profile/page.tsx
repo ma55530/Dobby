@@ -460,42 +460,6 @@ export default function MePage() {
                     )}
                   </div>
                 </div>
-
-                <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-white font-medium">Top movies</span>
-                  </div>
-                  <ul className="text-gray-300 text-sm space-y-1">
-                    {profileStats.topMovies.length > 0 ? (
-                      profileStats.topMovies.map((m) => (
-                        <li key={m.id} className="flex items-center gap-2">
-                          <Star className="w-3 h-3 text-yellow-400" />
-                          {m.title}
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-xs text-gray-500">No movies watched yet</li>
-                    )}
-                  </ul>
-                </div>
-              </div>
-
-              <div className="mt-4 p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-white font-medium">Top shows</span>
-                </div>
-                <ul className="text-gray-300 text-sm space-y-1">
-                  {profileStats.topShows.length > 0 ? (
-                    profileStats.topShows.map((s) => (
-                      <li key={s.id} className="flex items-center gap-2">
-                        <Star className="w-3 h-3 text-purple-300" />
-                        {s.name}
-                      </li>
-                    ))
-                  ) : (
-                    <li className="text-xs text-gray-500">No shows watched yet</li>
-                  )}
-                </ul>
               </div>
             </div>
 
@@ -526,7 +490,7 @@ export default function MePage() {
                         <div className="flex gap-2 overflow-x-auto">
                           {watchlist.items.slice(0, 5).map((item) => (
                             <Link
-                              key={`${item.type}-${item.id}`}
+                              key={`${watchlist.id}-${item.type}-${item.id}`}
                               href={`/${item.type === 'movie' ? 'movies' : 'shows'}/${item.id}`}
                               className="flex-shrink-0 cursor-pointer hover:opacity-80 transition"
                             >

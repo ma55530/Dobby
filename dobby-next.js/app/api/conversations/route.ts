@@ -46,11 +46,26 @@ export async function GET() {
       ? conv.messages.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] 
       : null;
 
+    // Count unread messages (messages sent by others that aren't read)
+    // Treat NULL as unread (older rows might have is_read = NULL)
+    const unreadCount = conv.messages
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? conv.messages.filter((m: any) => m.is_read !== true && m.sender_id !== user.id).length
+      : 0;
+
     return {
       ...conv,
       participants: otherParticipants,
-      last_message: lastMessage
+      last_message: lastMessage,
+      unread_count: unreadCount
     };
+  });
+
+  // Sort by last message time (most recent first)
+  formattedConversations.sort((a, b) => {
+    const aTime = a.last_message?.created_at || a.created_at;
+    const bTime = b.last_message?.created_at || b.created_at;
+    return new Date(bTime).getTime() - new Date(aTime).getTime();
   });
 
   return NextResponse.json(formattedConversations);

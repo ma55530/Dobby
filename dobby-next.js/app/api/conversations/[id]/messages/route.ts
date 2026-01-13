@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 
 export async function GET(
@@ -50,7 +51,7 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { content } = await request.json();
+  const { content, message_type, metadata } = await request.json();
 
   if (!content || typeof content !== 'string') {
     return NextResponse.json({ error: 'Content is required' }, { status: 400 });
@@ -68,13 +69,31 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
+  const messageData: {
+    conversation_id: string;
+    sender_id: string;
+    content: string;
+    is_read: boolean;
+    message_type?: string;
+    metadata?: unknown;
+  } = {
+    conversation_id: id,
+    sender_id: user.id,
+    content: content,
+    is_read: false
+  };
+
+  if (message_type) {
+    messageData.message_type = message_type;
+  }
+
+  if (metadata) {
+    messageData.metadata = metadata;
+  }
+
   const { data, error } = await supabase
     .from('messages')
-    .insert({
-      conversation_id: id,
-      sender_id: user.id,
-      content: content
-    })
+    .insert(messageData)
     .select()
     .single();
 
@@ -89,4 +108,59 @@ export async function POST(
     .eq('id', id);
 
   return NextResponse.json(data);
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const { id } = await params;
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Verify user is participant (security check before using admin client)
+  const { data: participant } = await supabase
+    .from('conversation_participants')
+    .select('user_id')
+    .eq('conversation_id', id)
+    .eq('user_id', user.id)
+    .single();
+
+  if (!participant) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
+
+  // Mark all unread messages in this conversation as read (where user is NOT the sender)
+  // NOTE: Some rows may have is_read = NULL (older inserts). Treat NULL as unread.
+  // Use admin client to avoid RLS preventing receiver from updating sender's rows.
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    console.error('Admin Supabase client not configured:', e);
+    return NextResponse.json(
+      {
+        error:
+          'Server is missing SUPABASE_SERVICE_ROLE_KEY, cannot mark messages as read. Configure service role key or adjust RLS policies.'
+      },
+      { status: 500 }
+    );
+  }
+
+  const { error } = await admin
+    .from('messages')
+    .update({ is_read: true })
+    .eq('conversation_id', id)
+    .neq('sender_id', user.id)
+    .or('is_read.is.null,is_read.eq.false');
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
 }
