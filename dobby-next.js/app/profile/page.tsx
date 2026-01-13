@@ -135,6 +135,7 @@ export default function MePage() {
     // 1. Upload avatar if selected
     let newAvatarUrl = null;
     if (selectedFile) {
+      console.log("Uploading avatar file:", selectedFile.name);
       const formData = new FormData();
       formData.append("avatar", selectedFile);
 
@@ -152,6 +153,7 @@ export default function MePage() {
         }
 
         const data = await res.json();
+        console.log("Avatar uploaded successfully:", data);
         newAvatarUrl = data.avatar_url;
       } catch (err) {
         console.error("Error uploading avatar:", err);
@@ -181,6 +183,18 @@ export default function MePage() {
 
     const updatedData = await res.json();
     setProfile(updatedData);
+    
+    // Clear selected file and preview after successful update
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    
+    // Close dialog
+    setOpen(false);
+    
+    console.log("Profile updated successfully:", updatedData);
+    
+    // Trigger navbar refresh by dispatching custom event
+    window.dispatchEvent(new CustomEvent('profileUpdated'));
   };
 
   const formatDate = (iso: string) =>
@@ -212,7 +226,13 @@ export default function MePage() {
               <div className="flex flex-col items-center text-center">
                 <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-purple-400 to-yellow-400 overflow-hidden ring-2 ring-purple-400/40">
                   {profile.avatar_url ? (
-                    <Image src={profile.avatar_url} alt={profile.username} fill className="object-cover" />
+                    <Image 
+                      src={profile.avatar_url} 
+                      alt={profile.username} 
+                      fill 
+                      className="object-cover"
+                      unoptimized
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-white font-bold text-3xl">
                       {(profile.first_name?.[0] || profile.username[0]).toUpperCase()}
@@ -423,6 +443,9 @@ export default function MePage() {
                         </button>
                         <button
                           onClick={async () => {
+                            // First update profile (avatar, bio, age, etc.)
+                            await updateProfile();
+                            
                             // Save favorite genres to localStorage
                             if (profile?.id) {
                               localStorage.setItem(

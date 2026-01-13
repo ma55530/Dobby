@@ -49,7 +49,20 @@ export default function NavbarWrapper() {
         setAuthChecked(true);
       }
     };
+    
     fetchProfile();
+    
+    // Listen for profile updates and refetch
+    const handleProfileUpdate = () => {
+      console.log("Profile update event received, refetching...");
+      fetchProfile();
+    };
+    
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
   }, []);
 
   // Hide navbar on root path and all auth pages
@@ -86,6 +99,7 @@ export default function NavbarWrapper() {
       ]}
       userName={sessionUser?.name || "Guest"}
       userEmail={sessionUser?.email || ""}
+      userAvatar={sessionUser?.avatar}
     />
   );
 }
