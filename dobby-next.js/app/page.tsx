@@ -9,6 +9,9 @@ import { ChevronDown, Plus } from "lucide-react";
 export default function HomePage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
+
+
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#1a1625] via-[#0f0c18] to-[#1a1625] text-white">
       {/* Welcome Hero Section */}

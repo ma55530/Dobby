@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Show } from "@/lib/types/Show";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import Image from "next/image";
 
 export default function ShowsForYouPage() {
@@ -29,27 +29,51 @@ export default function ShowsForYouPage() {
   ];
 
   const [phrase, setPhrase] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     setPhrase(phrases[Math.floor(Math.random() * phrases.length)]);
   }, []);
 
-  useEffect(() => {
-    const fetchShows = async () => {
-      try {
-        const res = await fetch("/api/shows/forYou?limit=20");
-        if (!res.ok) throw new Error("Failed to fetch shows");
-        const data = await res.json();
+  const fetchShows = async (retry = true) => {
+    try {
+      const res = await fetch("/api/shows/forYou?limit=20");
+      if (!res.ok) throw new Error("Failed to fetch shows");
+      const data = await res.json();
+      
+      if (data.length === 0 && retry) {
+        setIsGenerating(true);
+        const genRes = await fetch("/api/recommendation-engine?limit=20");
+        if (genRes.ok) {
+           await fetchShows(false);
+        }
+        setIsGenerating(false);
+      } else {
         setShows(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchShows();
   }, []);
+
+  const handleRerun = async () => {
+    setIsGenerating(true);
+    // Don't set full page loading, just button state
+    try {
+      await fetch("/api/recommendation-engine?limit=20");
+      await fetchShows(false);
+    } catch (e) {
+      console.error("Rerun failed", e);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   // Resetiraj "Read more" kad se promijeni film
   useEffect(() => {
@@ -59,8 +83,8 @@ export default function ShowsForYouPage() {
   const nextShow = () => setIndex((prev) => (prev + 1) % shows.length);
   const prevShow = () => setIndex((prev) => (prev - 1 + shows.length) % shows.length);
 
-  if (loading)
-    return <div className="text-gray-400 text-center p-8">Loading your shows...</div>;
+  if (loading || (isGenerating && shows.length === 0))
+    return <div className="text-gray-400 text-center p-8">{isGenerating ? "Curating your personal recommendations..." : "Loading your shows..."}</div>;
 
   if (shows.length === 0)
     return <div className="text-gray-400 text-center p-8">No recommendations yet.</div>;
@@ -142,6 +166,22 @@ export default function ShowsForYouPage() {
 
       <div className="mt-6 text-gray-400">
         {index + 1} / {shows.length}
+      </div>
+
+      <div className="mt-12 flex flex-col items-center gap-2">
+        <button 
+          onClick={handleRerun}
+          disabled={isGenerating}
+          className="flex items-center gap-2 px-4 py-2 text-sm border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-all"
+        >
+          <Sparkles className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`} />
+          {isGenerating ? "Curating..." : "Rerun DobbySense"}
+        </button>
+        {isGenerating && (
+          <p className="text-xs text-gray-600">
+            This could take a few seconds.
+          </p>
+        )}
       </div>
     </div>
   );

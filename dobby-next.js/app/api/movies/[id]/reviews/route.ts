@@ -86,5 +86,17 @@ export async function POST(
     return NextResponse.json({ error: ratingError.message }, { status: 400 });
   }
 
+  // --- Trigger Recommendation Update (Fire & Forget) ---
+  const protocol = request.headers.get("x-forwarded-proto") || "http";
+  const host = request.headers.get("host") || "localhost:3000";
+  const fbsUrl = `${protocol}://${host}/api/recommendation-engine?limit=20`;
+  
+  // Asynchronously call engine to refresh recommendations
+  fetch(fbsUrl, {
+    headers: {
+      cookie: request.headers.get("cookie") || ""
+    }
+  }).catch(err => console.error("Auto-rec update failed:", err));
+
   return NextResponse.json(ratingData, { status: 201 });
 }

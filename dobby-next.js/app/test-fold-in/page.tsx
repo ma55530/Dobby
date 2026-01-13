@@ -94,6 +94,13 @@ export default function TestFoldInPage() {
         throw new Error(data.error || 'Došlo je do greške')
       }
 
+      // Trigger recommendation generation immediately
+      try {
+        await fetch('/api/recommendation-engine?limit=20');
+      } catch (e) {
+        console.warn("Failed to pre-generate recommendations", e);
+      }
+
       setResult(data)
     } catch (err) {
       if (err instanceof Error) {

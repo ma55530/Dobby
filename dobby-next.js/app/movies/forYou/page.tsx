@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Movie } from "@/lib/types/Movie";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import Image from "next/image";
 
 export default function MoviesForYouPage() {
@@ -29,27 +29,54 @@ export default function MoviesForYouPage() {
   ];
 
   const [phrase, setPhrase] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     setPhrase(phrases[Math.floor(Math.random() * phrases.length)]);
   }, []);
 
-  useEffect(() => {
-    const fetchMovies = async () => {
-      try {
-        const res = await fetch("/api/movies/forYou?limit=20");
-        if (!res.ok) throw new Error("Failed to fetch movies");
-        const data = await res.json();
+  const fetchMovies = async (retry = true) => {
+    try {
+      const res = await fetch("/api/movies/forYou?limit=20");
+      if (!res.ok) throw new Error("Failed to fetch movies");
+      const data = await res.json();
+      
+      if (data.length === 0 && retry) {
+        setIsGenerating(true);
+        // Try to generate recommendations if none exist
+        const genRes = await fetch("/api/recommendation-engine?limit=20");
+        if (genRes.ok) {
+           // Retry fetching once
+           await fetchMovies(false);
+        }
+        setIsGenerating(false);
+      } else {
         setMovies(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchMovies();
   }, []);
+
+  const handleRerun = async () => {
+    setIsGenerating(true);
+    // Don't set full page loading, just button state
+    try {
+      await fetch("/api/recommendation-engine?limit=20");
+      await fetchMovies(false);
+    } catch (e) {
+      console.error("Rerun failed", e);
+    } finally {
+      setIsGenerating(false);
+      // fetchMovies handles setLoading(false) but we didn't set it to true. Ensure it stays false or is handled.
+    }
+  };
 
   // Resetiraj "Read more" kad se promijeni film
   useEffect(() => {
@@ -59,11 +86,12 @@ export default function MoviesForYouPage() {
   const nextMovie = () => setIndex((prev) => (prev + 1) % movies.length);
   const prevMovie = () => setIndex((prev) => (prev - 1 + movies.length) % movies.length);
 
-  if (loading)
-    return <div className="text-gray-400 text-center p-8">Loading your movies...</div>;
+  // Allow viewing existing movies while regenerating in background
+  if (loading || (isGenerating && movies.length === 0))
+    return <div className="text-gray-400 text-center p-8">{isGenerating ? "Curating your personal recommendations..." : "Loading your movies..."}</div>;
 
   if (movies.length === 0)
-    return <div className="text-gray-400 text-center p-8">No recommendations yet.</div>;
+    return <div className="text-gray-400 text-center p-8">No recommendations yet. Try rating some movies!</div>;
 
   const movie = movies[index];
 
@@ -142,6 +170,22 @@ export default function MoviesForYouPage() {
 
       <div className="mt-6 text-gray-400">
         {index + 1} / {movies.length}
+      </div>
+
+      <div className="mt-12 flex flex-col items-center gap-2">
+        <button 
+          onClick={handleRerun}
+          disabled={isGenerating}
+          className="flex items-center gap-2 px-4 py-2 text-sm border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition-all"
+        >
+          <Sparkles className={`w-4 h-4 ${isGenerating ? "animate-spin" : ""}`} />
+          {isGenerating ? "Curating..." : "Rerun DobbySense"}
+        </button>
+        {isGenerating && (
+          <p className="text-xs text-gray-600">
+            This could take a few seconds.
+          </p>
+        )}
       </div>
     </div>
   );
