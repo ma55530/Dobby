@@ -1,9 +1,9 @@
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const showId = params.id;
+    const { id: showId } = await params;
     const apiKey = process.env.TMDB_API_KEY;
 
     if (!apiKey) {

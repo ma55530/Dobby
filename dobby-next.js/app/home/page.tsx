@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { Play, TrendingUp, Star } from "lucide-react";
+import { TrendingUp, Star } from "lucide-react";
 import { recentReviews } from "@/data/mockData";
 import TrendingMovies from '@/components/trending/TrendingMovies';
 import { useEffect, useState } from "react";
@@ -54,21 +53,11 @@ export default function AuthenticatedHomePage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" />
         <div className="relative z-10 px-6">
           <h1 className="text-6xl md:text-7xl font-extrabold drop-shadow-[0_4px_30px_rgba(147,51,234,0.6)]">
-            {isAuthenticated ? "Welcome Back!" : "Discover. Review. Share."}
+            Welcome Back!
           </h1>
           <p className="text-lg md:text-xl text-gray-300 mt-4 mb-8">
-            {isAuthenticated 
-              ? "Discover what's trending and share your thoughts"
-              : "Your ultimate social platform for movies and TV shows"
-            }
+            Discover what's trending and share your thoughts
           </p>
-          {!isAuthenticated && isAuthenticated !== null && (
-            <Link href="/auth/login">
-              <button className="btn-primary flex items-center gap-3 mx-auto text-lg px-10 py-4">
-                <Play className="w-6 h-6 fill-current" /> Get Started
-              </button>
-            </Link>
-          )}
         </div>
       </section>
 

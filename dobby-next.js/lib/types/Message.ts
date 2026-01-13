@@ -22,4 +22,3 @@ export interface Message {
   is_read: boolean;
   sender?: UserProfile;
 }
-}
