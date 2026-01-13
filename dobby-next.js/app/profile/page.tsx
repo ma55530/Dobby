@@ -58,6 +58,8 @@ export default function MePage() {
     topShows: [],
   });
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
+  const [followDialog, setFollowDialog] = useState<{ open: boolean; type: 'followers' | 'following' | null }>({ open: false, type: null });
+  const [followList, setFollowList] = useState<Array<{ id: string; username: string; first_name?: string; last_name?: string; avatar_url?: string }>>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -130,6 +132,23 @@ export default function MePage() {
     fetchData();
     fetchWatchlists();
   }, []);
+
+  const fetchFollowList = async (type: 'followers' | 'following') => {
+    try {
+      const endpoint = type === 'followers' ? '/api/follows/followers' : '/api/follows/following';
+      const res = await fetch(endpoint);
+      if (res.ok) {
+        const data = await res.json();
+        const list = type === 'followers' 
+          ? data.followers.map((f: any) => f.follower)
+          : data.following.map((f: any) => f.following);
+        setFollowList(list);
+        setFollowDialog({ open: true, type });
+      }
+    } catch (err) {
+      console.error(`Failed to load ${type}:`, err);
+    }
+  };
 
   const updateProfile = async () => {
     // 1. Upload avatar if selected
@@ -246,14 +265,20 @@ export default function MePage() {
                 
                 {/* Follow counts */}
                 <div className="mt-4 flex gap-6 text-sm">
-                  <div className="text-center">
+                  <button 
+                    onClick={() => fetchFollowList('followers')}
+                    className="text-center hover:opacity-80 transition-opacity cursor-pointer"
+                  >
                     <p className="text-2xl font-bold text-white">{followCounts.followers}</p>
                     <p className="text-gray-400">Followers</p>
-                  </div>
-                  <div className="text-center">
+                  </button>
+                  <button 
+                    onClick={() => fetchFollowList('following')}
+                    className="text-center hover:opacity-80 transition-opacity cursor-pointer"
+                  >
                     <p className="text-2xl font-bold text-white">{followCounts.following}</p>
                     <p className="text-gray-400">Following</p>
-                  </div>
+                  </button>
                 </div>
 
                 <div className="mt-4 w-full space-y-2 text-sm text-gray-300">
@@ -604,6 +629,62 @@ export default function MePage() {
           </div>
         )}
       </section>
+
+      {/* Follow List Dialog */}
+      <Dialog open={followDialog.open} onOpenChange={(open) => setFollowDialog({ open, type: null })}>
+        <DialogContent className="bg-zinc-900 border-zinc-700 text-white max-w-md max-h-[80vh] flex flex-col">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-xl font-semibold">
+              {followDialog.type === 'followers' ? 'Followers' : 'Following'}
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              {followDialog.type === 'followers' 
+                ? 'People who follow you' 
+                : 'People you follow'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar pt-1">
+            {followList.length === 0 ? (
+              <p className="text-gray-400 text-center py-8">
+                No {followDialog.type === 'followers' ? 'followers' : 'following'} yet
+              </p>
+            ) : (
+              followList.map((user) => (
+                <Link 
+                  key={user.id} 
+                  href={`/users/${user.id}`}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-zinc-800/60 hover:bg-zinc-800 transition-colors"
+                  onClick={() => setFollowDialog({ open: false, type: null })}
+                >
+                  <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-yellow-400 overflow-hidden ring-2 ring-purple-400/40 flex-shrink-0">
+                    {user.avatar_url ? (
+                      <Image 
+                        src={user.avatar_url} 
+                        alt={user.username} 
+                        fill 
+                        className="object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
+                        {(user.first_name?.[0] || user.username[0]).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-white truncate">@{user.username}</p>
+                    {(user.first_name || user.last_name) && (
+                      <p className="text-sm text-gray-400 truncate">
+                        {user.first_name} {user.last_name}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       
     </main>
