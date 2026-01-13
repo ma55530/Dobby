@@ -280,6 +280,16 @@ export async function GET(request: Request) {
       })
     );
 
+    const filteredMovies = processedMovies.filter((m) => m !== null) as Movie[];
+
+    // Deduplicate by movie ID using Set
+    const seenMovieIds = new Set<number>();
+    const uniqueMovies = filteredMovies.filter((m) => {
+      if (seenMovieIds.has(m.id)) return false;
+      seenMovieIds.add(m.id);
+      return true;
+    });
+
     const processedShows = await Promise.all(
       showDetails.map(async (show) => {
         if (isBadShow(show)) {
@@ -296,29 +306,33 @@ export async function GET(request: Request) {
     );
 
     // Persist recommendations (replace existing for the user)
-    if (processedMovies.length > 0) {
-      const moviePayload = processedMovies
-        .filter((m) => m !== null)
-        .map((m) => ({
-          user_id: userId,
-          movie_id: m.id,
-        }));
-      if (moviePayload.length > 0) {
-        await supabase
-          .from("movie_recommendations")
-          .delete()
-          .eq("user_id", userId);
-        await supabase.from("movie_recommendations").insert(moviePayload);
-      }
+    if (uniqueMovies.length > 0) {
+      const moviePayload = uniqueMovies.map((m) => ({
+        user_id: userId,
+        movie_id: m.id,
+      }));
+      await supabase
+        .from("movie_recommendations")
+        .delete()
+        .eq("user_id", userId);
+      await supabase.from("movie_recommendations").insert(moviePayload);
     }
 
-    if (processedShows.length > 0) {
-      const showPayload = processedShows
-        .filter((s) => s !== null)
-        .map((s) => ({
-          user_id: userId,
-          show_id: s.id,
-        }));
+    // Same for shows
+    const seenShowIds = new Set<number>();
+    const uniqueShows = (
+      processedShows.filter((s) => s !== null) as Show[]
+    ).filter((s) => {
+      if (seenShowIds.has(s.id)) return false;
+      seenShowIds.add(s.id);
+      return true;
+    });
+
+    if (uniqueShows.length > 0) {
+      const showPayload = uniqueShows.map((s) => ({
+        user_id: userId,
+        show_id: s.id,
+      }));
       await supabase
         .from("show_recommendations")
         .delete()
