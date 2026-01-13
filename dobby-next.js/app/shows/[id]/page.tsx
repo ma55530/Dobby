@@ -351,6 +351,7 @@ export default function ShowPage({ params }: ShowPageProps) {
             src={backdropUrl}
             alt={show.name}
             fill
+            sizes="100vw"
             className="object-cover"
             priority
           />
@@ -368,6 +369,7 @@ export default function ShowPage({ params }: ShowPageProps) {
                 src={posterUrl}
                 alt={show.name}
                 fill
+                sizes="192px"
                 className="object-contain"
                 priority
               />
@@ -509,6 +511,9 @@ export default function ShowPage({ params }: ShowPageProps) {
               <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
                 <DialogHeader>
                   <DialogTitle>Create New Watchlist</DialogTitle>
+                  <DialogDescription className="text-gray-400">
+                    Create a new watchlist and add this show to it.
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div>
@@ -626,6 +631,7 @@ export default function ShowPage({ params }: ShowPageProps) {
                         src={getImageUrl(creator.profile_path)}
                         alt={creator.name}
                         fill
+                        sizes="48px"
                         className="object-cover"
                       />
                     </div>
@@ -650,6 +656,7 @@ export default function ShowPage({ params }: ShowPageProps) {
                         src={getImageUrl(network.logo_path)}
                         alt={network.name}
                         fill
+                        sizes="96px"
                         className="object-contain p-1"
                       />
                     </div>
@@ -678,6 +685,7 @@ export default function ShowPage({ params }: ShowPageProps) {
                         src={getImageUrl(company.logo_path)}
                         alt={company.name}
                         fill
+                        sizes="96px"
                         className="object-contain p-1"
                       />
                     </div>

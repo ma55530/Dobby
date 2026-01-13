@@ -13,6 +13,7 @@ export default function Page() {
           src={heroImage} 
           alt="Cinema" 
           fill 
+          sizes="100vw"
           priority 
           className="object-cover opacity-60" 
         />

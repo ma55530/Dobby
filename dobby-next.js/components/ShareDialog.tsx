@@ -48,21 +48,27 @@ export function ShareDialog({
 
   const fetchCurrentUser = async () => {
     const res = await fetch('/api/user');
-    if (res.ok) {
-      const data = await res.json();
-      setCurrentUserId(data.id);
-    }
+    if (!res.ok) return;
+
+    const data = await res.json();
+    setCurrentUserId(data.id);
   };
 
   const fetchConversations = async () => {
     const res = await fetch('/api/conversations');
-    if (res.ok) {
-      const data = await res.json();
-      setConversations(data);
-    }
+    if (!res.ok) return;
+
+    const data = await res.json();
+    setConversations(data);
+  };
+
+  const getOtherUser = (conv: Conversation) => {
+    if (!currentUserId) return null;
+    return conv.participants.find((p) => p.id !== currentUserId) ?? null;
   };
 
   const sendRecommendation = async (conversationId: string) => {
+    if (sending) return;
     setSending(true);
     try {
       const res = await fetch(`/api/conversations/${conversationId}/messages`, {
@@ -81,10 +87,14 @@ export function ShareDialog({
         }),
       });
 
-      if (res.ok) {
-        setMessage('');
-        onOpenChange(false);
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        console.error('Failed to send recommendation:', error ?? (await res.text()));
+        return;
       }
+
+      setMessage('');
+      onOpenChange(false);
     } catch (error) {
       console.error('Failed to send recommendation:', error);
     } finally {
@@ -93,8 +103,19 @@ export function ShareDialog({
   };
 
   const filteredConversations = conversations.filter((conv) => {
-    const otherUser = conv.participants.find((p) => p.id !== currentUserId);
     const searchLower = searchQuery.toLowerCase();
+
+    if (!searchLower) return true;
+
+    const otherUser = getOtherUser(conv);
+    if (!otherUser) {
+      return conv.participants.some((p) => {
+        const usernameMatch = p.username?.toLowerCase().includes(searchLower);
+        const emailMatch = p.email.toLowerCase().includes(searchLower);
+        return Boolean(usernameMatch || emailMatch);
+      });
+    }
+
     return (
       otherUser?.username?.toLowerCase().includes(searchLower) ||
       otherUser?.email.toLowerCase().includes(searchLower)
@@ -149,7 +170,7 @@ export function ShareDialog({
               </p>
             ) : (
               filteredConversations.map((conv) => {
-                const otherUser = conv.participants.find((p) => p.id !== currentUserId);
+                const otherUser = getOtherUser(conv);
                 return (
                   <div
                     key={conv.id}
@@ -158,11 +179,11 @@ export function ShareDialog({
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold">
-                        {otherUser?.username?.[0]?.toUpperCase() || '?'}
+                        {otherUser?.username?.[0]?.toUpperCase() || otherUser?.email?.[0]?.toUpperCase() || '?'}
                       </div>
                       <div>
                         <p className="font-medium">
-                          {otherUser?.username || otherUser?.email}
+                          {otherUser?.username || otherUser?.email || 'Unknown User'}
                         </p>
                       </div>
                     </div>

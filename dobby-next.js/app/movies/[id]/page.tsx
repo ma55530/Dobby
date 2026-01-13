@@ -368,6 +368,7 @@ export default function MoviePage({ params }: MoviePageProps) {
             src={backdropUrl}
             alt={movie.title}
             fill
+            sizes="100vw"
             className="object-cover"
             priority
           />
@@ -385,6 +386,7 @@ export default function MoviePage({ params }: MoviePageProps) {
                 src={posterUrl}
                 alt={movie.title}
                 fill
+                sizes="192px"
                 className="object-contain"
                 priority
               />
@@ -513,6 +515,9 @@ export default function MoviePage({ params }: MoviePageProps) {
               <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
                 <DialogHeader>
                   <DialogTitle>Create New Watchlist</DialogTitle>
+                  <DialogDescription className="text-gray-400">
+                    Create a new watchlist and add this movie to it.
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 mt-4">
                   <div>
@@ -646,6 +651,7 @@ export default function MoviePage({ params }: MoviePageProps) {
                           src={getImageUrl(company.logo_path)}
                           alt={company.name}
                           fill
+                          sizes="96px"
                           className="object-contain p-1"
                         />
                       </div>

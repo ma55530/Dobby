@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Conversation } from '@/lib/types/Conversation';
 import { Message } from '@/lib/types/Message';
 import { createClient } from '@/lib/supabase/client';
@@ -171,6 +171,18 @@ export default function MessagesPage() {
         setNewMessage('');
         await fetchMessages(activeConversation);
         await fetchConversations();
+      } else {
+        let errBody: any = null;
+        try {
+          errBody = await res.json();
+        } catch {
+          // ignore
+        }
+        console.error('Send message failed', {
+          status: res.status,
+          statusText: res.statusText,
+          body: errBody,
+        });
       }
     } catch (error) {
       console.error('Failed to send message:', error);
@@ -355,6 +367,7 @@ export default function MessagesPage() {
                                           src={`https://image.tmdb.org/t/p/w200${(msg.metadata as any).poster_path}`}
                                           alt={(msg.metadata as any).title || 'Poster'}
                                           fill
+                                          sizes="64px"
                                           className="object-cover"
                                         />
                                       </div>
@@ -445,6 +458,9 @@ export default function MessagesPage() {
         <DialogContent className="bg-slate-800 border-slate-700 text-white">
           <DialogHeader>
             <DialogTitle>Start New Conversation</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Search for a user and start chatting.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">

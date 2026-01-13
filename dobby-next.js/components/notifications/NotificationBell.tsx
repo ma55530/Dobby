@@ -144,6 +144,7 @@ export default function NotificationBell() {
                             src={request.requester.avatar_url}
                             alt={request.requester.username}
                             fill
+                            sizes="40px"
                             className="object-cover"
                           />
                         ) : (

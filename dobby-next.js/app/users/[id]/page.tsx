@@ -206,7 +206,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
             <div className="flex flex-col items-center text-center">
               <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-purple-400 to-yellow-400 overflow-hidden ring-2 ring-purple-400/40">
                 {profile.avatar_url ? (
-                  <Image src={profile.avatar_url} alt={profile.username} fill className="object-cover" />
+                  <Image src={profile.avatar_url} alt={profile.username} fill sizes="112px" className="object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-white font-bold text-3xl">
                     {(profile.first_name?.[0] || profile.username[0]).toUpperCase()}

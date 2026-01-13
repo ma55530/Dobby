@@ -30,7 +30,6 @@ export default function TrackCard({
   const imageUrl = getImageUrl(poster || "");
   const fallbackUrl = "/assets/placeholder-upload.svg";
 
-
   return (
     <Link href={href}>
       <div className="group relative h-72 w-48 cursor-pointer overflow-hidden rounded-2xl border border-border/40 bg-card shadow-soft transition-all duration-500 ease-out hover:-translate-y-1 hover:shadow-magic hover:ring-2 hover:ring-primary/40 hover:animate-glow">

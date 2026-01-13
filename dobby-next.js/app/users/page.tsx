@@ -105,6 +105,7 @@ export default function UsersPage() {
                             src={user.avatar_url}
                             alt={user.username}
                             fill
+                            sizes="64px"
                             className="object-cover"
                           />
                         ) : (

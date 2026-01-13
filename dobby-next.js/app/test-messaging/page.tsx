@@ -128,6 +128,18 @@ export default function TestMessagingPage() {
         setNewMessage('');
         fetchMessages(activeConversation);
         fetchConversations();
+      } else {
+        let errBody: any = null;
+        try {
+          errBody = await res.json();
+        } catch {
+          // ignore
+        }
+        console.error('Send message failed', {
+          status: res.status,
+          statusText: res.statusText,
+          body: errBody,
+        });
       }
     } catch (error) {
       console.error(error);

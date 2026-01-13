@@ -249,6 +249,7 @@ export default function MePage() {
                       src={profile.avatar_url} 
                       alt={profile.username} 
                       fill 
+                      sizes="112px"
                       className="object-cover"
                       unoptimized
                     />
@@ -350,7 +351,7 @@ export default function MePage() {
                           <Label htmlFor="avatar">Profile Picture</Label>
                           {previewUrl && (
                             <div className="relative w-20 h-20 rounded-full overflow-hidden mx-auto mb-2 ring-2 ring-purple-400/40">
-                              <Image src={previewUrl} alt="Preview" fill className="object-cover" />
+                              <Image src={previewUrl} alt="Preview" fill sizes="80px" className="object-cover" />
                             </div>
                           )}
                           <Input
@@ -577,6 +578,7 @@ export default function MePage() {
                                     src={getImageUrl(item.poster_path)}
                                     alt={item.title}
                                     fill
+                                    sizes="80px"
                                     className="object-cover"
                                   />
                                 ) : (
@@ -662,6 +664,7 @@ export default function MePage() {
                         src={user.avatar_url} 
                         alt={user.username} 
                         fill 
+                        sizes="48px"
                         className="object-cover"
                         unoptimized
                       />
