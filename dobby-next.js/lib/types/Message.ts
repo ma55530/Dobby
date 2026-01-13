@@ -1,3 +1,5 @@
+import { UserProfile } from './UserProfile';
+
 export type MessageType = 'text' | 'movie_recommendation' | 'show_recommendation';
 
 export interface MessageMetadata {
@@ -18,4 +20,6 @@ export interface Message {
   metadata?: MessageMetadata;
   created_at: string;
   is_read: boolean;
+  sender?: UserProfile;
+}
 }

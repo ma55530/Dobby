@@ -11,9 +11,16 @@ import { Conversation } from '@/lib/types/Conversation';
 import { Message } from '@/lib/types/Message';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { Send, MessageCircle, Search, Plus, Check, CheckCheck, Film, Tv } from 'lucide-react';
+import { Send, MessageCircle, Search, Plus, Check, CheckCheck, Film, Tv, MoreVertical, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
@@ -31,11 +38,18 @@ export default function MessagesPage() {
   const [searching, setSearching] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (scrollContainerRef.current) {
+      const { scrollHeight, clientHeight } = scrollContainerRef.current;
+      scrollContainerRef.current.scrollTo({
+        top: scrollHeight - clientHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [messages, activeConversation]);
 
   useEffect(() => {
     const init = async () => {
@@ -47,7 +61,6 @@ export default function MessagesPage() {
       if (conversationId) {
         setActiveConversation(conversationId);
         await fetchMessages(conversationId);
-        await markConversationNotificationsAsRead(conversationId);
       }
 
       setLoading(false);
@@ -95,6 +108,15 @@ export default function MessagesPage() {
           );
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'messages' },
+        (payload) => {
+          const deletedMsgId = payload.old.id;
+          setMessages((prev) => prev.filter((m) => m.id !== deletedMsgId));
+          fetchConversations();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -124,23 +146,31 @@ export default function MessagesPage() {
 
       await fetch(`/api/conversations/${conversationId}/messages`, { method: 'PATCH' });
 
+      // Identify unread messages from others to mark their notifications as read
+      // We can just try to mark all notifications for these messages as read.
+      const messageIds = uniqueMessages.map(m => m.id);
+      if (messageIds.length > 0) {
+        await markMessageNotificationsAsRead(messageIds);
+      }
+
       setConversations(prev =>
         prev.map(c => c.id === conversationId ? { ...c, unread_count: 0 } : c)
       );
     }
   };
 
-  const markConversationNotificationsAsRead = async (conversationId: string) => {
+  const markMessageNotificationsAsRead = async (messageIds: string[]) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Find notifications for these messages
       const { data: notifications } = await supabase
         .from('notifications')
         .select('id')
         .eq('user_id', user.id)
         .eq('type', 'message')
-        .eq('resource_id', conversationId)
+        .in('resource_id', messageIds)
         .eq('is_read', false);
 
       if (notifications && notifications.length > 0) {
@@ -153,6 +183,38 @@ export default function MessagesPage() {
       }
     } catch (error) {
       console.error('Error marking notifications as read:', error);
+    }
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    try {
+      const res = await fetch(`/api/conversations/messages/${messageId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setMessages((prev) => prev.filter((m) => m.id !== messageId));
+        await fetchConversations();
+      }
+    } catch (error) {
+      console.error('Failed to delete message:', error);
+    }
+  };
+
+  const deleteConversation = async () => {
+    if (!activeConversation) return;
+    if (!confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) return;
+
+    try {
+      const res = await fetch(`/api/conversations/${activeConversation}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setConversations(prev => prev.filter(c => c.id !== activeConversation));
+        setActiveConversation(null);
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
     }
   };
 
@@ -290,24 +352,31 @@ export default function MessagesPage() {
       className={`p-4 border-b border-slate-700 cursor-pointer transition-colors ${
         isActive
           ? 'bg-purple-600/20 border-l-4 border-l-purple-500'
-          : 'hover:bg-slate-700/50'
+          : ''
       }`}
     >
       <div className="flex items-center gap-3">
         <div className="relative">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold bg-gradient-to-br from-purple-400 to-pink-400">
-            {other?.username?.[0]?.toUpperCase() || '?'}
-          </div>
+          <Avatar className="w-12 h-12">
+            <AvatarImage src={other?.avatar_url ?? undefined} />
+            <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
+              {other?.username?.[0]?.toUpperCase() || '?'}
+            </AvatarFallback>
+          </Avatar>
         </div>
 
         <div className="flex-1 min-w-0">
           <p className="truncate text-white font-semibold">
             {other?.username || other?.email || 'Unknown User'}
           </p>
-          <p className="text-sm truncate text-gray-400">
+          <p className={`text-sm truncate ${conv.unread_count && conv.unread_count > 0 ? 'text-gray-200 font-medium' : 'text-gray-400'}`}>
             {conv.last_message?.content || 'No messages yet'}
           </p>
         </div>
+
+        {conv.unread_count ? (
+          <div className="w-3 h-3 bg-purple-500 rounded-full flex-shrink-0 animate-pulse" />
+        ) : null}
       </div>
     </div>
   );
@@ -320,18 +389,30 @@ export default function MessagesPage() {
           <Card className="md:col-span-2 bg-slate-800 border-slate-700 flex flex-col overflow-hidden">
             {activeConversation && otherUser ? (
               <>
-                <div className="p-4 border-b border-slate-700 bg-slate-900/50">
+                <div className="p-4 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold">
-                      {otherUser.username?.[0]?.toUpperCase() || '?'}
-                    </div>
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={otherUser.avatar_url ?? undefined} />
+                      <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
+                        {otherUser.username?.[0]?.toUpperCase() || '?'}
+                      </AvatarFallback>
+                    </Avatar>
                     <h2 className="text-lg font-semibold text-white">
                       {otherUser.username || otherUser.email}
                     </h2>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={deleteConversation}
+                    className="text-gray-400 hover:text-red-400 hover:bg-slate-800"
+                    title="Delete Conversation"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </Button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-gray-400">
                       <p>No messages yet. Start the conversation!</p>
@@ -339,13 +420,48 @@ export default function MessagesPage() {
                   ) : (
                     messages.map((msg, index) => {
                       const isMe = msg.sender_id === currentUser?.id;
+                      const messageSender = msg.sender || activeConversationData?.participants?.find(p => p.id === msg.sender_id);
+                      
                       const isRecommendation =
                         msg.message_type === 'movie_recommendation' ||
                         msg.message_type === 'show_recommendation';
 
                       return (
-                        <div key={`${msg.id}-${index}`} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[70%] ${isMe ? 'order-2' : 'order-1'}`}>
+                        <div key={`${msg.id}-${index}`} className={`flex items-start gap-2 ${isMe ? 'justify-end' : 'justify-start'} group`}>
+                          
+                          {!isMe && (
+                            <Avatar className="h-8 w-8 mt-1">
+                              <AvatarImage src={messageSender?.avatar_url ?? undefined} />
+                              <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white text-xs">
+                                {messageSender?.username?.[0]?.toUpperCase() || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+
+                          {isMe && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <MoreVertical className="h-4 w-4 text-gray-400" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
+                                <DropdownMenuItem
+                                  onClick={() => deleteMessage(msg.id)}
+                                  className="text-red-400 focus:text-red-400 cursor-pointer focus:bg-slate-700"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+
+                          <div className={`max-w-[70%]`}>
                             {isRecommendation && msg.metadata ? (
                               <Link
                                 href={
@@ -417,7 +533,6 @@ export default function MessagesPage() {
                       );
                     })
                   )}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 <div className="p-4 border-t border-slate-700 bg-slate-900/50">

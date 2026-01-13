@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 
 export async function GET(
@@ -28,7 +27,10 @@ export async function GET(
 
   const { data, error } = await supabase
     .from('messages')
-    .select('*')
+    .select(`
+      *,
+      sender:profiles!sender_id(*)
+    `)
     .eq('conversation_id', id)
     .order('created_at', { ascending: true });
 
@@ -88,6 +90,11 @@ export async function POST(
       .single();
 
     if (participantError) {
+      // PGRST116 means no rows found (not a participant)
+      if (participantError.code === 'PGRST116') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      }
+
       console.error('Participant check failed', {
         conversationId: id,
         userId: user.id,
@@ -122,75 +129,32 @@ export async function POST(
       messageData.metadata = metadata;
     }
 
-    const isRlsError = (msg?: string | null) =>
-      !!msg && /row-level security|rls|permission denied/i.test(msg);
-
-    // 1) Try insert with the normal authed client (works if RLS allows it)
-    let insertData;
-    const { data: userInsertData, error: userInsertError } = await supabase
+    const { data: insertData, error: insertError } = await supabase
       .from('messages')
       .insert(messageData)
       .select()
       .single();
 
-    if (!userInsertError) {
-      insertData = userInsertData;
-    } else if (isRlsError(userInsertError.message)) {
-      // 2) Fall back to admin client (bypasses RLS), but only after verifying participant above.
-      let admin;
-      try {
-        admin = createAdminClient();
-      } catch (e) {
-        console.error('Admin Supabase client not configured for message insert:', e);
-        return NextResponse.json(
-          {
-            error:
-              'Cannot send message. Insert was blocked by RLS and server is missing SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_ROLE / SUPABASE_SERVICE_KEY).',
-            details: userInsertError.message,
-          },
-          { status: 500 }
-        );
-      }
-
-      const { data: adminInsertData, error: adminInsertError } = await admin
-        .from('messages')
-        .insert(messageData)
-        .select()
-        .single();
-
-      if (adminInsertError) {
-        console.error('Admin insert into messages failed', {
-          conversationId: id,
-          userId: user.id,
-          error: adminInsertError,
-        });
-        return NextResponse.json(
-          { error: adminInsertError.message || 'Failed to insert message' },
-          { status: 500 }
-        );
-      }
-
-      insertData = adminInsertData;
-    } else {
+    if (insertError) {
       console.error('Insert into messages failed', {
         conversationId: id,
         userId: user.id,
-        error: userInsertError,
+        error: insertError,
       });
 
-      if (userInsertError.code === 'PGRST204' && /message_type/i.test(userInsertError.message ?? '')) {
+      if (insertError.code === 'PGRST204' && /message_type/i.test(insertError.message ?? '')) {
         return NextResponse.json(
           {
             error:
               "Database schema mismatch: the 'messages' table is missing the message_type column (and/or the API schema cache is stale). Add the column in Supabase or stop sending message_type.",
-            details: userInsertError.message,
+            details: insertError.message,
             hint:
               "Run the migration in supabase/migrations/20260113_add_messages_message_type_metadata.sql (or add columns message_type text and metadata jsonb in Supabase SQL editor), then reload the API schema.",
           },
           { status: 500 }
         );
       }
-      return NextResponse.json({ error: userInsertError.message }, { status: 500 });
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
     // Update conversation updated_at (non-fatal if this fails)
@@ -242,45 +206,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // 1) Try with the normal authed client first (works if RLS allows receiver to update)
-    const { error: userClientError } = await supabase
+    const { error: updateError } = await supabase
       .from('messages')
       .update({ is_read: true })
       .eq('conversation_id', id)
       .neq('sender_id', user.id)
       .or('is_read.is.null,is_read.eq.false');
 
-    if (!userClientError) {
-      return NextResponse.json({ success: true });
-    }
-
-    // 2) Fall back to admin client (bypasses RLS)
-    let admin;
-    try {
-      admin = createAdminClient();
-    } catch (e) {
-      console.error('Admin Supabase client not configured:', e);
+    if (updateError) {
+      console.error('Update is_read failed:', updateError);
       return NextResponse.json(
-        {
-          error:
-            'Cannot mark messages as read. Server is missing SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_ROLE / SUPABASE_SERVICE_KEY) and RLS blocked the normal update.',
-          details: userClientError?.message ?? null,
-        },
-        { status: 500 }
-      );
-    }
-
-    const { error: adminError } = await admin
-      .from('messages')
-      .update({ is_read: true })
-      .eq('conversation_id', id)
-      .neq('sender_id', user.id)
-      .or('is_read.is.null,is_read.eq.false');
-
-    if (adminError) {
-      console.error('Admin update is_read failed:', adminError);
-      return NextResponse.json(
-        { error: adminError.message || 'Failed to update is_read' },
+        { error: updateError.message || 'Failed to update is_read' },
         { status: 500 }
       );
     }

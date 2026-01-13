@@ -9,7 +9,23 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Fetch conversations where the user is a participant
+  // 1. Get conversation IDs for the current user
+  const { data: userConvs, error: userConvsError } = await supabase
+    .from('conversation_participants')
+    .select('conversation_id')
+    .eq('user_id', user.id);
+
+  if (userConvsError) {
+    return NextResponse.json({ error: userConvsError.message }, { status: 500 });
+  }
+
+  const conversationIds = userConvs.map(c => c.conversation_id);
+
+  if (conversationIds.length === 0) {
+    return NextResponse.json([]);
+  }
+
+  // 2. Fetch those conversations
   const { data: conversations, error } = await supabase
     .from('conversations')
     .select(`
@@ -24,6 +40,7 @@ export async function GET() {
         sender_id
       )
     `)
+    .in('id', conversationIds)
     .order('updated_at', { ascending: false });
 
   if (error) {
