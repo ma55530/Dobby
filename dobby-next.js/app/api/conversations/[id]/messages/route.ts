@@ -114,53 +114,76 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { id } = await params;
-
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // Verify user is participant (security check before using admin client)
-  const { data: participant } = await supabase
-    .from('conversation_participants')
-    .select('user_id')
-    .eq('conversation_id', id)
-    .eq('user_id', user.id)
-    .single();
-
-  if (!participant) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-  }
-
-  // Mark all unread messages in this conversation as read (where user is NOT the sender)
-  // NOTE: Some rows may have is_read = NULL (older inserts). Treat NULL as unread.
-  // Use admin client to avoid RLS preventing receiver from updating sender's rows.
-  let admin;
   try {
-    admin = createAdminClient();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const { id } = await params;
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Verify user is participant (security check)
+    const { data: participant } = await supabase
+      .from('conversation_participants')
+      .select('user_id')
+      .eq('conversation_id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (!participant) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    // 1) Try with the normal authed client first (works if RLS allows receiver to update)
+    const { error: userClientError } = await supabase
+      .from('messages')
+      .update({ is_read: true })
+      .eq('conversation_id', id)
+      .neq('sender_id', user.id)
+      .or('is_read.is.null,is_read.eq.false');
+
+    if (!userClientError) {
+      return NextResponse.json({ success: true });
+    }
+
+    // 2) Fall back to admin client (bypasses RLS)
+    let admin;
+    try {
+      admin = createAdminClient();
+    } catch (e) {
+      console.error('Admin Supabase client not configured:', e);
+      return NextResponse.json(
+        {
+          error:
+            'Cannot mark messages as read. Server is missing SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SERVICE_ROLE / SUPABASE_SERVICE_KEY) and RLS blocked the normal update.',
+          details: userClientError?.message ?? null,
+        },
+        { status: 500 }
+      );
+    }
+
+    const { error: adminError } = await admin
+      .from('messages')
+      .update({ is_read: true })
+      .eq('conversation_id', id)
+      .neq('sender_id', user.id)
+      .or('is_read.is.null,is_read.eq.false');
+
+    if (adminError) {
+      console.error('Admin update is_read failed:', adminError);
+      return NextResponse.json(
+        { error: adminError.message || 'Failed to update is_read' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
   } catch (e) {
-    console.error('Admin Supabase client not configured:', e);
+    console.error('Unexpected error marking messages as read:', e);
     return NextResponse.json(
-      {
-        error:
-          'Server is missing SUPABASE_SERVICE_ROLE_KEY, cannot mark messages as read. Configure service role key or adjust RLS policies.'
-      },
+      { error: e instanceof Error ? e.message : 'Unknown error' },
       { status: 500 }
     );
   }
-
-  const { error } = await admin
-    .from('messages')
-    .update({ is_read: true })
-    .eq('conversation_id', id)
-    .neq('sender_id', user.id)
-    .or('is_read.is.null,is_read.eq.false');
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ success: true });
 }
