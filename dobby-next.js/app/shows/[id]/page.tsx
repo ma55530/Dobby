@@ -8,7 +8,7 @@ import { getImageUrl } from "@/lib/TMDB_API/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Bookmark, BookmarkCheck, Plus, ChevronDown } from "lucide-react";
+import { Bookmark, BookmarkCheck, Plus, ChevronDown, Share2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ShareDialog } from "@/components/ShareDialog";
 
 interface ShowPageProps {
   params: Promise<{
@@ -58,6 +59,7 @@ export default function ShowPage({ params }: ShowPageProps) {
   const [newWatchlistName, setNewWatchlistName] = useState("");
   const [creatingNewWatchlist, setCreatingNewWatchlist] = useState(false);
   const [hoveredWatchlistId, setHoveredWatchlistId] = useState<string | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchShow = async () => {
@@ -482,6 +484,17 @@ export default function ShowPage({ params }: ShowPageProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
+              
+              {/* Share Button */}
+              <Button
+                onClick={() => setShareDialogOpen(true)}
+                variant="outline"
+                className="border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white cursor-pointer"
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Share
+              </Button>
+              
               {watchlistMessage && (
                 <span className={`text-sm ${
                   watchlistMessage.type === 'success' ? 'text-green-400' : 'text-red-400'
@@ -720,6 +733,18 @@ export default function ShowPage({ params }: ShowPageProps) {
           </Link>
         </div>
       </div>
+
+      {/* Share Dialog */}
+      <ShareDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        itemType="show"
+        itemId={parseInt(id)}
+        title={show.name}
+        posterPath={show.poster_path}
+        rating={show.vote_average}
+        year={show.first_air_date ? format(new Date(show.first_air_date), "yyyy") : ""}
+      />
     </div>
   );
 } 

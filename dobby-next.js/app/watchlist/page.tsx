@@ -79,8 +79,13 @@ export default function WatchlistPage() {
     setRemovingItems(prev => new Set(prev).add(itemKey));
 
     try {
-      const res = await fetch(`/api/watchlist?${item.type === 'movie' ? 'movieId' : 'showId'}=${item.id}`, {
+      const res = await fetch(`/api/watchlist`, {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          [item.type === 'movie' ? 'movieId' : 'showId']: item.id,
+          watchlistName: currentWatchlist?.name,
+        }),
       });
 
       if (res.ok) {
