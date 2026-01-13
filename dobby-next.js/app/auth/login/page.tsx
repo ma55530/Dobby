@@ -18,9 +18,9 @@ export default function Page() {
           className="object-cover opacity-60" 
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" />
-        
+
         <div className="relative z-10 flex w-full max-w-7xl mx-auto px-6">
-          
+
           <div className="w-1/2 flex flex-col justify-start ">
             <h1 className="text-6xl font-bold text-white">
               Discover.<br />Review.<br />Share.
@@ -29,8 +29,8 @@ export default function Page() {
               Your ultimate social platform for movies and TV shows
             </p>
           </div>
-          
-          
+
+
           <div className="w-1/2 flex justify-center items-start">
             <div className="w-full max-w-md">
               <AuthTabs />

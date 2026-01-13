@@ -93,35 +93,39 @@ CREATE TABLE IF NOT EXISTS shows (
 -- =====================================
 -- 3. RATINGS
 -- =====================================
-CREATE TABLE IF NOT EXISTS movie_ratings (
+
+CREATE TABLE IF NOT EXISTS ratings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-    movie_id BIGINT NOT NULL,
-    rating INTEGER CHECK (rating >= 1 AND rating <= 10),
+    media_id BIGINT NOT NULL,
+    media_type TEXT CHECK (media_type IN ('SHOW', 'MOVIE')),
+    rating INTEGER CHECK (rating >= 1 AND rating <= 10) NOT NULL,
+    review_title TEXT,
     review TEXT,
+    likes INTEGER NOT NULL DEFAULT 0,
+    dislikes INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, movie_id)
+    UNIQUE (user_id, media_id, media_type)
 );
 
-CREATE TABLE IF NOT EXISTS show_ratings (
+CREATE TABLE IF NOT EXISTS subratings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    origin_rating_id UUID REFERENCES ratings(id) ON DELETE CASCADE,
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-    show_id BIGINT NOT NULL,
-    rating INTEGER CHECK (rating >= 1 AND rating <= 10),
     review TEXT,
+    likes INTEGER NOT NULL DEFAULT 0,
+    dislikes INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(user_id, show_id)
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-
-CREATE TRIGGER trigger_update_movie_ratings_updated_at
-BEFORE UPDATE ON movie_ratings
+CREATE TRIGGER trigger_update_ratings_updated_at
+BEFORE UPDATE ON ratings
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER trigger_update_show_ratings_updated_at
-BEFORE UPDATE ON show_ratings
+CREATE TRIGGER trigger_update_subratings_updated_at
+BEFORE UPDATE ON subratings
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================
@@ -221,7 +225,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE, -- The recipient
     actor_id UUID REFERENCES profiles(id) ON DELETE CASCADE, -- The person who triggered the notification
-    type TEXT NOT NULL CHECK (type IN ('follow','message','like','reply','review_movie','review_show')),
+    type TEXT NOT NULL CHECK (type IN ('follow','message','like','reply','review_movie','review_show','rating','subrating')),
     resource_id UUID, -- Can be a message_id, or follower_id, etc.
     content TEXT, -- Optional preview text
     is_read BOOLEAN DEFAULT FALSE,
@@ -290,6 +294,18 @@ CREATE TRIGGER on_new_message
 AFTER INSERT ON messages
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_message();
 
+-- Trigger to refresh recommendations when user embeddings are updated
+CREATE TRIGGER trigger_refresh_recommendations
+AFTER INSERT OR UPDATE ON user_embeddings
+FOR EACH ROW
+EXECUTE FUNCTION trigger_refresh_movie_recommendations();
+
+-- Trigger to refresh show recommendations when user embeddings are updated
+CREATE TRIGGER trigger_refresh_show_recommendations
+AFTER INSERT OR UPDATE ON user_embeddings
+FOR EACH ROW
+EXECUTE FUNCTION trigger_refresh_show_recommendations();
+
 -- =====================================
 -- 8. EMBEDDINGS FOR PYTHON MICROSERVICE
 -- =====================================
@@ -351,6 +367,63 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION refresh_movie_recommendations(p_user_id UUID, p_limit INT DEFAULT 50)
+RETURNS void AS $$
+BEGIN
+  -- Delete old recommendations for this user
+  DELETE FROM movie_recommendations WHERE user_id = p_user_id;
+  
+  -- Insert new top recommendations with variable limit
+  INSERT INTO movie_recommendations (user_id, movie_id, created_at, updated_at)
+  SELECT 
+    p_user_id, 
+    m.movie_id, 
+    NOW(), 
+    NOW()
+  FROM movie_embeddings AS m
+  ORDER BY m.embedding <#> (SELECT u.embedding FROM user_embeddings AS u WHERE u.user_id = p_user_id)
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger function to refresh recommendations on user embedding update
+CREATE OR REPLACE FUNCTION trigger_refresh_movie_recommendations()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Call the RPC function when embeddings update (store 60 movies)
+  PERFORM refresh_movie_recommendations(NEW.user_id, 60);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE FUNCTION refresh_show_recommendations(p_user_id UUID, p_limit INT DEFAULT 50)
+RETURNS void AS $$
+BEGIN
+  -- Delete old recommendations for this user
+  DELETE FROM show_recommendations WHERE user_id = p_user_id;
+  
+  -- Insert new top recommendations with variable limit
+  INSERT INTO show_recommendations (user_id, show_id, created_at, updated_at)
+  SELECT 
+    p_user_id, 
+    s.show_id, 
+    NOW(), 
+    NOW()
+  FROM show_embeddings AS s
+  ORDER BY s.embedding <#> (SELECT u.embedding FROM user_embeddings AS u WHERE u.user_id = p_user_id)
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE FUNCTION trigger_refresh_show_recommendations()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Call the RPC function when embeddings update (store 60 show)
+  PERFORM refresh_show_recommendations(NEW.user_id, 20);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Trigger function to create notifications when a review is posted
 CREATE OR REPLACE FUNCTION notify_followers_on_review()
 RETURNS TRIGGER AS $$
@@ -360,13 +433,13 @@ BEGIN
     f.follower_id,
     NEW.user_id,
     CASE 
-      WHEN TG_TABLE_NAME = 'movie_ratings' THEN 'review_movie'
-      WHEN TG_TABLE_NAME = 'show_ratings' THEN 'review_show'
+      WHEN TG_TABLE_NAME = 'ratings' THEN 'review_rating'
+      WHEN TG_TABLE_NAME = 'subratings' THEN 'review_subrating'
     END,
     NEW.id,
     CASE 
-      WHEN TG_TABLE_NAME = 'movie_ratings' THEN 'reviewed a movie with rating ' || NEW.rating || '/10'
-      WHEN TG_TABLE_NAME = 'show_ratings' THEN 'reviewed a show with rating ' || NEW.rating || '/10'
+      WHEN TG_TABLE_NAME = 'ratings' THEN 'reviewed' || NEW.rating || '/10'
+      WHEN TG_TABLE_NAME = 'subratings' THEN 'subreviewed' || NEW.rating || '/10'
     END
   FROM follows f
   WHERE f.following_id = NEW.user_id AND NEW.review IS NOT NULL;
@@ -384,15 +457,9 @@ CREATE TRIGGER trigger_update_show_recommendations_updated_at
 BEFORE UPDATE ON show_recommendations
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Trigger on movie_ratings
-CREATE TRIGGER trigger_notify_followers_movie_review
-AFTER INSERT OR UPDATE ON movie_ratings
-FOR EACH ROW
-EXECUTE FUNCTION notify_followers_on_review();
-
--- Trigger on show_ratings
-CREATE TRIGGER trigger_notify_followers_show_review
-AFTER INSERT OR UPDATE ON show_ratings
+-- Trigger on ratings
+CREATE TRIGGER trigger_notify_followers_media_review
+AFTER INSERT OR UPDATE ON ratings
 FOR EACH ROW
 EXECUTE FUNCTION notify_followers_on_review();
 
@@ -402,6 +469,10 @@ EXECUTE FUNCTION notify_followers_on_review();
 CREATE INDEX idx_profiles_username ON profiles(username);
 CREATE INDEX idx_movies_title ON movies(title);
 CREATE INDEX idx_shows_title ON shows(title);
+CREATE INDEX idx_ratings ON ratings(media_id)
+CREATE INDEX idx_ratings_user ON ratings(user_id)
+CREATE INDEX idx_subratings ON subratings(origin_rating_id)
+CREATE INDEX idx_subratings_user on subratings(user_id)
 CREATE INDEX idx_follows_follower ON follows(follower_id);
 CREATE INDEX idx_follows_following ON follows(following_id);
 CREATE INDEX idx_movie_recommendations_movie_id ON movie_recommendations(movie_id);
@@ -409,13 +480,11 @@ CREATE INDEX idx_show_recommendations_show_id ON show_recommendations(show_id);
 CREATE INDEX idx_watchlist_items_movie ON watchlist_items(watchlist_id, movie_id);
 CREATE INDEX idx_watchlist_items_show ON watchlist_items(watchlist_id, show_id);
 
-
 -- =====================================
 -- 11. ENABLE ROW LEVEL SECURITY (RLS) for Supabase
 -- =====================================
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE movie_ratings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE show_ratings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE watchlists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE watchlist_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
@@ -531,16 +600,28 @@ USING (
   )
 );
 
--- Users can manage their own movie ratings
-CREATE POLICY "Users can manage their own movie ratings"
-ON movie_ratings
+-- Users can manage their own ratings
+CREATE POLICY "Users can manage their own ratings"
+ON ratings
+FOR SELECT
+USING (true);
+
+-- Users can see other's ratings
+CREATE POLICY "Users can see ratings"
+ON ratings
 FOR ALL
 USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
 
--- Users can manage their own show ratings
-CREATE POLICY "Users can manage their own show ratings"
-ON show_ratings
+-- Users can manage their own subratings
+CREATE POLICY "Users can manage their own subratings"
+ON subratings
+FOR SELECT
+USING (true);
+
+-- Users can see other's subratings
+CREATE POLICY "Users can see subratings"
+ON subratings
 FOR ALL
 USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());

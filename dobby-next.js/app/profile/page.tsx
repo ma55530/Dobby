@@ -94,7 +94,7 @@ export default function MePage() {
       
       // Fetch follow counts
       if (profileData.id) {
-        const countsRes = await fetch(`/api/user/${profileData.id}/follow-stats`);
+        const countsRes = await fetch(`/api/follows/count/${profileData.id}`);
         if (countsRes.ok) {
           const countsData = await countsRes.json();
           setFollowCounts({

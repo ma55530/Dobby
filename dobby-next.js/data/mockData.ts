@@ -19,6 +19,10 @@ export interface Review {
   content: string;
   date: string;
   likes: number;
+  movieId?: number;
+  movieTitle?: string;
+  movieType?: "movie" | "tv";
+  moviePoster?: string;
 }
 
 export const trendingMovies: Movie[] = [
@@ -103,7 +107,10 @@ export const recentReviews: Review[] = [
     rating: 5.0,
     content: "Ma remek djelo",
     date: "2 days ago",
-    likes: 42
+    likes: 42,
+    movieTitle: "Inception",
+    movieType: "movie",
+    moviePoster: "https://images.unsplash.com/photo-1667004569384-df0b431fea87?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=687"
   },
   {
     id: 2,
@@ -111,7 +118,10 @@ export const recentReviews: Review[] = [
     rating: 4.5,
     content: "Svida mi se...",
     date: "1 week ago",
-    likes: 28
+    likes: 28,
+    movieTitle: "Breaking Bad",
+    movieType: "tv",
+    moviePoster: "https://images.unsplash.com/photo-1685773907333-791250d21441?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&q=80&w=687"
   },
   {
     id: 3,
@@ -119,6 +129,9 @@ export const recentReviews: Review[] = [
     rating: 4.8,
     content: "nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto nesto ",
     date: "3 days ago",
-    likes: 35
+    likes: 35,
+    movieTitle: "The Dark Knight",
+    movieType: "movie",
+    moviePoster: "https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=400&h=600&fit=crop"
   }
 ];

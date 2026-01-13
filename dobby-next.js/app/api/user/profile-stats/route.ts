@@ -106,46 +106,41 @@ export async function GET(request: Request) {
       .slice(0, 10) || []
 
     // Fetch movie details from TMDB
-    const topMovies = []
-    for (const movieId of movieIds) {
-      try {
-        const res = await fetch(
-          `https://api.themoviedb.org/3/movie/${movieId}`,
-          get_options
-        )
-        if (res.ok) {
-          const movie = await res.json()
-          topMovies.push({
-            id: movie.id,
-            title: movie.title,
-            genres: movie.genres || []
-          })
-        }
-      } catch (err) {
-        console.error(`Error fetching movie ${movieId}:`, err)
-      }
-    }
+    const topMoviesPromise = Promise.all(
+        movieIds.map(async (movieId) => {
+            try {
+                const res = await fetch(`https://api.themoviedb.org/3/movie/${movieId}`, get_options);
+                if (res.ok) {
+                    const movie = await res.json();
+                    return { id: movie.id, title: movie.title, genres: movie.genres || [] };
+                }
+            } catch (err) {
+                console.error(`Error fetching movie ${movieId}:`, err);
+            }
+            return null;
+        })
+    );
 
     // Fetch show details from TMDB
-    const topShows = []
-    for (const showId of showIds) {
-      try {
-        const res = await fetch(
-          `https://api.themoviedb.org/3/tv/${showId}`,
-          get_options
-        )
-        if (res.ok) {
-          const show = await res.json()
-          topShows.push({
-            id: show.id,
-            name: show.name,
-            genres: show.genres || []
-          })
-        }
-      } catch (err) {
-        console.error(`Error fetching show ${showId}:`, err)
-      }
-    }
+    const topShowsPromise = Promise.all(
+         showIds.map(async (showId) => {
+            try {
+                const res = await fetch(`https://api.themoviedb.org/3/tv/${showId}`, get_options);
+                if (res.ok) {
+                    const show = await res.json();
+                    return { id: show.id, name: show.name, genres: show.genres || [] };
+                }
+            } catch (err) {
+                console.error(`Error fetching show ${showId}:`, err);
+            }
+            return null;
+         })
+    );
+
+    const [fetchedMovies, fetchedShows] = await Promise.all([topMoviesPromise, topShowsPromise]);
+    
+    const topMovies = fetchedMovies.filter(m => m !== null) as any[];
+    const topShows = fetchedShows.filter(s => s !== null) as any[];
 
     // Calculate favorite genres from all watched content (if not provided by client)
     let favoriteGenres = favoriteGenresFromClient;
