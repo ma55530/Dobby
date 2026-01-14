@@ -5,8 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Mail, Calendar, User as UserIcon, Star, Bookmark, Film, Tv } from "lucide-react";
 import type { UserProfile } from "@/lib/types/UserProfile";
-import { Button } from "@/components/ui/button";
-import { getImageUrl } from "@/lib/TMDB_API/utils";
+import ReviewCard from "@/components/cards/ReviewCard";
 import {
   Dialog,
   DialogContent,
@@ -57,9 +56,7 @@ export default function MePage() {
     topMovies: [],
     topShows: [],
   });
-  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
-  const [followDialog, setFollowDialog] = useState<{ open: boolean; type: 'followers' | 'following' | null }>({ open: false, type: null });
-  const [followList, setFollowList] = useState<Array<{ id: string; username: string; first_name?: string; last_name?: string; avatar_url?: string }>>([]);
+  const [userReviews, setUserReviews] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -119,18 +116,31 @@ export default function MePage() {
 
     const fetchWatchlists = async () => {
       try {
-        const res = await fetch("/api/watchlist");
+        const res = await fetch("/api/user/profile-stats");
         if (res.ok) {
-          const data = await res.json();
-          setWatchlists(data.watchlists || []);
+          const stats = await res.json();
+          setProfileStats(stats);
         }
       } catch (err) {
-        console.error("Failed to load watchlists:", err);
+        console.error("Failed to load profile stats:", err);
+      }
+    };
+
+    const fetchUserReviews = async () => {
+      try {
+        const res = await fetch("/api/user/reviews?limit=10");
+        if (res.ok) {
+          const data = await res.json();
+          setUserReviews(data.reviews || []);
+        }
+      } catch (err) {
+        console.error("Failed to load user reviews:", err);
       }
     };
 
     fetchData();
-    fetchWatchlists();
+    fetchProfileStats();
+    fetchUserReviews();
   }, []);
 
   const fetchFollowList = async (type: 'followers' | 'following') => {
@@ -619,8 +629,16 @@ export default function MePage() {
             </div>
 
             <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
-              <h3 className="text-white font-semibold text-lg mb-3">Recent activity</h3>
-              <p className="text-gray-400 text-sm">No recent activity yet.</p>
+              <h3 className="text-white font-semibold text-lg mb-4 text-center">Recent activity</h3>
+              {userReviews.length > 0 ? (
+                <div className="space-y-6 flex flex-col items-center">
+                  {userReviews.map((review) => (
+                    <ReviewCard key={review.id} post={review} isNested={true} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-400 text-sm text-center">No recent activity yet.</p>
+              )}
             </div>
           </div>
         ) : (

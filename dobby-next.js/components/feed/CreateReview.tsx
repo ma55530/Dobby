@@ -131,106 +131,118 @@ export default function CreateReview() {
   };
 
   return (
-    <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/20 border border-purple-700/50 rounded-lg p-6 mb-8">
-      <h3 className="text-xl font-bold text-white mb-5">Share Your Review</h3>
+    <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/20 border border-purple-700/50 rounded-lg p-4 mb-8">
+      <h3 className="text-lg font-bold text-white mb-3">Share Your Review</h3>
 
-      {/* Movie Selection */}
-      <div className="mb-5">
-        <label className="block text-sm font-semibold text-gray-300 mb-2">
-          Movie or Show
-        </label>
-        <div className="relative">
-          <Search size={18} className="absolute left-3 top-3 text-gray-500" />
-          <input
-            type="text"
-            placeholder="Search for a movie or show..."
-            value={movieSearch}
-            onChange={(e) => handleMovieSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
-          />
+      <div className="space-y-3">
+        {/* Top Row - Movie Selection */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-300 mb-1">
+            Movie or Show
+          </label>
+          <div className="relative flex gap-2">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-2.5 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={movieSearch}
+                onChange={(e) => handleMovieSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+              />
 
-          {/* Dropdown */}
-          {movieSearch && (loadingMovies || filteredMovies.length > 0) && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-zinc-700 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
-              {loadingMovies ? (
-                <div className="px-4 py-3 text-gray-400 text-sm">Searching...</div>
-              ) : filteredMovies.length > 0 ? (
-                filteredMovies.map((movie) => (
-                  <button
-                    key={movie.id}
-                    onClick={() => {
-                      setSelectedMovie(movie);
-                      setMovieSearch(movie.title);
-                      setFilteredMovies([]);
-                    }}
-                    className="w-full text-left px-4 py-2 hover:bg-zinc-800 text-white border-b border-zinc-800 last:border-b-0 transition-colors"
-                  >
-                    <span>{movie.title}</span>
-                    <span className="text-xs text-gray-400 ml-2">
-                      {movie.type === "tv" ? "TV Show" : "Movie"}
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <div className="px-4 py-3 text-gray-400 text-sm">No results found</div>
+              {/* Dropdown */}
+              {movieSearch && (loadingMovies || filteredMovies.length > 0) && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
+                  {loadingMovies ? (
+                    <div className="px-3 py-2 text-gray-400 text-xs">Searching...</div>
+                  ) : filteredMovies.length > 0 ? (
+                    filteredMovies.map((movie) => (
+                      <button
+                        key={movie.id}
+                        onClick={() => {
+                          setSelectedMovie(movie);
+                          setMovieSearch(movie.title);
+                          setFilteredMovies([]);
+                        }}
+                        className="w-full text-left px-3 py-1.5 hover:bg-zinc-800 text-white border-b border-zinc-800 last:border-b-0 transition-colors text-xs"
+                      >
+                        <span>{movie.title}</span>
+                        <span className="text-xs text-gray-400 ml-2">
+                          {movie.type === "tv" ? "TV Show" : "Movie"}
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-gray-400 text-xs">No results found</div>
+                  )}
+                </div>
               )}
             </div>
+            
+            {/* Deselect Button */}
+            {selectedMovie && (
+              <button
+                onClick={() => {
+                  setSelectedMovie(null);
+                  setMovieSearch("");
+                }}
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-xs text-gray-300 font-semibold transition-colors whitespace-nowrap"
+              >
+                Deselect
+              </button>
+            )}
+          </div>
+
+          {selectedMovie && (
+            <p className="text-xs text-purple-400 mt-1">
+              Selected: <span className="font-semibold">{selectedMovie.title}</span>
+            </p>
           )}
         </div>
 
-        {selectedMovie && (
-          <p className="text-sm text-purple-400 mt-2">
-            Selected: <span className="font-semibold">{selectedMovie.title}</span>
-          </p>
-        )}
-      </div>
-
-      {/* Rating Scale */}
-      <div className="mb-5">
-        <label className="block text-sm font-semibold text-gray-300 mb-3">
-          Your Rating
-        </label>
-        <div className="space-y-4">
-          <input
-            type="range"
-            min="1"
-            max="10"
-            value={rating}
-            onChange={(e) => setRating(Number(e.target.value))}
-            className="w-full h-2 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
-          />
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400 text-sm">1</span>
+        {/* Rating Scale */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-300 mb-1">
+            Rating
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={rating}
+              onChange={(e) => setRating(Number(e.target.value))}
+              className="w-full h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-yellow-500"
+            />
             {rating > 0 && (
-              <span className="text-2xl font-bold text-yellow-400">{rating}</span>
+              <span className="text-sm font-bold text-yellow-400 whitespace-nowrap">{rating}/10</span>
             )}
-            <span className="text-gray-400 text-sm">10</span>
           </div>
         </div>
+
+        {/* Submit Button */}
+        <button
+          onClick={submitReview}
+          disabled={submitting}
+          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-semibold py-1.5 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100 text-sm"
+        >
+          {submitting ? "Posting..." : "Post Review"}
+        </button>
       </div>
 
-      {/* Review Text */}
-      <div className="mb-5">
-        <label className="block text-sm font-semibold text-gray-300 mb-2">
-          Your Thoughts (Optional)
-        </label>
-        <textarea
-          placeholder="What did you think about it?"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          className="w-full p-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors resize-none"
-          rows={3}
-        />
-      </div>
-
-      {/* Submit Button */}
-      <button
-        onClick={submitReview}
-        disabled={submitting}
-        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white font-semibold py-2 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:hover:scale-100"
-      >
-        {submitting ? "Posting..." : "Post Review"}
-      </button>
+      {/* Review Text - Optional, expanded below */}
+      {selectedMovie && rating > 0 && (
+        <div className="mt-3">
+          <textarea
+            placeholder="Add your thoughts... (optional)"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            className="w-full p-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors resize-none text-sm"
+            rows={2}
+          />
+        </div>
+      )}
     </div>
   );
 }

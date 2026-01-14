@@ -6,7 +6,7 @@ export async function GET() {
   const supabase = await createClient();
 
   try {
-    // Fetch movie ratings
+    // Fetch movie ratings (only top-level, where first_parent is NULL)
     const { data: movieReviews, error: movieError } = await supabase
       .from("movie_ratings")
       .select(
@@ -17,16 +17,19 @@ export async function GET() {
         rating,
         review,
         created_at,
+        first_parent,
+        likes,
         profiles (
           username,
           avatar_url
         )
       `
       )
+      .is("first_parent", null)
       .order("created_at", { ascending: false })
       .limit(20);
 
-    // Fetch show ratings
+    // Fetch show ratings (only top-level, where first_parent is NULL)
     const { data: showReviews, error: showError } = await supabase
       .from("show_ratings")
       .select(
@@ -37,12 +40,15 @@ export async function GET() {
         rating,
         review,
         created_at,
+        first_parent,
+        likes,
         profiles (
           username,
           avatar_url
         )
       `
       )
+      .is("first_parent", null)
       .order("created_at", { ascending: false })
       .limit(20);
 
@@ -132,15 +138,100 @@ export async function GET() {
           month: "short",
           day: "numeric",
         }),
-        likes: 0,
+        likes: item.likes || 0,
         movieId: item.contentId,
         movieTitle: posterData.title,
         movieType: item.type as "movie" | "tv",
         moviePoster: posterData.posterUrl,
+        hasChildren: false, // Will be populated if we fetch children
       };
     });
 
-    return NextResponse.json(reviews);
+    // Fetch first-level children for each review
+    const reviewIds = reviews.map((r: any) => r.id);
+    
+    const { data: movieChildren } = await supabase
+      .from("movie_ratings")
+      .select(`
+        id,
+        user_id,
+        movie_id,
+        rating,
+        review,
+        created_at,
+        first_parent,
+        likes,
+        profiles (
+          username,
+          avatar_url
+        )
+      `)
+      .in("first_parent", reviewIds);
+
+    const { data: showChildren } = await supabase
+      .from("show_ratings")
+      .select(`
+        id,
+        user_id,
+        show_id,
+        rating,
+        review,
+        created_at,
+        first_parent,
+        likes,
+        profiles (
+          username,
+          avatar_url
+        )
+      `)
+      .in("first_parent", reviewIds);
+
+    // Map children to their parents
+    const childrenMap = new Map();
+    const allChildren = [...(movieChildren || []), ...(showChildren || [])];
+    allChildren.forEach((child: any) => {
+      if (!childrenMap.has(child.first_parent)) {
+        childrenMap.set(child.first_parent, []);
+      }
+      childrenMap.get(child.first_parent).push(child);
+    });
+
+    // Compute which children themselves have replies
+    const childIds = allChildren.map((c: any) => c.id);
+    const { data: movieGrandChildren } = await supabase
+      .from("movie_ratings")
+      .select("id, first_parent")
+      .in("first_parent", childIds);
+    const { data: showGrandChildren } = await supabase
+      .from("show_ratings")
+      .select("id, first_parent")
+      .in("first_parent", childIds);
+    const hasRepliesSet = new Set(
+      [...(movieGrandChildren || []), ...(showGrandChildren || [])].map((gc: any) => gc.first_parent)
+    );
+
+    // Add children to reviews
+    const reviewsWithChildren = reviews.map((review: any) => ({
+      ...review,
+      hasChildren: childrenMap.has(review.id),
+      children: (childrenMap.get(review.id) || []).map((child: any) => ({
+        id: child.id,
+        author: child.profiles?.username || "Anonymous",
+        avatar: child.profiles?.avatar_url,
+        rating: child.rating,
+        content: child.review || "",
+        date: new Date(child.created_at).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        }),
+        likes: child.likes || 0,
+        parentId: child.first_parent,
+        hasChildren: hasRepliesSet.has(child.id),
+      }))
+    }));
+
+    return NextResponse.json(reviewsWithChildren);
   } catch (error) {
     console.error("Error fetching reviews:", error);
     return NextResponse.json({ error: "Failed to fetch reviews" }, { status: 500 });
