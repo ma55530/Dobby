@@ -95,7 +95,7 @@ export function LoginForm({ className, onSwitchToSignup, ...props }: LoginFormPr
                   <Label htmlFor="password">Password</Label>
                   <Link
                     href="/auth/forgot-password"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline font-semibold text-white-400 hover:text-indigo-30"
+                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline font-semibold text-white-400 hover:text-purple-300"
                   >
                     Forgot your password?
                   </Link>
@@ -109,12 +109,13 @@ export function LoginForm({ className, onSwitchToSignup, ...props }: LoginFormPr
                 />
               </div>
               {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full bg-blue-950 hover:bg-blue-400 text-white" disabled={isLoading}>
+              <Button type="submit" className="w-full bg-purple-950 hover:bg-purple-400 text-white" disabled={isLoading}>
                 {isLoading ? 'Logging in...' : 'Login'}
               </Button>
               <Button
                 type="button"
-                className="w-full flex items-center justify-center gap-2"
+                variant="outline"
+                className="w-full flex items-center justify-center gap-2 bg-black text-white hover:bg-gray-900 hover:text-white border-transparent font-medium"
                 onClick={handleLoginWithGoogle}
                 disabled={isLoading}
               >
@@ -125,11 +126,11 @@ export function LoginForm({ className, onSwitchToSignup, ...props }: LoginFormPr
             <div className="mt-4 text-center text-sm text-white">
               Don&apos;t have an account?{' '}
               {onSwitchToSignup ? (
-                <button type="button" onClick={onSwitchToSignup} className="underline underline-offset-4 font-semibold text-white hover:text-indigo-30">
+                <button type="button" onClick={onSwitchToSignup} className="underline underline-offset-4 font-semibold text-white hover:text-purple-300">
                   Sign up
                 </button>
               ) : (
-                <Link href="/auth/sign-up" className="underline underline-offset-4 font-semibold text-white hover:text-indigo-30">
+                <Link href="/auth/sign-up" className="underline underline-offset-4 font-semibold text-white hover:text-purple-300">
                   Sign up
                 </Link>
               )}
