@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useEffect, useState, useRef } from 'react';
-import { BellIcon, HelpCircleIcon, UserIcon, ChevronDownIcon } from 'lucide-react';
+import { BellIcon, HelpCircleIcon, ChevronDownIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   NavigationMenu,
@@ -10,11 +10,6 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
 } from '@/components/ui/navigation-menu';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +21,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { ComponentProps } from 'react';
+// import type { ComponentProps } from 'react';
 
 import Link from "next/link";
 
@@ -130,7 +125,9 @@ interface Notification {
 
 // Notification Menu Component
 const NotificationMenu = ({ 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   notificationCount = 0, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onItemClick 
 }: { 
   notificationCount?: number;
@@ -307,7 +304,7 @@ const UserMenu = ({
 );
 
 // Add this helper for the dropdown
-function ForYouDropdown({ onNavItemClick }: { onNavItemClick?: (href: string) => void }) {
+function ForYouDropdown() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -370,6 +367,7 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
   (
     {
       className,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       logo = <Logo />,
       logoHref = '/',
       navigationLinks = defaultNavigationLinks,
@@ -378,6 +376,7 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
       userAvatar,
       notificationCount = 3,
       onNavItemClick,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       onInfoItemClick,
       onNotificationItemClick,
       onUserItemClick,
@@ -430,6 +429,7 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
         <div className="container mx-auto flex h-16 max-w-screen-2xl items-center justify-between gap-8">
           {/* Left: Logo and Dobby */}
           <div className="flex items-center gap-3">
+             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/assets/3d-glasses.png"
               alt="Dobby logo"
@@ -468,7 +468,7 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
                   ))}
                   {/* Desktop: For You dropdown */}
                   <NavigationMenuItem>
-                    <ForYouDropdown onNavItemClick={onNavItemClick} />
+                    <ForYouDropdown />
                   </NavigationMenuItem>
                 </NavigationMenuList>
               </NavigationMenu>

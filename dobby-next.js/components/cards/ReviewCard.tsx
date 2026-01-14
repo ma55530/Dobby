@@ -74,6 +74,7 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
       }
     };
     checkLikeStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post.id]);
 
   const handleLike = async () => {

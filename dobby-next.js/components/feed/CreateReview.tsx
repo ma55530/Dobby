@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useState } from "react";
 import { Search } from "lucide-react";
@@ -41,7 +42,7 @@ export default function CreateReview() {
         fetch(`/api/shows?query=${query}&page=1`),
       ]);
 
-      let allResults: MovieResult[] = [];
+      const allResults: MovieResult[] = [];
 
       // Process movies
       if (moviesRes.ok) {

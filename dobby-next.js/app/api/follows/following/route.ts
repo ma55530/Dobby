@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 // Get all users you are following
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const supabase = await createClient();
 

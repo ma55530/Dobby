@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
+// import { useRouter } from "next/navigation"
 
 // genre list
 const AVAILABLE_GENRES = [
@@ -44,7 +44,6 @@ export default function TestFoldInPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
 
   const toggleGenre = (genre: string) => {
     setSelectedGenres(prev => 

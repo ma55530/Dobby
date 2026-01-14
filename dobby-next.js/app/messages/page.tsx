@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -39,7 +40,6 @@ function MessagesContent() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -68,6 +68,7 @@ function MessagesContent() {
       setLoading(false);
     };
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
@@ -124,6 +125,7 @@ function MessagesContent() {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversation]);
 
   const fetchConversations = async () => {
@@ -510,7 +512,7 @@ function MessagesContent() {
                                         <p className="text-xs text-gray-400">{(msg.metadata as any).year}</p>
                                       )}
                                       {msg.content && (
-                                        <p className="text-xs text-gray-300 mt-2 italic">"{msg.content}"</p>
+                                        <p className="text-xs text-gray-300 mt-2 italic">&quot;{msg.content}&quot;</p>
                                       )}
                                     </div>
                                   </div>

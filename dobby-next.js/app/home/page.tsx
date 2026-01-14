@@ -1,117 +1,60 @@
 "use client";
 
-import Image from "next/image";
-import { TrendingUp, Star } from "lucide-react";
-import { recentReviews } from "@/data/mockData";
-import TrendingMovies from '@/components/trending/TrendingMovies';
-import { useEffect, useState } from "react";
+import CreateReview from "@/components/feed/CreateReview";
+import Feed from "@/components/feed/Feed";
+import MessageButton from "@/components/messaging/MessageButton";
 
 export default function AuthenticatedHomePage() {
-  const heroImage = "/assets/cinema.jpg";
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch("/api/user");
-        
-        // Check if response is JSON before parsing
-        const contentType = res.headers.get("content-type");
-        if (!res.ok || !contentType || !contentType.includes("application/json")) {
-          setIsAuthenticated(false);
-          return;
-        }
-        
-        const data = await res.json();
-        // If we got valid user data, we're authenticated
-        if (data && data.id) {
-          setIsAuthenticated(true);
-        } else {
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error("Auth check error:", error);
-        setIsAuthenticated(false);
-      }
-    };
-    checkAuth();
-  }, []);
-
   return (
-    <main className="min-h-screen flex flex-col items-center justify-start bg-gradient-to-b from-[#1a1625] to-[#0f0c18] text-foreground">
-
-      {/* Hero Image */}
-      <section className="relative w-full h-[80vh] flex items-center justify-center text-center text-white mt-0">
-        <Image
-          src={heroImage}
-          alt="Cinema"
-          fill
-          sizes="100vw"
-          priority
-          className="object-cover opacity-60"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent" />
-        <div className="relative z-10 px-6">
-          <h1 className="text-6xl md:text-7xl font-extrabold drop-shadow-[0_4px_30px_rgba(147,51,234,0.6)]">
-            Welcome Back!
-          </h1>
-          <p className="text-lg md:text-xl text-gray-300 mt-4 mb-8">
-            Discover what's trending and share your thoughts
-          </p>
-        </div>
-      </section>
-
-      {/* Trending */}
-      <section className="w-full py-8 px-6 max-w-6xl">
-        <div className="flex items-center gap-3 mb-8">
-          <TrendingUp className="w-8 h-8 text-purple-400" />
-          <h2 className="text-3xl md:text-4xl font-bold text-white">Trending Now</h2>
-        </div>
-        <TrendingMovies />
-      </section>
-
-      {/* Recent Reviews */}
-      <section className="w-full py-16 bg-zinc-900/50 px-6 max-w-6xl rounded-xl">
-        <div className="flex items-center gap-3 mb-8">
-          <Star className="w-8 h-8 text-yellow-400" />
-          <h2 className="text-3xl md:text-4xl font-bold text-white">
-            Recent Reviews
-          </h2>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {recentReviews.map((review) => (
-            <div
-              key={review.id}
-              className="p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 hover:border-yellow-400/50 transition-all duration-300"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-semibold text-white">{review.author}</h4>
-                <span className="text-yellow-400 font-bold">★ {review.rating}</span>
-              </div>
-              <p className="text-gray-300 text-sm mb-4 leading-relaxed">{review.content}</p>
-              <div className="flex items-center justify-between text-gray-500 text-xs">
-                <span>{review.date}</span>
-                <span>👍 {review.likes}</span>
-              </div>
+    <main className="min-h-screen bg-gradient-to-b from-[#1a1625] via-[#0f0c18] to-[#1a1625] text-white">
+      {/* Welcome Hero Section */}
+      <div className="bg-gradient-to-r from-purple-900/40 to-pink-900/40 backdrop-blur-sm border-b border-purple-700/30 top-0 z-40">
+        <div className="w-full max-w-6xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="text-center w-full">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
+                Welcome to Dobby
+              </h1>
+              <p className="text-gray-300 text-lg">Discover, share, and celebrate movies and shows with our community</p>
             </div>
-          ))}
+          </div>
         </div>
-      </section>
+      </div>
 
-      {/* Join the Community */}
-      <section className="w-full py-24 text-center px-6 mt-10 bg-transparent">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-4xl md:text-5xl font-extrabold text-white mb-6">
-            Share Your Thoughts
-          </h2>
-          <p className="text-lg md:text-xl text-gray-300 mb-10 leading-relaxed">
-            Connect with fellow movie and TV shows enthusiasts, share your thoughts, and discover your next favorite film or TV show together.
-          </p>
+      {/* Main Content */}
+      <div className="flex justify-center p-3 sm:p-4 md:p-9 py-8">
+        <div className="w-full max-w-7xl">
+          <div className="space-y-6">
+            
+            {/* Create Review - Top Section */}
+            <div className="max-w-2xl mx-auto w-full mb-8">
+              <CreateReview />
+            </div>
+
+            {/* Two Column Layout - Reviews and Ratings */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-15">
+              
+              {/* Left Side - Main Feed (Reviews with text) */}
+              <div className="lg:col-span-2">
+                <Feed type="reviews" />
+              </div>
+
+              {/* Right Side - Ratings Only */}
+              <div className="lg:col-span-1">
+                <div className="sticky top-20 lg:top-25">
+                  <h3 className="text-xl font-bold text-white mb-4">Latest Ratings</h3>
+                  <Feed type="ratings" />
+                </div>
+              </div>
+
+            </div>
+
+          </div>
         </div>
-      </section>
+      </div>
 
-      
+      {/* Floating messaging button */}
+      <MessageButton />
     </main>
   );
 }

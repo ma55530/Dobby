@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // dobby-next.js/app/api/recommendation-engine/helpers.ts
 
 import { Movie } from "@/lib/types/Movie";

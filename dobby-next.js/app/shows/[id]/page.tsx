@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { format } from "date-fns";
@@ -50,7 +51,7 @@ export default function ShowPage({ params }: ShowPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [addingToWatchlist, setAddingToWatchlist] = useState(false);
   const [watchlistMessage, setWatchlistMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [, setIsInWatchlist] = useState(false);
   const [checkingWatchlist, setCheckingWatchlist] = useState(true);
   const [watchlistsWithItem, setWatchlistsWithItem] = useState<string[]>([]);
   const [availableWatchlists, setAvailableWatchlists] = useState<Array<{ id: string; name: string }>>([]);
@@ -130,68 +131,68 @@ export default function ShowPage({ params }: ShowPageProps) {
     checkWatchlist();
   }, [id]);
 
-  const handleAddToWatchlist = async () => {
-    setAddingToWatchlist(true);
-    setWatchlistMessage(null);
+  // const handleAddToWatchlist = async () => {
+  //   setAddingToWatchlist(true);
+  //   setWatchlistMessage(null);
 
-    try {
-      const res = await fetch('/api/watchlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ showId: parseInt(id) }),
-      });
+  //   try {
+  //     const res = await fetch('/api/watchlist', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({ showId: parseInt(id) }),
+  //     });
 
-      const data = await res.json();
+  //     const data = await res.json();
 
-      if (res.ok) {
-        setIsInWatchlist(true);
-        setWatchlistMessage({ type: 'success', text: 'Added to watchlist!' });
-        setTimeout(() => setWatchlistMessage(null), 3000);
-      } else {
-        if (res.status === 409) {
-          setWatchlistMessage({ type: 'error', text: 'Already in watchlist' });
-        } else if (res.status === 401) {
-          setWatchlistMessage({ type: 'error', text: 'Please log in first' });
-        } else {
-          setWatchlistMessage({ type: 'error', text: data.error || 'Failed to add' });
-        }
-        setTimeout(() => setWatchlistMessage(null), 3000);
-      }
-    } catch (err) {
-      console.error(err);
-      setWatchlistMessage({ type: 'error', text: 'Something went wrong' });
-      setTimeout(() => setWatchlistMessage(null), 3000);
-    } finally {
-      setAddingToWatchlist(false);
-    }
-  };
+  //     if (res.ok) {
+  //       setIsInWatchlist(true);
+  //       setWatchlistMessage({ type: 'success', text: 'Added to watchlist!' });
+  //       setTimeout(() => setWatchlistMessage(null), 3000);
+  //     } else {
+  //       if (res.status === 409) {
+  //         setWatchlistMessage({ type: 'error', text: 'Already in watchlist' });
+  //       } else if (res.status === 401) {
+  //         setWatchlistMessage({ type: 'error', text: 'Please log in first' });
+  //       } else {
+  //         setWatchlistMessage({ type: 'error', text: data.error || 'Failed to add' });
+  //       }
+  //       setTimeout(() => setWatchlistMessage(null), 3000);
+  //     }
+  //   } catch (err) {
+  //     console.error(err);
+  //     setWatchlistMessage({ type: 'error', text: 'Something went wrong' });
+  //     setTimeout(() => setWatchlistMessage(null), 3000);
+  //   } finally {
+  //     setAddingToWatchlist(false);
+  //   }
+  // };
 
-  const handleRemoveFromWatchlist = async () => {
-    setAddingToWatchlist(true);
-    setWatchlistMessage(null);
+  // const handleRemoveFromWatchlist = async () => {
+  //   setAddingToWatchlist(true);
+  //   setWatchlistMessage(null);
 
-    try {
-      const res = await fetch(`/api/watchlist?showId=${id}`, {
-        method: 'DELETE',
-      });
+  //   try {
+  //     const res = await fetch(`/api/watchlist?showId=${id}`, {
+  //       method: 'DELETE',
+  //     });
 
-      if (res.ok) {
-        setIsInWatchlist(false);
-        setWatchlistsWithItem([]);
-        setWatchlistMessage({ type: 'success', text: 'Removed from watchlist' });
-        setTimeout(() => setWatchlistMessage(null), 3000);
-      } else {
-        setWatchlistMessage({ type: 'error', text: 'Failed to remove' });
-        setTimeout(() => setWatchlistMessage(null), 3000);
-      }
-    } catch (err) {
-      console.error(err);
-      setWatchlistMessage({ type: 'error', text: 'Something went wrong' });
-      setTimeout(() => setWatchlistMessage(null), 3000);
-    } finally {
-      setAddingToWatchlist(false);
-    }
-  };
+  //     if (res.ok) {
+  //       setIsInWatchlist(false);
+  //       setWatchlistsWithItem([]);
+  //       setWatchlistMessage({ type: 'success', text: 'Removed from watchlist' });
+  //       setTimeout(() => setWatchlistMessage(null), 3000);
+  //     } else {
+  //       setWatchlistMessage({ type: 'error', text: 'Failed to remove' });
+  //       setTimeout(() => setWatchlistMessage(null), 3000);
+  //     }
+  //   } catch (err) {
+  //     console.error(err);
+  //     setWatchlistMessage({ type: 'error', text: 'Something went wrong' });
+  //     setTimeout(() => setWatchlistMessage(null), 3000);
+  //   } finally {
+  //     setAddingToWatchlist(false);
+  //   }
+  // };
 
   const openWatchlistDropdown = async () => {
     setLoadingWatchlists(true);

@@ -341,7 +341,7 @@ export default function WatchlistPage() {
                   <DialogHeader>
                     <DialogTitle>Create New Watchlist</DialogTitle>
                     <DialogDescription className="text-gray-400">
-                      Give your watchlist a name like "Best stuff for when I'm sad"
+                      Give your watchlist a name like &quot;Best stuff for when I&apos;m sad&quot;
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 mt-4">
@@ -429,7 +429,7 @@ export default function WatchlistPage() {
                           <DialogHeader>
                             <DialogTitle>Delete Watchlist</DialogTitle>
                             <DialogDescription className="text-gray-400">
-                              Are you sure you want to delete "{watchlist.name}"? This will remove all {watchlist.items.length} items in it. This action cannot be undone.
+                              Are you sure you want to delete &quot;{watchlist.name}&quot;? This will remove all {watchlist.items.length} items in it. This action cannot be undone.
                             </DialogDescription>
                           </DialogHeader>
                           <div className="flex justify-end gap-2 mt-4">

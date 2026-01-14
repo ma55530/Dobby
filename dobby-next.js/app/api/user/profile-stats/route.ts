@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { get_options } from '@/lib/TMDB_API/requestOptions'

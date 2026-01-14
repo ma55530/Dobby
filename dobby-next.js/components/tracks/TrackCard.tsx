@@ -18,7 +18,6 @@ interface TrackCardProps {
 }
 
 export default function TrackCard({
-  id,
   title,
   poster,
   rating,

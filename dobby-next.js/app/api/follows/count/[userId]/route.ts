@@ -28,8 +28,8 @@ export async function GET(
     }
 
     return NextResponse.json({
-      followers: followersCount || 0,
-      following: followingCount || 0,
+      followersCount: followersCount || 0,
+      followingCount: followingCount || 0,
     });
   } catch (error) {
     console.error("Error:", error);

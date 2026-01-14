@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Mail, Calendar, User as UserIcon, Star, Bookmark, Film, Tv } from "lucide-react";
+import { Mail, Calendar, User as UserIcon, Bookmark, Film, Tv } from "lucide-react";
 import type { UserProfile } from "@/lib/types/UserProfile";
 import ReviewCard from "@/components/cards/ReviewCard";
 import {
@@ -17,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 
 interface Genre {
   id: number;
@@ -57,6 +59,15 @@ export default function MePage() {
     topShows: [],
   });
   const [userReviews, setUserReviews] = useState<any[]>([]);
+  const [followDialog, setFollowDialog] = useState<{ open: boolean; type: 'followers' | 'following' | null }>({ open: false, type: null });
+  const [followList, setFollowList] = useState<any[]>([]);
+  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
+
+  const getImageUrl = (path: string | null) => {
+    if (!path) return "/assets/placeholder.png";
+    if (path.startsWith("http")) return path;
+    return `https://image.tmdb.org/t/p/w500${path}`;
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -116,13 +127,25 @@ export default function MePage() {
 
     const fetchWatchlists = async () => {
       try {
-        const res = await fetch("/api/user/profile-stats");
+        const res = await fetch("/api/watchlists");
         if (res.ok) {
-          const stats = await res.json();
-          setProfileStats(stats);
+          const data = await res.json();
+          // Map API response to Component State 
+          // Note: API needs to return movie/show details for strict typing, 
+          // current implementation might miss title/poster_path if not joined.
+          setWatchlists(data.map((w: any) => ({
+            ...w,
+            items: w.watchlist_items?.map((i: any) => ({
+              type: i.movie_id ? 'movie' : 'show',
+              id: i.movie_id || i.show_id,
+              // These might be undefined if not joined
+              title: i.movies?.title || i.shows?.name || 'Unknown',
+              poster_path: i.movies?.poster_path || i.shows?.poster_path || null
+            })) || []
+          })) || []);
         }
       } catch (err) {
-        console.error("Failed to load profile stats:", err);
+        console.error("Failed to load watchlists:", err);
       }
     };
 
@@ -139,7 +162,7 @@ export default function MePage() {
     };
 
     fetchData();
-    fetchProfileStats();
+    fetchWatchlists();
     fetchUserReviews();
   }, []);
 
@@ -328,7 +351,7 @@ export default function MePage() {
                         if (savedGenres) {
                           try {
                             setFavoriteGenreIds(JSON.parse(savedGenres));
-                          } catch (e) {
+                          } catch {
                             setFavoriteGenreIds([]);
                           }
                         } else {

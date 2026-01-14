@@ -33,6 +33,7 @@ export default function MoviesForYouPage() {
 
   useEffect(() => {
     setPhrase(phrases[Math.floor(Math.random() * phrases.length)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchMovies = async (retry = true) => {
@@ -62,6 +63,7 @@ export default function MoviesForYouPage() {
 
   useEffect(() => {
     fetchMovies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleRerun = async () => {

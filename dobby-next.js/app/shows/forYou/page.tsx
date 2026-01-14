@@ -33,6 +33,7 @@ export default function ShowsForYouPage() {
 
   useEffect(() => {
     setPhrase(phrases[Math.floor(Math.random() * phrases.length)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchShows = async (retry = true) => {
@@ -60,6 +61,7 @@ export default function ShowsForYouPage() {
 
   useEffect(() => {
     fetchShows();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleRerun = async () => {

@@ -4,7 +4,6 @@ import { useEffect, useState, use } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Calendar, User as UserIcon, Star, UserPlus, UserCheck } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 interface UserProfile {
@@ -104,6 +103,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
       if (res.ok) {
         setFollowStatus({ ...followStatus, isFollowing: true });
         setFollowCounts({ ...followCounts, followers: followCounts.followers + 1 });
+        window.dispatchEvent(new CustomEvent('followStateChanged'));
       }
     } catch (err) {
       console.error("Error following:", err);
@@ -125,6 +125,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
       if (res.ok) {
         setFollowStatus({ ...followStatus, isFollowing: false });
         setFollowCounts({ ...followCounts, followers: followCounts.followers - 1 });
+        window.dispatchEvent(new CustomEvent('followStateChanged'));
       }
     } catch (err) {
       console.error("Error unfollowing:", err);

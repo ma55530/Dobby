@@ -126,7 +126,7 @@ export function ShareDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
         <DialogHeader>
-          <DialogTitle>Share "{title}"</DialogTitle>
+          <DialogTitle>Share &quot;{title}&quot;</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">

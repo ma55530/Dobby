@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Bell, Check, X, User as UserIcon, MessageSquare, Heart, UserPlus, Reply } from "lucide-react";
+import { Bell, MessageSquare, Heart, UserPlus, Reply } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -113,6 +113,7 @@ export default function NotificationBell() {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const markAsRead = async (ids: string[]) => {
@@ -233,7 +234,7 @@ export default function NotificationBell() {
             </div>
           ) : (
             <div className="divide-y divide-zinc-800">
-              {items.map((item, idx) => {
+              {items.map((item) => {
                 if (item.kind === 'request') {
                   const request = (item.data as FriendRequest);
                   return (
@@ -284,7 +285,7 @@ export default function NotificationBell() {
                              <span className="font-semibold">{notif.actor?.username}</span> {notif.type === 'message' ? 'sent you a message' : notif.type === 'follow' ? 'started following you' : notif.content || 'interacted with you'}
                            </p>
                            {notif.type === 'message' && notif.content && (
-                             <p className="text-gray-400 text-xs mt-1 truncate">"{notif.content}"</p>
+                             <p className="text-gray-400 text-xs mt-1 truncate">&quot;{notif.content}&quot;</p>
                            )}
                            <p className="text-gray-500 text-xs mt-1">{formatTimeAgo(notif.created_at)}</p>
                         </div>
