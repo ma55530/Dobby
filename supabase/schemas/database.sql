@@ -128,6 +128,103 @@ CREATE TRIGGER trigger_update_subratings_updated_at
 BEFORE UPDATE ON subratings
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TABLE IF NOT EXISTS rating (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    movie_id BIGINT,
+    show_id BIGINT,
+    rating INTEGER CHECK (rating >= 1 AND rating <= 10) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+    -- XOR constraint: exactly one of movie_id or show_id must be set
+    CONSTRAINT rating_movie_xor_show CHECK (
+        (movie_id IS NOT NULL AND show_id IS NULL)
+        or
+        (movie_id IS NULL AND show_id IS NOT NULL)
+    )
+);
+
+-- Ensure a user can only rate a movie/show once
+CREATE UNIQUE INDEX rating_user_movie_unique
+    ON rating(user_id, movie_id)
+    WHERE movie_id IS NOT NULL;
+
+CREATE UNIQUE INDEX rating_user_show_unique
+    ON rating(user_id, show_id)
+    WHERE show_id IS NOT NULL;
+
+
+CREATE TABLE IF NOT EXISTS post (
+    id UUID PRIMARY KEY REFERENCES rating(id) ON DELETE CASCADE,
+    title TEXT,
+    post_text TEXT,
+    comment_count INT DEFAULT 0,
+    like_count INT DEFAULT 0,
+    dislike_count INT DEFAULT 0
+
+);
+
+CREATE TABLE IF NOT EXISTS comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    post_id UUID NOT NULL REFERENCES post(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    comment_text text NOT NULL,
+    parent_comment UUID REFERENCES comments(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    reply_count INT DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS reaction (
+    user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    post_id UUID NOT NULL REFERENCES post(id) ON DELETE CASCADE,
+    type TEXT NOT NULL CHECK (type IN ('like','dislike')),
+    PRIMARY KEY (user_id, post_id)
+);
+
+-- Update like/dislike counts when reactions change
+CREATE OR REPLACE FUNCTION update_post_reaction_counts()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE post SET
+    like_count = (SELECT COUNT(*) FROM reaction WHERE post_id = NEW.post_id AND type = 'like'),
+    dislike_count = (SELECT COUNT(*) FROM reaction WHERE post_id = NEW.post_id AND type = 'dislike')
+  WHERE id = NEW.post_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_post_reaction_counts
+AFTER INSERT OR DELETE ON reaction
+FOR EACH ROW EXECUTE FUNCTION update_post_reaction_counts();
+
+-- Update comment count when comments change
+CREATE OR REPLACE FUNCTION update_post_comment_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE post SET comment_count = (SELECT COUNT(*) FROM comments WHERE post_id = NEW.post_id)
+  WHERE id = NEW.post_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_post_comment_count
+AFTER INSERT OR DELETE ON comments
+FOR EACH ROW EXECUTE FUNCTION update_post_comment_count();
+
+CREATE OR REPLACE FUNCTION update_comment_reply_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE comments SET reply_count = (SELECT COUNT(*) FROM comments WHERE parent_comment = NEW.parent_comment)
+  WHERE id = NEW.parent_comment;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_comment_reply_count
+AFTER INSERT OR DELETE ON comments
+FOR EACH ROW EXECUTE FUNCTION update_comment_reply_count();
+
 -- =====================================
 -- 4. WATCHLISTS (Multiple per user)
 -- =====================================
@@ -292,18 +389,6 @@ CREATE TRIGGER on_new_message
 AFTER INSERT ON messages
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_message();
 
--- Trigger to refresh recommendations when user embeddings are updated
-CREATE TRIGGER trigger_refresh_recommendations
-AFTER INSERT OR UPDATE ON user_embeddings
-FOR EACH ROW
-EXECUTE FUNCTION trigger_refresh_movie_recommendations();
-
--- Trigger to refresh show recommendations when user embeddings are updated
-CREATE TRIGGER trigger_refresh_show_recommendations
-AFTER INSERT OR UPDATE ON user_embeddings
-FOR EACH ROW
-EXECUTE FUNCTION trigger_refresh_show_recommendations();
-
 -- =====================================
 -- 8. EMBEDDINGS FOR PYTHON MICROSERVICE
 -- =====================================
@@ -362,63 +447,6 @@ BEGIN
   FROM show_embeddings AS s
   ORDER BY s.embedding <#> (SELECT u.embedding FROM user_embeddings AS u WHERE u.user_id = p_user_id)
   LIMIT p_limit;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION refresh_movie_recommendations(p_user_id UUID, p_limit INT DEFAULT 50)
-RETURNS void AS $$
-BEGIN
-  -- Delete old recommendations for this user
-  DELETE FROM movie_recommendations WHERE user_id = p_user_id;
-  
-  -- Insert new top recommendations with variable limit
-  INSERT INTO movie_recommendations (user_id, movie_id, created_at, updated_at)
-  SELECT 
-    p_user_id, 
-    m.movie_id, 
-    NOW(), 
-    NOW()
-  FROM movie_embeddings AS m
-  ORDER BY m.embedding <#> (SELECT u.embedding FROM user_embeddings AS u WHERE u.user_id = p_user_id)
-  LIMIT p_limit;
-END;
-$$ LANGUAGE plpgsql;
-
--- Trigger function to refresh recommendations on user embedding update
-CREATE OR REPLACE FUNCTION trigger_refresh_movie_recommendations()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Call the RPC function when embeddings update (store 60 movies)
-  PERFORM refresh_movie_recommendations(NEW.user_id, 60);
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE FUNCTION refresh_show_recommendations(p_user_id UUID, p_limit INT DEFAULT 50)
-RETURNS void AS $$
-BEGIN
-  -- Delete old recommendations for this user
-  DELETE FROM show_recommendations WHERE user_id = p_user_id;
-  
-  -- Insert new top recommendations with variable limit
-  INSERT INTO show_recommendations (user_id, show_id, created_at, updated_at)
-  SELECT 
-    p_user_id, 
-    s.show_id, 
-    NOW(), 
-    NOW()
-  FROM show_embeddings AS s
-  ORDER BY s.embedding <#> (SELECT u.embedding FROM user_embeddings AS u WHERE u.user_id = p_user_id)
-  LIMIT p_limit;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE FUNCTION trigger_refresh_show_recommendations()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Call the RPC function when embeddings update (store 60 show)
-  PERFORM refresh_show_recommendations(NEW.user_id, 20);
-  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
