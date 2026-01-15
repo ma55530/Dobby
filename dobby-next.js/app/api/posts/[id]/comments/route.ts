@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 // app/api/posts/[id]/comments/route.ts
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { searchParams } = new URL(req.url);
   const limit = parseInt(searchParams.get("limit") || "5");
@@ -12,10 +12,18 @@ export async function GET(
 
   // Fetch limit + 1 to know if there are more
   const supabase = await createClient();
+  const { id: postId } = await params;
   const comments = await supabase
     .from("comments")
-    .select("*")
-    .eq("post_id", params.id)
+    .select(`
+      *,
+      profiles:user_id(
+        id,
+        username,
+        avatar_url
+      )
+    `)
+    .eq("post_id", postId)
     .is("parent_comment", null) // Only top-level comments
     .order("created_at", { ascending: false })
     .range(offset, offset + limit);

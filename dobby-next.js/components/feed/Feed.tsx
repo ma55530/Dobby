@@ -5,18 +5,18 @@ import Post from "./Post";
 import RatingCard from "@/components/cards/RatingCard";
 
 interface Comment {
-  id: number;
+  id: string;
   author: string;
   avatar?: string;
-  rating: number;
+  rating?: number;
   content: string;
   date: string;
   likes: number;
-  parentId?: number;
+  parentId?: string;
 }
 
 interface Review {
-  id: number;
+  id: string;
   author: string;
   avatar?: string;
   rating: number;
@@ -31,16 +31,35 @@ interface Review {
   children?: Comment[];
 }
 
-export default function Feed({ type = "reviews" }: { type?: "reviews" | "ratings" }) {
+export default function Feed({ 
+  type = "reviews", 
+  filter = "public" 
+}: { 
+  type?: "reviews" | "ratings";
+  filter?: "public" | "following";
+}) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [nestedComments, setNestedComments] = useState<Record<number, Comment[]>>({});
+  const [nestedComments, setNestedComments] = useState<Record<string, Comment[]>>({});
 
-  const loadMoreComments = async (parentId: number) => {
+  const loadMoreComments = async (parentId: string) => {
     try {
-      const response = await fetch(`/api/reviews/${parentId}/children`);
+      const response = await fetch(`/api/posts/${parentId}/comments?limit=10&offset=0`);
       if (!response.ok) throw new Error("Failed to fetch children");
-      const children = await response.json();
+      const result = await response.json();
+      const rawChildren = result.comments || result;
+      
+      // Transform the data to match the Comment interface
+      const children = rawChildren.map((comment: any) => ({
+        id: comment.id,
+        author: comment.profiles?.username || 'Unknown',
+        avatar: comment.profiles?.avatar_url,
+        content: comment.comment_text,
+        date: new Date(comment.created_at).toLocaleDateString(),
+        likes: 0,
+        hasChildren: (comment.reply_count || 0) > 0,
+        parentId: comment.parent_comment
+      }));
       
       setNestedComments(prev => ({
         ...prev,
@@ -54,21 +73,28 @@ export default function Feed({ type = "reviews" }: { type?: "reviews" | "ratings
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const response = await fetch("/api/reviews");
+        // Build query params
+        const params = new URLSearchParams({
+          limit: "20",
+          offset: "0",
+          ...(filter === "following" && { filter: "following" })
+        });
+
+        // Use different endpoints based on type
+        const endpoint = type === "ratings" 
+          ? `/api/ratings?${params}`
+          : `/api/posts?${params}`;
+        
+        const response = await fetch(endpoint);
         if (!response.ok) throw new Error("Failed to fetch reviews");
-        const data = await response.json();
+        const result = await response.json();
         
-        // Filter based on type
-        let filtered = data;
-        if (type === "reviews") {
-          // Show only reviews with content
-          filtered = data.filter((item: Review) => item.content && item.content.trim() !== "");
-        } else if (type === "ratings") {
-          // Show only ratings without content
-          filtered = data.filter((item: Review) => !item.content || item.content.trim() === "");
-        }
+        // Get data from appropriate property
+        const data = type === "ratings" 
+          ? (result.ratings || result)
+          : (result.posts || result);
         
-        setReviews(filtered);
+        setReviews(data);
       } catch (error) {
         console.error("Error fetching reviews:", error);
         setReviews([]);
@@ -78,7 +104,7 @@ export default function Feed({ type = "reviews" }: { type?: "reviews" | "ratings
     };
 
     fetchReviews();
-  }, [type]);
+  }, [type, filter]);
 
   // Hide header for ratings view
   const showHeader = type === "reviews";

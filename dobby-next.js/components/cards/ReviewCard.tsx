@@ -1,25 +1,25 @@
 "use client";
 
 import Image from "next/image";
-import { Heart, MessageCircle, Share2, ChevronDown } from "lucide-react";
+import { Heart, MessageCircle, Share2, ChevronDown, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 
 interface Comment {
-  id: number;
+  id: string;
   author: string;
   avatar?: string;
-  rating: number;
+  rating?: number;
   content: string;
   date: string;
   likes: number;
-  parentId?: number;
+  parentId?: string;
   hasChildren?: boolean;
 }
 
 interface ReviewCardProps {
   post: {
-    id: number;
+    id: string;
     author: string;
     avatar?: string;
     rating: number;
@@ -33,47 +33,50 @@ interface ReviewCardProps {
     hasChildren?: boolean;
     children?: Comment[];
   };
-  onLoadMore?: (parentId: number) => void;
-  nestedComments?: Record<number, Comment[]>;
+  onLoadMore?: (parentId: string) => void;
+  nestedComments?: Record<string, Comment[]>;
   isNested?: boolean;
 }
 
 const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: ReviewCardProps) => {
   const [likes, setLikes] = useState(post.likes);
   const [isLiked, setIsLiked] = useState(false);
+  const [dislikes, setDislikes] = useState(0);
+  const [isDisliked, setIsDisliked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [replyOpenById, setReplyOpenById] = useState<Record<number, boolean>>({});
-  const [replyTextById, setReplyTextById] = useState<Record<number, string>>({});
-  const [replySubmittingId, setReplySubmittingId] = useState<number | null>(null);
+  const [replyOpenById, setReplyOpenById] = useState<Record<string, boolean>>({});
+  const [replyTextById, setReplyTextById] = useState<Record<string, string>>({});
+  const [replySubmittingId, setReplySubmittingId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if user has liked this review and get current likes count
-    const checkLikeStatus = async () => {
+    // Check if user has liked/disliked this review and get current counts
+    const checkReactionStatus = async () => {
       try {
-        const typeParam = post.movieType ? `?type=${post.movieType}` : '';
         const [statusRes, countRes] = await Promise.all([
-          fetch(`/api/reviews/${post.id}/like/status${typeParam}`),
-          fetch(`/api/reviews/${post.id}/likes-count${typeParam}`)
+          fetch(`/api/posts/${post.id}/reaction/status`),
+          fetch(`/api/posts/${post.id}/likes-count`)
         ]);
         
         if (statusRes.ok) {
           const statusData = await statusRes.json();
           setIsLiked(statusData.liked);
+          setIsDisliked(statusData.disliked);
         }
         
         if (countRes.ok) {
           const countData = await countRes.json();
           setLikes(countData.likes);
+          setDislikes(countData.dislikes || 0);
         }
       } catch (error) {
-        console.error("Failed to check like status:", error);
+        console.error("Failed to check reaction status:", error);
       }
     };
-    checkLikeStatus();
+    checkReactionStatus();
   }, [post.id]);
 
   const handleLike = async () => {
@@ -81,8 +84,7 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
     
     setIsLoading(true);
     try {
-      const typeParam = post.movieType ? `?type=${post.movieType}` : '';
-      const response = await fetch(`/api/reviews/${post.id}/like${typeParam}`, {
+      const response = await fetch(`/api/posts/${post.id}/like`, {
         method: "POST",
       });
 
@@ -90,9 +92,34 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
         const data = await response.json();
         setIsLiked(data.liked);
         setLikes(data.likes);
+        setIsDisliked(data.disliked || false);
+        setDislikes(data.dislikes || 0);
       }
     } catch (error) {
       console.error("Failed to like review:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDislike = async () => {
+    if (isLoading) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/posts/${post.id}/dislike`, {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setIsDisliked(data.disliked);
+        setDislikes(data.dislikes);
+        setIsLiked(data.liked || false);
+        setLikes(data.likes || 0);
+      }
+    } catch (error) {
+      console.error("Failed to dislike review:", error);
     } finally {
       setIsLoading(false);
     }
@@ -103,15 +130,14 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/reviews/${post.id}/comment`, {
+      const response = await fetch(`/api/comments`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          content: commentText,
-          movieId: post.movieId,
-          movieType: post.movieType,
+          post_id: post.id,
+          comment_text: commentText.trim(),
         }),
       });
 
@@ -128,23 +154,21 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
     }
   };
 
-  const toggleReplyForm = (childId: number) => {
+  const toggleReplyForm = (childId: string) => {
     setReplyOpenById((prev) => ({ ...prev, [childId]: !prev[childId] }));
   };
 
-  const handleSubmitReply = async (childId: number) => {
+  const handleSubmitReply = async (childId: string) => {
     const text = (replyTextById[childId] || "").trim();
     if (!text || replySubmittingId === childId) return;
 
     setReplySubmittingId(childId);
     try {
-      const response = await fetch(`/api/reviews/${childId}/comment`, {
+      const response = await fetch(`/api/comments/${childId}/reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: text,
-          movieId: post.movieId,
-          movieType: post.movieType,
+          comment_text: text,
         }),
       });
 
@@ -161,10 +185,8 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
     }
   };
 
-  // Control replies box visibility (avoid empty box when no comments)
-  const hasInitialChildren = (post.children?.length ?? 0) > 0;
-  const canShowMoreButton = !!onLoadMore && (((post.children?.length ?? 0) > 1) || (post.children?.some((c) => c.hasChildren) ?? false));
-  const shouldShowRepliesBox = hasInitialChildren || canShowMoreButton || (showComments && !!nestedComments?.[post.id]);
+  // Control replies box visibility - show if has comments or children loaded
+  const shouldShowRepliesBox = post.hasChildren || (post.children?.length ?? 0) > 0 || (showComments && !!nestedComments?.[post.id]);
 
   return (
     <div className="max-w-3xl space-y-3">
@@ -250,6 +272,17 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
               variant="ghost" 
               size="default" 
               className="gap-2 flex-1"
+              onClick={handleDislike}
+              disabled={isLoading}
+            >
+              <ThumbsDown className={`w-5 h-5 transition-colors ${isDisliked ? "fill-blue-500 text-blue-500" : ""}`} />
+              <span>{dislikes}</span>
+            </Button>
+            
+            <Button 
+              variant="ghost" 
+              size="default" 
+              className="gap-2 flex-1"
               onClick={() => setShowCommentForm(!showCommentForm)}
             >
               <MessageCircle className="w-5 h-5" />
@@ -311,11 +344,11 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
                 <div key={child.id}>
                   <div className="flex items-start gap-2">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                      {child.author.charAt(0).toUpperCase()}
+                      {child.author?.charAt(0).toUpperCase() || '?'}
                     </div>
                     <div className="flex-none inline-block max-w-[65ch]">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold text-white text-sm">{child.author}</p>
+                        <p className="font-semibold text-white text-sm">{child.author || 'Unknown'}</p>
                         <p className="text-xs text-gray-400">{child.date}</p>
                       </div>
                       <p className="text-gray-300 text-sm mb-2">{child.content}</p>
@@ -347,8 +380,8 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
             </div>
           )}
 
-          {/* Show More Button for nested comments (only if > 1 direct comments or any child has replies) */}
-          {onLoadMore && (((post.children?.length ?? 0) > 1) || (post.children?.some((c) => c.hasChildren) ?? false)) && (
+          {/* Show More Button for comments - show if post has children */}
+          {post.hasChildren && onLoadMore && (
             <Button
               variant="ghost"
               size="sm"
@@ -361,7 +394,7 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
               }}
             >
               <ChevronDown className={`w-4 h-4 mr-2 transition-transform ${showComments ? "rotate-180" : ""}`} />
-              {showComments ? "Hide replies" : "Show more replies"}
+              {showComments ? "Hide comments" : `View comments (${post.hasChildren ? 'Show' : ''})`}
             </Button>
           )}
 
@@ -372,11 +405,11 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
                 <div key={child.id}>
                   <div className="flex items-start gap-2">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                      {child.author.charAt(0).toUpperCase()}
+                      {child.author?.charAt(0).toUpperCase() || '?'}
                     </div>
                     <div className="flex-none inline-block max-w-[65ch]">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold text-white text-sm">{child.author}</p>
+                        <p className="font-semibold text-white text-sm">{child.author || 'Unknown'}</p>
                         <p className="text-xs text-gray-400">{child.date}</p>
                       </div>
                       <p className="text-gray-300 text-sm mb-2">{child.content}</p>
