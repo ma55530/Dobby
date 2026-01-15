@@ -251,6 +251,47 @@ export async function PATCH(
       );
     }
 
+    // Also mark message notifications from this conversation as read.
+    // The notifications trigger sets actor_id = sender_id, so clearing by actor_id
+    // is a reliable way to clear "new message" notifications for the user.
+    const { data: others, error: othersError } = await supabase
+      .from('conversation_participants')
+      .select('user_id')
+      .eq('conversation_id', id)
+      .neq('user_id', user.id);
+
+    if (othersError) {
+      console.warn('Failed to fetch other participants for notification clearing', {
+        conversationId: id,
+        userId: user.id,
+        error: othersError,
+      });
+    } else {
+      const otherIds = (others ?? [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((row: any) => row.user_id)
+        .filter((x: unknown): x is string => typeof x === 'string' && x.length > 0);
+
+      if (otherIds.length > 0) {
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('user_id', user.id)
+          .eq('type', 'message')
+          .in('actor_id', otherIds)
+          .or('is_read.is.null,is_read.eq.false');
+
+        if (notifError) {
+          console.warn('Failed to mark message notifications as read', {
+            conversationId: id,
+            userId: user.id,
+            otherIds,
+            error: notifError,
+          });
+        }
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error('Unexpected error marking messages as read:', e);

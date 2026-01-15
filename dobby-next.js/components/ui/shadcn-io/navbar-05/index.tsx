@@ -178,9 +178,23 @@ const NotificationMenu = ({
 
   const getNotificationLink = (notification: Notification) => {
     if (notification.type === 'message') {
-      return `/messages?conversation=${notification.resource_id}`;
+      return `/messages`;
     }
     return `/users/${notification.actor.username}`;
+  };
+
+  const resolveConversationId = async (resourceId: string) => {
+    const res = await fetch(
+      `/api/notifications/resolve-message?messageId=${encodeURIComponent(resourceId)}`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const conversationId = data?.conversationId;
+      if (typeof conversationId === 'string' && conversationId.length > 0) {
+        return conversationId;
+      }
+    }
+    return null;
   };
 
   return (
@@ -214,7 +228,27 @@ const NotificationMenu = ({
           <Link 
             key={notification.id} 
             href={getNotificationLink(notification)}
-            onClick={() => handleMarkAsRead(notification.id)}
+            onClick={async (e) => {
+              if (notification.type === 'message') {
+                e.preventDefault();
+                await handleMarkAsRead(notification.id);
+
+                if (notification.resource_id) {
+                  const conversationId = await resolveConversationId(notification.resource_id);
+                  if (conversationId) {
+                    window.location.href = `/messages?conversation=${conversationId}&message=${notification.resource_id}`;
+                    return;
+                  }
+                  // fallback: treat as conversation id
+                  window.location.href = `/messages?conversation=${notification.resource_id}`;
+                  return;
+                }
+                window.location.href = '/messages';
+                return;
+              }
+
+              handleMarkAsRead(notification.id);
+            }}
             className="block p-3 border-b last:border-0 hover:bg-accent/50 transition-colors"
           >
             <div className="flex items-start gap-3">

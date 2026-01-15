@@ -42,6 +42,8 @@ function MessagesContent() {
   const [searching, setSearching] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
 
+  const targetMessageId = searchParams.get('message');
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -53,14 +55,44 @@ function MessagesContent() {
   };
 
   useEffect(() => {
-    if (scrollContainerRef.current) {
-      const { scrollHeight, clientHeight } = scrollContainerRef.current;
-      scrollContainerRef.current.scrollTo({
-        top: scrollHeight - clientHeight,
-        behavior: 'smooth'
-      });
-    }
-  }, [messages, activeConversation]);
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 12;
+
+    const scrollToBottom = () => {
+      if (scrollContainerRef.current) {
+        const { scrollHeight, clientHeight } = scrollContainerRef.current;
+        scrollContainerRef.current.scrollTo({
+          top: scrollHeight - clientHeight,
+          behavior: 'smooth'
+        });
+      }
+    };
+
+    const tryScrollToMessage = () => {
+      if (cancelled) return;
+      if (targetMessageId) {
+        const element = document.getElementById(`message-${targetMessageId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+        if (attempts < maxAttempts) {
+          attempts += 1;
+          requestAnimationFrame(tryScrollToMessage);
+          return;
+        }
+      }
+
+      scrollToBottom();
+    };
+
+    tryScrollToMessage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, activeConversation, targetMessageId]);
 
   useEffect(() => {
     const init = async () => {
@@ -159,43 +191,9 @@ function MessagesContent() {
 
       await fetch(`/api/conversations/${conversationId}/messages`, { method: 'PATCH' });
 
-      // Identify unread messages from others to mark their notifications as read
-      // We can just try to mark all notifications for these messages as read.
-      const messageIds = uniqueMessages.map(m => m.id);
-      if (messageIds.length > 0) {
-        await markMessageNotificationsAsRead(messageIds);
-      }
-
       setConversations(prev =>
         prev.map(c => c.id === conversationId ? { ...c, unread_count: 0 } : c)
       );
-    }
-  };
-
-  const markMessageNotificationsAsRead = async (messageIds: string[]) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Find notifications for these messages
-      const { data: notifications } = await supabase
-        .from('notifications')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('type', 'message')
-        .in('resource_id', messageIds)
-        .eq('is_read', false);
-
-      if (notifications && notifications.length > 0) {
-        const ids = notifications.map((n: any) => n.id);
-        await fetch('/api/notifications', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notificationIds: ids }),
-        });
-      }
-    } catch (error) {
-      console.error('Error marking notifications as read:', error);
     }
   };
 
@@ -473,7 +471,11 @@ function MessagesContent() {
                         msg.message_type === 'show_recommendation';
 
                       return (
-                        <div key={`${msg.id}-${index}`} className={`flex items-start gap-2 ${isMe ? 'justify-end' : 'justify-start'} group`}>
+                        <div
+                          key={`${msg.id}-${index}`}
+                          id={`message-${msg.id}`}
+                          className={`flex items-start gap-2 ${isMe ? 'justify-end' : 'justify-start'} group transition-colors duration-500`}
+                        >
                           
                           {!isMe && (
                             <Avatar className="h-8 w-8 mt-1">

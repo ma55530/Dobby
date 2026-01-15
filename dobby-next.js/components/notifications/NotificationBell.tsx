@@ -11,6 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
 interface FriendRequest {
   id: string;
@@ -53,6 +54,7 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const supabase = createClient();
+  const router = useRouter();
 
   const fetchData = async () => {
     try {
@@ -196,9 +198,45 @@ export default function NotificationBell() {
 
   const getLink = (notif: Notification) => {
     switch (notif.type) {
-      case 'message': return `/messages?conversation=${notif.resource_id}`;
+      // Message notifications need a conversation id; resolved on click.
+      case 'message': return `/messages`;
       case 'follow': return `/users/${notif.actor?.username || notif.resource_id}`;
       default: return '#';
+    }
+  };
+
+  const handleMessageNotificationClick = async (notif: Notification) => {
+    try {
+      await markAsRead([notif.id]);
+
+      const resourceId = notif.resource_id;
+      if (!resourceId) {
+        router.push('/messages');
+        setIsOpen(false);
+        return;
+      }
+
+      const res = await fetch(
+        `/api/notifications/resolve-message?messageId=${encodeURIComponent(resourceId)}`
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        const conversationId = data?.conversationId;
+        if (typeof conversationId === 'string' && conversationId.length > 0) {
+          router.push(`/messages?conversation=${conversationId}&message=${resourceId}`);
+          setIsOpen(false);
+          return;
+        }
+      }
+
+      // Fallback: treat resource_id as conversation_id.
+      router.push(`/messages?conversation=${resourceId}`);
+      setIsOpen(false);
+    } catch (e) {
+      console.error('Failed to open message notification', e);
+      router.push('/messages');
+      setIsOpen(false);
     }
   };
 
@@ -262,12 +300,55 @@ export default function NotificationBell() {
                   );
                 } else {
                   const notif = (item.data as Notification);
-                  const LinkComp = notif.type === 'message' || notif.type === 'follow' ? Link : 'div';
+                  if (notif.type === 'message') {
+                    return (
+                      <div
+                        key={`notif-${notif.id}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleMessageNotificationClick(notif)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleMessageNotificationClick(notif);
+                          }
+                        }}
+                        className={`block p-4 hover:bg-zinc-800/50 transition cursor-pointer ${!notif.is_read ? 'bg-zinc-800/20' : ''}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="relative flex-shrink-0">
+                             <div className="w-10 h-10 rounded-full bg-zinc-700 overflow-hidden flex items-center justify-center text-white font-bold text-sm">
+                               {notif.actor?.avatar_url ? (
+                                 <Image src={notif.actor.avatar_url} alt="" fill className="object-cover" />
+                               ) : (notif.actor?.username?.[0]?.toUpperCase() || '?')}
+                             </div>
+                             <div className="absolute -bottom-1 -right-1 bg-zinc-900 rounded-full p-0.5">
+                               {getIcon(notif.type)}
+                             </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                             <p className="text-white text-sm">
+                               <span className="font-semibold">{notif.actor?.username}</span> sent you a message
+                             </p>
+                             {notif.content && (
+                               <p className="text-gray-400 text-xs mt-1 truncate">&quot;{notif.content}&quot;</p>
+                             )}
+                             <p className="text-gray-500 text-xs mt-1">{formatTimeAgo(notif.created_at)}</p>
+                          </div>
+                          {!notif.is_read && (
+                            <div className="w-2 h-2 rounded-full bg-purple-500 mt-2"></div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const LinkComp = notif.type === 'follow' ? Link : 'div';
                   return (
-                    <LinkComp 
-                        key={`notif-${notif.id}`} 
-                        href={getLink(notif)}
-                        className={`block p-4 hover:bg-zinc-800/50 transition ${!notif.is_read ? 'bg-zinc-800/20' : ''}`}
+                    <LinkComp
+                      key={`notif-${notif.id}`}
+                      href={getLink(notif)}
+                      className={`block p-4 hover:bg-zinc-800/50 transition ${!notif.is_read ? 'bg-zinc-800/20' : ''}`}
                     >
                       <div className="flex items-start gap-3">
                         <div className="relative flex-shrink-0">
@@ -282,11 +363,8 @@ export default function NotificationBell() {
                         </div>
                         <div className="flex-1 min-w-0">
                            <p className="text-white text-sm">
-                             <span className="font-semibold">{notif.actor?.username}</span> {notif.type === 'message' ? 'sent you a message' : notif.type === 'follow' ? 'started following you' : notif.content || 'interacted with you'}
+                             <span className="font-semibold">{notif.actor?.username}</span> {notif.type === 'follow' ? 'started following you' : notif.content || 'interacted with you'}
                            </p>
-                           {notif.type === 'message' && notif.content && (
-                             <p className="text-gray-400 text-xs mt-1 truncate">&quot;{notif.content}&quot;</p>
-                           )}
                            <p className="text-gray-500 text-xs mt-1">{formatTimeAgo(notif.created_at)}</p>
                         </div>
                         {!notif.is_read && (
