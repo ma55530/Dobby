@@ -96,9 +96,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { recipientId } = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
 
-  if (!recipientId) {
+  const { recipientId, recipientIds, groupName } = (body ?? {}) as {
+    recipientId?: unknown;
+    recipientIds?: unknown;
+    groupName?: unknown;
+  };
+
+  // Group chats disabled
+  if (Array.isArray(recipientIds) || typeof groupName !== 'undefined') {
+    return NextResponse.json(
+      { error: 'Group chats are disabled. Please start a 1:1 conversation.' },
+      { status: 400 }
+    );
+  }
+
+  // 1:1 conversation (backward-compatible)
+  if (!recipientId || typeof recipientId !== 'string') {
     return NextResponse.json({ error: 'Recipient ID is required' }, { status: 400 });
   }
 

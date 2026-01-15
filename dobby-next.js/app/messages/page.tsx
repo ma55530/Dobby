@@ -34,14 +34,23 @@ function MessagesContent() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
 
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
+
+  const createClientId = () => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return (crypto as any).randomUUID() as string;
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  };
 
   useEffect(() => {
     if (scrollContainerRef.current) {
@@ -224,13 +233,20 @@ function MessagesContent() {
 
   const sendMessage = async () => {
     if (!activeConversation || !newMessage.trim()) return;
+    if (sendingRef.current) return;
+
+    sendingRef.current = true;
     setSending(true);
 
     try {
+      const clientId = createClientId();
       const res = await fetch(`/api/conversations/${activeConversation}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newMessage.trim() }),
+        body: JSON.stringify({
+          content: newMessage.trim(),
+          metadata: { client_id: clientId },
+        }),
       });
 
       if (res.ok) {
@@ -253,6 +269,7 @@ function MessagesContent() {
     } catch (error) {
       console.error('Failed to send message:', error);
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };
@@ -293,6 +310,7 @@ function MessagesContent() {
         setNewConversationOpen(false);
         setSearchQuery('');
         setSearchResults([]);
+        setSelectedUsers([]);
       }
     } catch (error) {
       console.error('Failed to start conversation:', error);
@@ -301,6 +319,29 @@ function MessagesContent() {
 
   const getOtherParticipant = (conv: Conversation) =>
     conv.participants?.find(p => p.id !== currentUser?.id);
+
+  const getConversationTitle = (conv: Conversation) => {
+    const others = (conv.participants ?? []).filter((p) => p.id !== currentUser?.id);
+    if (others.length === 1) {
+      const other = others[0];
+      return other?.username || other?.email || 'Unknown User';
+    }
+
+    const names = others
+      .map((p) => p.username || p.email)
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(', ');
+
+    return names || 'Conversation';
+  };
+
+  const toggleSelectedUser = (user: any) => {
+    setSelectedUsers((prev) => {
+      const exists = prev.some((u) => u.id === user.id);
+      return exists ? [] : [user];
+    });
+  };
 
   const activeConversationData = conversations.find(c => c.id === activeConversation);
   const otherUser = activeConversationData ? getOtherParticipant(activeConversationData) : null;
@@ -344,6 +385,7 @@ function MessagesContent() {
             <div className="overflow-y-auto flex-1">
               {conversations.map((conv) => {
   const other = getOtherParticipant(conv);
+  const otherCount = (conv.participants ?? []).filter((p) => p.id !== currentUser?.id).length;
   const isActive = activeConversation === conv.id;
 
   return (
@@ -362,16 +404,16 @@ function MessagesContent() {
       <div className="flex items-center gap-3">
         <div className="relative">
           <Avatar className="w-12 h-12">
-            <AvatarImage src={other?.avatar_url ?? undefined} />
+            {otherCount === 1 ? <AvatarImage src={other?.avatar_url ?? undefined} /> : null}
             <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
-              {other?.username?.[0]?.toUpperCase() || '?'}
+              {getConversationTitle(conv)[0]?.toUpperCase() || '?'}
             </AvatarFallback>
           </Avatar>
         </div>
 
         <div className="flex-1 min-w-0">
           <p className="truncate text-white font-semibold">
-            {other?.username || other?.email || 'Unknown User'}
+            {getConversationTitle(conv)}
           </p>
           <p className={`text-sm truncate ${conv.unread_count && conv.unread_count > 0 ? 'text-gray-200 font-medium' : 'text-gray-400'}`}>
             {conv.last_message?.content || 'No messages yet'}
@@ -391,18 +433,18 @@ function MessagesContent() {
 
           {/* Active Chat */}
           <Card className="md:col-span-2 bg-slate-800 border-slate-700 flex flex-col overflow-hidden">
-            {activeConversation && otherUser ? (
+            {activeConversation && activeConversationData ? (
               <>
                 <div className="p-4 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={otherUser.avatar_url ?? undefined} />
+                      {otherUser ? <AvatarImage src={otherUser?.avatar_url ?? undefined} /> : null}
                       <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
-                        {otherUser.username?.[0]?.toUpperCase() || '?'}
+                        {getConversationTitle(activeConversationData)[0]?.toUpperCase() || '?'}
                       </AvatarFallback>
                     </Avatar>
                     <h2 className="text-lg font-semibold text-white">
-                      {otherUser.username || otherUser.email}
+                      {getConversationTitle(activeConversationData)}
                     </h2>
                   </div>
                   <Button
@@ -547,12 +589,14 @@ function MessagesContent() {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
+                          if (sendingRef.current) return;
                           sendMessage();
                         }
                       }}
                       placeholder="Type a message..."
                       className="bg-slate-800 border-slate-600 text-white resize-none"
                       rows={1}
+                      disabled={sending}
                     />
                     <Button onClick={sendMessage} disabled={!newMessage.trim() || sending} className="bg-purple-600 hover:bg-purple-700">
                       <Send className="w-4 h-4" />
@@ -578,7 +622,7 @@ function MessagesContent() {
           <DialogHeader>
             <DialogTitle>Start New Conversation</DialogTitle>
             <DialogDescription className="text-gray-400">
-              Search for a user and start chatting.
+              Search for a user to start a direct chat.
             </DialogDescription>
           </DialogHeader>
 
@@ -598,6 +642,24 @@ function MessagesContent() {
               </Button>
             </div>
 
+            {selectedUsers.length > 0 && (
+              <div className="bg-slate-900/60 border border-slate-700 rounded-lg p-3">
+                <div className="text-sm text-gray-300 mb-2">Selected:</div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedUsers.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => toggleSelectedUser(u)}
+                      className="px-2 py-1 rounded-md bg-slate-700 hover:bg-slate-600 text-xs"
+                      title="Remove"
+                    >
+                      {u.username || u.email}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="max-h-64 overflow-y-auto space-y-2">
               {searching ? (
                 <div className="text-center py-8 text-gray-400">Searching...</div>
@@ -609,7 +671,7 @@ function MessagesContent() {
                 searchResults.map((user) => (
                   <div
                     key={user.id}
-                    onClick={() => startNewConversation(user.id)}
+                    onClick={() => toggleSelectedUser(user)}
                     className="p-3 rounded-lg bg-slate-700 hover:bg-slate-600 cursor-pointer transition-colors flex items-center gap-3"
                   >
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold">
@@ -619,10 +681,24 @@ function MessagesContent() {
                       <p className="font-medium">{user.username}</p>
                       <p className="text-sm text-gray-400">{user.email}</p>
                     </div>
+                    <div className="ml-auto">
+                      {selectedUsers.some((u) => u.id === user.id) ? (
+                        <span className="text-xs text-purple-300">Selected</span>
+                      ) : null}
+                    </div>
                   </div>
                 ))
               )}
             </div>
+
+            {selectedUsers.length === 1 && (
+              <Button
+                onClick={() => startNewConversation(selectedUsers[0].id)}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                Start Chat
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

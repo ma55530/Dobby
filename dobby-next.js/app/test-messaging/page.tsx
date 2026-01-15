@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +20,10 @@ export default function TestMessagingPage() {
   const [newMessage, setNewMessage] = useState('');
   const [recipientId, setRecipientId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  const sendingRef = useRef(false);
 
   const supabase = createClient();
 
@@ -117,13 +120,25 @@ export default function TestMessagingPage() {
     }
   };
 
+  const createClientId = () => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return (crypto as any).randomUUID() as string;
+    }
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  };
+
   const sendMessage = async () => {
     if (!activeConversation || !newMessage.trim()) return;
+    if (sendingRef.current) return;
+
+    sendingRef.current = true;
+    setSending(true);
     try {
+      const clientId = createClientId();
       const res = await fetch(`/api/conversations/${activeConversation}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newMessage }),
+        body: JSON.stringify({ content: newMessage, metadata: { client_id: clientId } }),
       });
       if (res.ok) {
         setNewMessage('');
@@ -144,6 +159,9 @@ export default function TestMessagingPage() {
       }
     } catch (error) {
       console.error(error);
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
     }
   };
 
@@ -242,11 +260,13 @@ export default function TestMessagingPage() {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
+                          if (sendingRef.current) return;
                           sendMessage();
                         }
                       }}
+                      disabled={sending}
                     />
-                    <Button onClick={sendMessage}>Send</Button>
+                    <Button onClick={sendMessage} disabled={!newMessage.trim() || sending}>Send</Button>
                   </div>
                 </>
               ) : (

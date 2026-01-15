@@ -107,6 +107,36 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    // Idempotency / duplicate protection: if client provides metadata.client_id,
+    // avoid inserting the same message multiple times when users spam Enter.
+    const clientId =
+      typeof metadata === 'object' && metadata !== null
+        ? (metadata as any).client_id
+        : undefined;
+
+    if (typeof clientId === 'string' && clientId.trim().length > 0) {
+      const { data: existingMessage, error: existingError } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', id)
+        .eq('sender_id', user.id)
+        .contains('metadata', { client_id: clientId })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingError) {
+        console.warn('Idempotency lookup failed; continuing to insert', {
+          conversationId: id,
+          userId: user.id,
+          clientId,
+          error: existingError,
+        });
+      } else if (existingMessage) {
+        return NextResponse.json(existingMessage);
+      }
+    }
+
     const messageData: {
       conversation_id: string;
       sender_id: string;
