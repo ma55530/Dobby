@@ -3,8 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const supabase = await createClient();
 
   // Get authenticated user
@@ -20,7 +21,7 @@ export async function POST(
   const body = await req.json();
   const { rating } = body;
 
-  const movieId = Number(params.id);
+  const movieId = Number(id);
   if (!Number.isInteger(movieId)) {
     return NextResponse.json({ error: "Invalid movie id" }, { status: 400 });
   }
@@ -33,22 +34,46 @@ export async function POST(
     );
   }
 
-  // Insert or update rating
-  const { data: ratingData, error: ratingError } = await supabase
+  // Check if rating already exists
+  const { data: existingRating } = await supabase
     .from("rating")
-    .upsert(
-      {
-        user_id: user.id,
-        movie_id: parseInt(params.id),
-        rating: rating,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "user_id,movie_id",
-      }
-    )
-    .select()
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("movie_id", movieId)
     .single();
+
+  let ratingData;
+  let ratingError;
+
+  if (existingRating) {
+    // Update existing rating
+    const response = await supabase
+      .from("rating")
+      .update({
+        rating,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existingRating.id)
+      .select()
+      .single();
+    ratingData = response.data;
+    ratingError = response.error;
+  } else {
+    // Insert new rating
+    const response = await supabase
+      .from("rating")
+      .insert({
+        user_id: user.id,
+        movie_id: movieId,
+        rating,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    ratingData = response.data;
+    ratingError = response.error;
+  }
 
   if (ratingError) {
     return NextResponse.json({ error: ratingError.message }, { status: 400 });

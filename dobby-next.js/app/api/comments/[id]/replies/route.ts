@@ -3,8 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const supabase = await createClient();
 
   // Auth
@@ -31,7 +32,7 @@ export async function POST(
   const { data: parentComment, error: parentError } = await supabase
     .from("comments")
     .select("post_id")
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (parentError || !parentComment) {
@@ -48,7 +49,7 @@ export async function POST(
       post_id: parentComment.post_id,
       user_id: user.id,
       comment_text: comment_text.trim(),
-      parent_comment: params.id,
+      parent_comment: id,
     })
     .select(
       `
