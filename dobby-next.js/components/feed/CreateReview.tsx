@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
+import { rankByQuery } from "@/lib/search/smartSearch";
 
 interface MovieResult {
   id: number;
@@ -17,6 +18,13 @@ type MoviesSearchResponse = {
   total_results: number;
 };
 
+type ShowsSearchResponse = {
+  results: any[];
+  page: number;
+  total_pages: number;
+  total_results: number;
+};
+
 export default function CreateReview() {
   const [rating, setRating] = useState<number>(0);
   const [text, setText] = useState("");
@@ -26,62 +34,92 @@ export default function CreateReview() {
   const [loadingMovies, setLoadingMovies] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleMovieSearch = async (query: string) => {
-    setMovieSearch(query);
+  const searchRequestIdRef = useRef(0);
 
-    if (!query.trim()) {
+  useEffect(() => {
+    const normalizedQuery = movieSearch.trim().replace(/\s+/g, " ");
+    if (!normalizedQuery) {
       setFilteredMovies([]);
+      setLoadingMovies(false);
       return;
     }
 
-    setLoadingMovies(true);
-    try {
-      // Search both movies and shows in parallel
-      const [moviesRes, showsRes] = await Promise.all([
-        fetch(`/api/movies?query=${query}&page=1`),
-        fetch(`/api/shows?query=${query}&page=1`),
-      ]);
+    const requestId = ++searchRequestIdRef.current;
 
-      const allResults: MovieResult[] = [];
+    const timeoutId = setTimeout(async () => {
+      setLoadingMovies(true);
+      try {
+        const q = encodeURIComponent(normalizedQuery);
 
-      // Process movies
-      if (moviesRes.ok) {
-        const moviesData: MoviesSearchResponse = await moviesRes.json();
-        const movies: MovieResult[] = moviesData.results
-          .filter((movie: any) => movie.release_date && movie.vote_average !== 0)
-          .slice(0, 4)
-          .map((movie: any) => ({
-            id: movie.id,
-            title: movie.title,
-            type: "movie" as const,
-            poster_path: movie.poster_path,
-          }));
-        allResults.push(...movies);
+        // Search both movies and shows in parallel
+        const [moviesRes, showsRes] = await Promise.all([
+          fetch(`/api/movies?query=${q}&page=1`),
+          fetch(`/api/shows?query=${q}&page=1`),
+        ]);
+
+        const allResults: MovieResult[] = [];
+
+        // Process movies
+        if (moviesRes.ok) {
+          const moviesData: MoviesSearchResponse = await moviesRes.json();
+          const movies: MovieResult[] = (moviesData.results ?? [])
+            .filter((movie: any) => movie.release_date && movie.vote_average !== 0)
+            // Pull more candidates; we fuzzy-rank locally.
+            .slice(0, 20)
+            .map((movie: any) => ({
+              id: movie.id,
+              title: movie.title,
+              type: "movie" as const,
+              poster_path: movie.poster_path,
+            }));
+          allResults.push(...movies);
+        }
+
+        // Process shows
+        if (showsRes.ok) {
+          const showsData: ShowsSearchResponse | any[] = await showsRes.json();
+          const showsRaw = Array.isArray(showsData)
+            ? showsData
+            : (showsData.results ?? []);
+
+          const shows: MovieResult[] = showsRaw
+            .filter((show: any) => show.first_air_date && show.vote_average !== 0)
+            .slice(0, 20)
+            .map((show: any) => ({
+              id: show.id,
+              title: show.name,
+              type: "tv" as const,
+              poster_path: show.poster_path,
+            }));
+          allResults.push(...shows);
+        }
+
+        // Drop exact duplicates (same type + id)
+        const unique = Array.from(
+          new Map(allResults.map((item) => [`${item.type}:${item.id}`, item])).values()
+        );
+
+        // Smart rank (normalize + token + fuzzy) so typos like "housmaid" match "housemaid".
+        const ranked = rankByQuery(unique, normalizedQuery, (r) => [r.title]);
+        const finalResults = ranked.slice(0, 10);
+
+        if (requestId === searchRequestIdRef.current) {
+          setFilteredMovies(finalResults);
+        }
+      } catch (error) {
+        console.error("Error searching movies/shows:", error);
+        if (requestId === searchRequestIdRef.current) {
+          setFilteredMovies([]);
+        }
+      } finally {
+        if (requestId === searchRequestIdRef.current) {
+          setLoadingMovies(false);
+        }
       }
+    }, 250);
 
-      // Process shows
-      if (showsRes.ok) {
-        const showsData: any = await showsRes.json();
-        const shows: MovieResult[] = showsData
-          .filter((show: any) => show.first_air_date && show.vote_average !== 0)
-          .slice(0, 4)
-          .map((show: any) => ({
-            id: show.id,
-            title: show.name,
-            type: "tv" as const,
-            poster_path: show.poster_path,
-          }));
-        allResults.push(...shows);
-      }
-
-      setFilteredMovies(allResults);
-    } catch (error) {
-      console.error("Error searching movies/shows:", error);
-      setFilteredMovies([]);
-    } finally {
-      setLoadingMovies(false);
-    }
-  };
+    return () => clearTimeout(timeoutId);
+  }, [movieSearch]);
 
   const submitReview = async () => {
     if (!selectedMovie || rating === 0) {
@@ -148,7 +186,7 @@ export default function CreateReview() {
                 type="text"
                 placeholder="Search..."
                 value={movieSearch}
-                onChange={(e) => handleMovieSearch(e.target.value)}
+                onChange={(e) => setMovieSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
               />
 
