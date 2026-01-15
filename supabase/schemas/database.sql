@@ -185,44 +185,65 @@ CREATE TABLE IF NOT EXISTS reaction (
 -- Update like/dislike counts when reactions change
 CREATE OR REPLACE FUNCTION update_post_reaction_counts()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_post_id UUID;
 BEGIN
+  -- Use NEW for INSERT/UPDATE and OLD for DELETE
+  v_post_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.post_id ELSE NEW.post_id END;
+
   UPDATE post SET
-    like_count = (SELECT COUNT(*) FROM reaction WHERE post_id = NEW.post_id AND type = 'like'),
-    dislike_count = (SELECT COUNT(*) FROM reaction WHERE post_id = NEW.post_id AND type = 'dislike')
-  WHERE id = NEW.post_id;
-  RETURN NEW;
+    like_count = (SELECT COUNT(*) FROM reaction WHERE post_id = v_post_id AND type = 'like'),
+    dislike_count = (SELECT COUNT(*) FROM reaction WHERE post_id = v_post_id AND type = 'dislike')
+  WHERE id = v_post_id;
+
+  RETURN COALESCE(NEW, OLD);
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_update_post_reaction_counts
-AFTER INSERT OR DELETE ON reaction
+AFTER INSERT OR DELETE OR UPDATE ON reaction
 FOR EACH ROW EXECUTE FUNCTION update_post_reaction_counts();
 
 -- Update comment count when comments change
 CREATE OR REPLACE FUNCTION update_post_comment_count()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_post_id UUID;
 BEGIN
-  UPDATE post SET comment_count = (SELECT COUNT(*) FROM comments WHERE post_id = NEW.post_id)
-  WHERE id = NEW.post_id;
-  RETURN NEW;
+  v_post_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.post_id ELSE NEW.post_id END;
+  UPDATE post SET comment_count = (
+    SELECT COUNT(*) FROM comments WHERE post_id = v_post_id
+  )
+  WHERE id = v_post_id;
+  RETURN COALESCE(NEW, OLD);
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_update_post_comment_count
-AFTER INSERT OR DELETE ON comments
+AFTER INSERT OR DELETE OR UPDATE ON comments
 FOR EACH ROW EXECUTE FUNCTION update_post_comment_count();
 
 CREATE OR REPLACE FUNCTION update_comment_reply_count()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_parent UUID;
 BEGIN
-  UPDATE comments SET reply_count = (SELECT COUNT(*) FROM comments WHERE parent_comment = NEW.parent_comment)
-  WHERE id = NEW.parent_comment;
-  RETURN NEW;
+  v_parent := CASE WHEN TG_OP = 'DELETE' THEN OLD.parent_comment ELSE NEW.parent_comment END;
+  -- If this is a top-level comment (no parent), nothing to update
+  IF v_parent IS NULL THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
+  UPDATE comments SET reply_count = (
+    SELECT COUNT(*) FROM comments WHERE parent_comment = v_parent
+  )
+  WHERE id = v_parent;
+  RETURN COALESCE(NEW, OLD);
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_update_comment_reply_count
-AFTER INSERT OR DELETE ON comments
+AFTER INSERT OR DELETE OR UPDATE ON comments
 FOR EACH ROW EXECUTE FUNCTION update_comment_reply_count();
 
 -- =====================================
