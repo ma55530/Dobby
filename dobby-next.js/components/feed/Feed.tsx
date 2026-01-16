@@ -160,9 +160,15 @@ export default function Feed({
     <div className="w-full">
       {/* Feed Header - Only for main reviews feed */}
       {showHeader && (
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-white mb-2">Community Activity</h2>
-          <p className="text-gray-400">See what others are watching and reviewing</p>
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-1 sm:mb-2">
+            {filter === "following" ? "Following Activity" : "Community Activity"}
+          </h2>
+          <p className="text-sm sm:text-base text-gray-400">
+            {filter === "following" 
+              ? "See what people you follow are watching and reviewing"
+              : "See what others are watching and reviewing"}
+          </p>
         </div>
       )}
 

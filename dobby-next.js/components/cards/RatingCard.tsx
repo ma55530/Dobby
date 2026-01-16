@@ -24,8 +24,18 @@ export default function RatingCard({ post }: any) {
 
         {/* User Info */}
         <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-            {post.author.charAt(0)}
+          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0 overflow-hidden">
+            {post.avatar ? (
+              <Image
+                src={post.avatar}
+                alt={post.author}
+                width={20}
+                height={20}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              post.author.charAt(0)
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-white text-xs truncate">{post.author}</p>

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Heart, MessageCircle, Share2, ChevronDown, ThumbsDown, CornerDownRight, Send} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
+import { ShareDialog } from "@/components/ShareDialog";
 
 interface Comment {
   id: string;
@@ -73,21 +74,31 @@ function CommentCard({
 
   return (
     <div className="group relative">
-      <div className="relative bg-zinc-800/40 backdrop-blur-md rounded-2xl p-4 border border-white/5 transition-all duration-300 hover:border-purple-500/30 hover:bg-zinc-800/60">
-        <div className="flex gap-4">
+      <div className="relative bg-zinc-800/40 backdrop-blur-md rounded-2xl p-3 sm:p-4 border border-white/5 transition-all duration-300 hover:border-purple-500/30 hover:bg-zinc-800/60">
+        <div className="flex gap-2 sm:gap-4">
           {/* Avatar */}
           <div className="relative flex-shrink-0">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs shadow-[0_0_10px_rgba(168,85,247,0.4)]">
-              {comment.author?.charAt(0).toUpperCase() || "?"}
+            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-[10px] sm:text-xs shadow-[0_0_10px_rgba(168,85,247,0.4)] overflow-hidden">
+              {comment.avatar ? (
+                <Image
+                  src={comment.avatar}
+                  alt={comment.author}
+                  width={36}
+                  height={36}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                comment.author?.charAt(0).toUpperCase() || "?"
+              )}
             </div>
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-bold text-zinc-100 text-sm hover:text-purple-400 cursor-pointer transition-colors">
+            <div className="flex items-center gap-1 sm:gap-2 mb-1">
+              <span className="font-bold text-zinc-100 text-xs sm:text-sm hover:text-purple-400 cursor-pointer transition-colors">
                 {comment.author}
               </span>
-              <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-tight">
+              <span className="text-[9px] sm:text-[10px] text-zinc-500 font-medium uppercase tracking-tight">
                 {comment.date}
               </span>
             </div>
@@ -95,7 +106,7 @@ function CommentCard({
             <div>
               <p 
                 ref={textRef}
-                className={`text-zinc-300 text-sm leading-relaxed mb-1 transition-all duration-300 break-words overflow-wrap-anywhere ${
+                className={`text-zinc-300 text-xs sm:text-sm leading-relaxed mb-1 transition-all duration-300 break-words overflow-wrap-anywhere ${
                   !isExpanded && needsExpansion ? "line-clamp-1" : ""
                 }`}
               >
@@ -114,31 +125,31 @@ function CommentCard({
             <div className="flex items-center gap-4">
               <button
                 onClick={onToggleReply}
-                className="flex items-center gap-1.5 text-[11px] font-bold text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-wider"
+                className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] font-bold text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-wider"
               >
-                <CornerDownRight className="w-3.5 h-3.5" />
+                <CornerDownRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 Reply
               </button>
             </div>
 
             {/* REPLY FORM - Identičan onome na Reviewu */}
             {replyOpen && (
-              <div className="mt-5 pt-5 border-t border-zinc-700/50 animate-in slide-in-from-top-2 duration-200">
+              <div className="mt-3 sm:mt-5 pt-3 sm:pt-5 border-t border-zinc-700/50 animate-in slide-in-from-top-2 duration-200">
                 <div className="relative">
                   <textarea
                     key={`reply-area-${comment.id}`} // Dodajemo ključ da spriječimo nepotrebno fokusiranje
                     value={replyText || ""}
                     onChange={(e) => onReplyTextChange(e.target.value)}
                     placeholder="Write your reply..."
-                    className="w-full bg-zinc-950/50 text-white rounded-xl p-4 pr-24 min-h-[100px] border border-zinc-700 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none placeholder:text-zinc-600 transition-all text-left"
+                    className="w-full bg-zinc-950/50 text-white text-xs sm:text-sm rounded-xl p-3 sm:p-4 pr-20 sm:pr-24 min-h-[80px] sm:min-h-[100px] border border-zinc-700 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none placeholder:text-zinc-600 transition-all text-left"
                     // Maknuli smo dir="ltr" i dodali text-left radi sigurnosti
                     autoFocus
                   />
-                  <div className="absolute bottom-3 right-3 flex gap-2">
+                  <div className="absolute bottom-2 sm:bottom-3 right-2 sm:right-3 flex gap-1.5 sm:gap-2">
                     <button
                       type="button" // Osiguraj da nije submit
                       onClick={onToggleReply}
-                      className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+                      className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm text-zinc-400 hover:text-white transition-colors"
                     >
                       Cancel
                     </button>
@@ -146,7 +157,7 @@ function CommentCard({
                       type="button"
                       onClick={onSubmitReply}
                       disabled={!replyText?.trim() || isSubmitting}
-                      className="px-4 py-1.5 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                      className="px-3 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 sm:gap-2"
                     >
                       {isSubmitting ? (
                         <>
@@ -189,14 +200,14 @@ function RenderNestedReplies({
   handleSubmitReply: (id: string) => void;
 }) {
   return (
-    <div className="relative ml-8 space-y-4 mt-4">
+    <div className="relative ml-4 sm:ml-8 space-y-3 sm:space-y-4 mt-3 sm:mt-4">
       {/* Vertical thread line connecting parent to replies */}
-      <div className="absolute left-[-20px] top-[-16px] bottom-4 w-[2px] bg-gradient-to-b from-purple-500/40 to-transparent" />
+      <div className="absolute left-[-16px] sm:left-[-20px] top-[-16px] bottom-4 w-[2px] bg-gradient-to-b from-purple-500/40 to-transparent" />
       
       {replies.map((reply) => (
-        <div key={reply.id} className="space-y-4">
+        <div key={reply.id} className="space-y-3 sm:space-y-4">
           <div className="relative">
-            <div className="absolute left-[-20px] top-5 w-8 h-[2px] bg-purple-500/40" />
+            <div className="absolute left-[-16px] sm:left-[-20px] top-5 w-4 sm:w-8 h-[2px] bg-purple-500/40" />
             <CommentCard 
               comment={reply}
               onReply={() => toggleReplyForm(reply.id)}
@@ -243,6 +254,7 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
   const [replySubmittingId, setReplySubmittingId] = useState<string | null>(null);
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [showReadMore, setShowReadMore] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
@@ -391,12 +403,12 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
   const shouldShowRepliesBox = post.hasChildren || (post.children?.length ?? 0) > 0 || (showComments && !!nestedComments?.[post.id]);
 
   return (
-    <div className="max-w-3xl space-y-3">
+    <div className="w-full space-y-3">
     <div className="bg-zinc-900/50 border border-zinc-700/50 rounded-lg overflow-hidden hover:border-zinc-600 transition-all duration-300 hover:shadow-lg">
-      <div className="flex gap-6">
-        {/* Movie Poster */}
+      <div className="flex gap-4 sm:gap-6">
+        {/* Movie Poster - Hidden on mobile, shown on tablet+ */}
         {post.moviePoster && (
-          <div className="w-48 h-72 relative flex-shrink-0 bg-zinc-800">
+          <div className="hidden sm:block sm:w-40 md:w-48 sm:h-60 md:h-72 relative flex-shrink-0 bg-zinc-800">
             <Image
               src={post.moviePoster}
               alt={post.movieTitle || "Movie poster"}
@@ -407,23 +419,66 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
         )}
 
         {/* Content */}
-        <div className="flex-1 p-6 flex flex-col min-w-0">
+        <div className="flex-1 p-4 sm:p-6 flex flex-col min-w-0">
           {/* User Info at Top */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-base flex-shrink-0">
-              {post.author.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <p className="font-semibold text-white text-base">{post.author}</p>
-              <p className="text-sm text-gray-400">{post.date}</p>
+          <div className="flex items-start gap-3 mb-3 sm:mb-4">
+            {/* Larger poster thumbnail on mobile only */}
+            {post.moviePoster && (
+              <div className="sm:hidden w-20 h-28 relative flex-shrink-0 rounded-lg overflow-hidden bg-zinc-800 shadow-lg">
+                <Image
+                  src={post.moviePoster}
+                  alt={post.movieTitle || "Movie poster"}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm sm:text-base flex-shrink-0 overflow-hidden">
+                  {post.avatar ? (
+                    <Image
+                      src={post.avatar}
+                      alt={post.author}
+                      width={40}
+                      height={40}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    post.author.charAt(0).toUpperCase()
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-white text-xs sm:text-sm truncate">{post.author}</p>
+                  <p className="text-xs sm:text-sm text-gray-400">{post.date}</p>
+                </div>
+              </div>
+              
+              {/* Movie Title on mobile - shown next to poster */}
+              {post.movieTitle && (
+                <div className="sm:hidden">
+                  <h3 className="font-bold text-sm text-white line-clamp-2 mb-1">
+                    {post.movieTitle}
+                  </h3>
+                  {post.movieType && (
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
+                      post.movieType === 'movie' 
+                        ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' 
+                        : 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
+                    }`}>
+                      {post.movieType === 'movie' ? 'Movie' : 'TV Show'}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Movie Title */}
+          {/* Movie Title on tablet+ */}
           {post.movieTitle && (
-            <div className="mb-3">
-              <div className="flex items-center gap-2 mb-2">
-                <h3 className="font-bold text-xl text-white line-clamp-2">
+            <div className="hidden sm:block mb-2 sm:mb-3">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-2">
+                <h3 className="font-bold text-lg sm:text-xl text-white line-clamp-2">
                   {post.movieTitle}
                 </h3>
                 {post.movieType && (
@@ -440,23 +495,23 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
           )}
 
           {/* Rating Bar */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1 h-2.5 bg-zinc-700 rounded-full overflow-hidden">
+          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <div className="flex-1 h-2 sm:h-2.5 bg-zinc-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-pink-500 to-purple-500 rounded-full transition-all duration-300"
                 style={{ width: `${(post.rating / 10) * 100}%` }}
               />
             </div>
-            <span className="text-purple-400 font-bold text-base whitespace-nowrap">
+            <span className="text-purple-400 font-bold text-sm sm:text-base whitespace-nowrap">
               {post.rating}
             </span>
           </div>
 
           {/* Review Content */}
-          <div className="mb-6 flex-grow">
+          <div className="mb-4 sm:mb-6 flex-grow">
             <p 
               ref={textRef}
-              className={`text-gray-300 text-base leading-relaxed break-words whitespace-pre-wrap transition-all duration-300 ${
+              className={`text-gray-300 text-sm sm:text-base leading-relaxed break-words whitespace-pre-wrap transition-all duration-300 ${
                 !isTextExpanded && showReadMore ? "line-clamp-4" : ""
               }`}
             >
@@ -474,11 +529,12 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
           </div>
 
           {/* Action Buttons at Bottom */}
-          <div className="flex items-center gap-2 pt-4 border-t border-zinc-700/50">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 pt-3 sm:pt-4 border-t border-zinc-700/50">
             <Button 
+              key="like-button"
               variant="ghost" 
               size="default" 
-              className="gap-2 flex-1"
+              className="gap-1 sm:gap-2 flex-1 text-xs sm:text-sm"
               onClick={handleLike}
               disabled={isLoading}
             >
@@ -487,32 +543,36 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
             </Button>
             
             <Button 
+              key="dislike-button"
               variant="ghost" 
               size="default" 
-              className="gap-2 flex-1"
+              className="gap-1 sm:gap-2 flex-1 text-xs sm:text-sm"
               onClick={handleDislike}
               disabled={isLoading}
             >
-              <ThumbsDown className={`w-5 h-5 transition-colors ${isDisliked ? "fill-blue-500 text-blue-500" : ""}`} />
+              <ThumbsDown className={`w-4 sm:w-5 h-4 sm:h-5 transition-colors ${isDisliked ? "fill-blue-500 text-blue-500" : ""}`} />
               <span>{dislikes}</span>
             </Button>
             
             <Button 
+              key="comment-button"
               variant="ghost" 
               size="default" 
-              className="gap-2 flex-1"
+              className="gap-1 sm:gap-2 flex-1 text-xs sm:text-sm"
               onClick={() => setShowCommentForm(!showCommentForm)}
             >
-              <MessageCircle className="w-5 h-5" />
+              <MessageCircle className="w-4 sm:w-5 h-4 sm:h-5" />
               <span>Comment</span>
             </Button>
             
             <Button 
+              key="share-button"
               variant="ghost" 
               size="default" 
-              className="gap-2 flex-1"
+              className="gap-1 sm:gap-2 flex-1 text-xs sm:text-sm"
+              onClick={() => setShareDialogOpen(true)}
             >
-              <Share2 className="w-5 h-5" />
+              <Share2 className="w-4 sm:w-5 h-4 sm:h-5" />
               <span>Share</span>
             </Button>
           </div>
@@ -554,13 +614,27 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
                 </div>
               </div>
             )}
+
+          {/* Share Dialog */}
+          {post.movieId && post.movieTitle && (
+            <ShareDialog
+              open={shareDialogOpen}
+              onOpenChange={setShareDialogOpen}
+              itemType={post.movieType === "tv" ? "show" : "movie"}
+              itemId={post.movieId}
+              title={post.movieTitle}
+              posterPath={post.moviePoster || null}
+              rating={post.rating}
+              year={post.date.split(',')[1]?.trim() || new Date().getFullYear().toString()}
+            />
+          )}
           </div>
         </div>
       </div>
 
       {/* --- SEKCIJA KOMENTARA --- */}
         {!isNested && shouldShowRepliesBox && (
-          <div className="relative mt-0 ml-4 sm:ml-10">
+          <div className="relative mt-0 ml-3 sm:ml-4 md:ml-10">
             
             {/* NIT: Shows thread line - fully colored when closed, transparent end when open */}
             <div className={`absolute left-0 top-0 bottom-6 w-[2px] animate-in fade-in duration-500 ${
@@ -569,14 +643,14 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
                 : "bg-purple-500/40"
             }`} />
 
-            <div className="space-y-4 pl-8 pt-4">
+            <div className="space-y-3 sm:space-y-4 pl-4 sm:pl-8 pt-3 sm:pt-4">
               
               {/* 1. Direktni komentari (ako želiš da su uvijek vidljivi) */}
               {post.children && post.children.length > 0 && (
-                <div className="space-y-5 mb-4">
+                <div className="space-y-3 sm:space-y-5 mb-3 sm:mb-4">
                   {post.children.map((child) => (
                     <div key={child.id} className="relative group">
-                      <div className="absolute left-[-32px] top-5 w-8 h-[2px] bg-purple-500/40" />
+                      <div className="absolute left-[-16px] sm:left-[-32px] top-5 w-4 sm:w-8 h-[2px] bg-purple-500/40" />
                       <CommentCard 
                         comment={child}
                         onReply={() => toggleReplyForm(child.id)}
@@ -596,7 +670,7 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
               {post.hasChildren && (
                 <div className="relative py-2">
                   {/* Spojnica za gumb se vidi samo ako gumb ima smisla */}
-                  <div className="absolute left-[-32px] top-7 w-8 h-[2px] bg-gradient-to-r from-purple-500/50 to-purple-500/40" />
+                  <div className="absolute left-[-16px] sm:left-[-32px] top-7 w-4 sm:w-8 h-[2px] bg-gradient-to-r from-purple-500/50 to-purple-500/40" />
                   
                   <button
                     onClick={() => {
@@ -622,11 +696,11 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
 
               {/* 3. Ugniježđeni komentari (on demand) */}
               {showComments && nestedComments?.[post.id] && (
-                <div className="space-y-5 mt-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                <div className="space-y-3 sm:space-y-5 mt-3 sm:mt-4 animate-in fade-in slide-in-from-top-4 duration-500">
                   {nestedComments[post.id].map((child) => (
-                    <div key={child.id} className="space-y-4">
+                    <div key={child.id} className="space-y-3 sm:space-y-4">
                       <div className="relative">
-                        <div className="absolute left-[-32px] top-5 w-8 h-[2px] bg-purple-500/30" />
+                        <div className="absolute left-[-16px] sm:left-[-32px] top-5 w-4 sm:w-8 h-[2px] bg-purple-500/30" />
                         <CommentCard 
                           comment={child}
                           onReply={() => toggleReplyForm(child.id)}
@@ -658,7 +732,7 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
             </div>
           </div>
         )}
-    </div>
+      </div>
   );
 };
 

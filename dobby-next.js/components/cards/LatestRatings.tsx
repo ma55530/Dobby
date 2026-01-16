@@ -14,14 +14,22 @@ interface Rating {
   date: string;
 }
 
-export default function LatestRatings() {
+interface LatestRatingsProps {
+  filter?: "public" | "following";
+}
+
+export default function LatestRatings({ filter = "public" }: LatestRatingsProps) {
   const [ratings, setRatings] = useState<Rating[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchLatestRatings = async () => {
       try {
-        const response = await fetch("/api/ratings?limit=5");
+        const params = new URLSearchParams({ limit: "5" });
+        if (filter === "following") {
+          params.append("filter", "following");
+        }
+        const response = await fetch(`/api/ratings?${params}`);
         if (!response.ok) throw new Error("Failed to fetch ratings");
         const data = await response.json();
         setRatings(data.ratings || []);
@@ -33,7 +41,7 @@ export default function LatestRatings() {
     };
 
     fetchLatestRatings();
-  }, []);
+  }, [filter]);
 
   if (loading) {
     return (

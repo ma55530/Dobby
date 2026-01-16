@@ -6,7 +6,7 @@ import LatestRatings from "@/components/cards/LatestRatings";
 import { List, Users, MessageSquare, UserCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export default function HomePage() {
+export default function FollowingPage() {
   const router = useRouter();
 
   return (
@@ -37,14 +37,14 @@ export default function HomePage() {
                 <div className="flex md:flex-col gap-2">
                   <button
                     onClick={() => router.push("/home")}
-                    className="flex items-center justify-center md:justify-start gap-2 px-3 py-2 rounded-lg transition-all text-xs sm:text-sm font-medium whitespace-nowrap flex-1 md:flex-none bg-purple-600 text-white shadow-sm shadow-purple-600/30"
+                    className="flex items-center justify-center md:justify-start gap-2 px-3 py-2 rounded-lg transition-all text-xs sm:text-sm font-medium whitespace-nowrap flex-1 md:flex-none bg-zinc-800/50 text-gray-400 hover:bg-zinc-700/50"
                   >
                     <Users size={16} className="flex-shrink-0" />
                     <span className="truncate">Public</span>
                   </button>
                   <button
                     onClick={() => router.push("/home/following")}
-                    className="flex items-center justify-center md:justify-start gap-2 px-3 py-2 rounded-lg transition-all text-xs sm:text-sm font-medium whitespace-nowrap flex-1 md:flex-none bg-zinc-800/50 text-gray-400 hover:bg-zinc-700/50"
+                    className="flex items-center justify-center md:justify-start gap-2 px-3 py-2 rounded-lg transition-all text-xs sm:text-sm font-medium whitespace-nowrap flex-1 md:flex-none bg-purple-600 text-white shadow-sm shadow-purple-600/30"
                   >
                     <UserCheck size={16} className="flex-shrink-0" />
                     <span className="truncate">Following</span>
@@ -80,17 +80,16 @@ export default function HomePage() {
             {/* Create Review Section */}
             <CreateReview />
             
-            {/* Community Activity Feed */}
-            <Feed type="reviews" filter="public" />
+            {/* Following Feed */}
+            <Feed type="reviews" filter="following" />
           </div>
 
           {/* Right Sidebar - Latest Ratings */}
           <div className="md:col-span-12 lg:col-span-3 md:order-3">
             <div className="lg:sticky lg:top-20">
-              <LatestRatings />
+              <LatestRatings filter="following" />
             </div>
           </div>
-
         </div>
       </div>
     </main>

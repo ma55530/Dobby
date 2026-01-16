@@ -8,10 +8,38 @@ export async function GET(request: Request) {
   
   const limit = parseInt(searchParams.get("limit") || "10");
   const offset = parseInt(searchParams.get("offset") || "0");
+  const filter = searchParams.get("filter"); // 'following' or null
 
   try {
-    // Fetch posts with ratings and user info
-    const { data: posts, error: postsError } = await supabase
+    // Get current user for following filter
+    let followedUserIds: string[] = [];
+    if (filter === "following") {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      // Fetch list of users that current user follows
+      const { data: follows, error: followsError } = await supabase
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", user.id);
+
+      if (followsError) {
+        console.error("Error fetching follows:", followsError);
+        return NextResponse.json({ error: followsError.message }, { status: 400 });
+      }
+
+      followedUserIds = follows?.map(f => f.following_id) || [];
+      
+      // If user doesn't follow anyone, return empty array
+      if (followedUserIds.length === 0) {
+        return NextResponse.json({ posts: [], hasMore: false, nextOffset: offset });
+      }
+    }
+
+    // Build the query
+    let query = supabase
       .from("post")
       .select(
         `
@@ -34,7 +62,15 @@ export async function GET(request: Request) {
           )
         )
       `
-      )
+      );
+
+    // Apply following filter if needed
+    if (filter === "following" && followedUserIds.length > 0) {
+      query = query.in("rating.user_id", followedUserIds);
+    }
+
+    // Execute query
+    const { data: posts, error: postsError } = await query
       .order("rating(created_at)", { ascending: false })
       .range(offset, offset + limit - 1);
 
