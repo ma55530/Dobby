@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { Heart, MessageCircle, Share2, ChevronDown, ThumbsDown } from "lucide-react";
+import { Heart, MessageCircle, Share2, ChevronDown, ThumbsDown, CornerDownRight, Send} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface Comment {
   id: string;
@@ -15,6 +15,7 @@ interface Comment {
   likes: number;
   parentId?: string;
   hasChildren?: boolean;
+  children?: Comment[];
 }
 
 interface ReviewCardProps {
@@ -32,10 +33,199 @@ interface ReviewCardProps {
     moviePoster?: string;
     hasChildren?: boolean;
     children?: Comment[];
+    commentCount?: number;
   };
   onLoadMore?: (parentId: string) => void;
   nestedComments?: Record<string, Comment[]>;
   isNested?: boolean;
+}
+
+function CommentCard({
+  comment,
+  onReply,
+  replyOpen,
+  replyText,
+  onReplyTextChange,
+  onSubmitReply,
+  isSubmitting,
+  onToggleReply,
+}: {
+  comment: Comment;
+  onReply: () => void;
+  replyOpen: boolean;
+  replyText: string;
+  onReplyTextChange: (text: string) => void;
+  onSubmitReply: () => void;
+  isSubmitting: boolean;
+  onToggleReply: () => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+  const [needsExpansion, setNeedsExpansion] = useState(false);
+
+  useEffect(() => {
+    if (textRef.current) {
+      const lineHeight = parseInt(window.getComputedStyle(textRef.current).lineHeight);
+      const actualHeight = textRef.current.scrollHeight;
+      setNeedsExpansion(actualHeight > lineHeight * 1.2); // More than 1 line
+    }
+  }, [comment.content]);
+
+  return (
+    <div className="group relative">
+      <div className="relative bg-zinc-800/40 backdrop-blur-md rounded-2xl p-4 border border-white/5 transition-all duration-300 hover:border-purple-500/30 hover:bg-zinc-800/60">
+        <div className="flex gap-4">
+          {/* Avatar */}
+          <div className="relative flex-shrink-0">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs shadow-[0_0_10px_rgba(168,85,247,0.4)]">
+              {comment.author?.charAt(0).toUpperCase() || "?"}
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-bold text-zinc-100 text-sm hover:text-purple-400 cursor-pointer transition-colors">
+                {comment.author}
+              </span>
+              <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-tight">
+                {comment.date}
+              </span>
+            </div>
+
+            <div>
+              <p 
+                ref={textRef}
+                className={`text-zinc-300 text-sm leading-relaxed mb-1 transition-all duration-300 break-words overflow-wrap-anywhere ${
+                  !isExpanded && needsExpansion ? "line-clamp-1" : ""
+                }`}
+              >
+                {comment.content}
+              </p>
+              {needsExpansion && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="text-purple-400 hover:text-purple-300 text-xs font-medium mb-2 transition-colors"
+                >
+                  {isExpanded ? "Show less" : "Show more"}
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-4">
+              <button
+                onClick={onToggleReply}
+                className="flex items-center gap-1.5 text-[11px] font-bold text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-wider"
+              >
+                <CornerDownRight className="w-3.5 h-3.5" />
+                Reply
+              </button>
+            </div>
+
+            {/* REPLY FORM - Identičan onome na Reviewu */}
+            {replyOpen && (
+              <div className="mt-5 pt-5 border-t border-zinc-700/50 animate-in slide-in-from-top-2 duration-200">
+                <div className="relative">
+                  <textarea
+                    key={`reply-area-${comment.id}`} // Dodajemo ključ da spriječimo nepotrebno fokusiranje
+                    value={replyText || ""}
+                    onChange={(e) => onReplyTextChange(e.target.value)}
+                    placeholder="Write your reply..."
+                    className="w-full bg-zinc-950/50 text-white rounded-xl p-4 pr-24 min-h-[100px] border border-zinc-700 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none placeholder:text-zinc-600 transition-all text-left"
+                    // Maknuli smo dir="ltr" i dodali text-left radi sigurnosti
+                    autoFocus
+                  />
+                  <div className="absolute bottom-3 right-3 flex gap-2">
+                    <button
+                      type="button" // Osiguraj da nije submit
+                      onClick={onToggleReply}
+                      className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onSubmitReply}
+                      disabled={!replyText?.trim() || isSubmitting}
+                      className="px-4 py-1.5 text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Posting...
+                        </>
+                      ) : (
+                        "Post Reply"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Recursive component to render nested replies at any depth
+function RenderNestedReplies({
+  replies,
+  level,
+  replyOpenById,
+  replyTextById,
+  replySubmittingId,
+  toggleReplyForm,
+  setReplyTextById,
+  handleSubmitReply,
+}: {
+  replies: Comment[];
+  level: number;
+  replyOpenById: Record<string, boolean>;
+  replyTextById: Record<string, string>;
+  replySubmittingId: string | null;
+  toggleReplyForm: (id: string) => void;
+  setReplyTextById: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  handleSubmitReply: (id: string) => void;
+}) {
+  return (
+    <div className="relative ml-8 space-y-4 mt-4">
+      {/* Vertical thread line connecting parent to replies */}
+      <div className="absolute left-[-20px] top-[-16px] bottom-4 w-[2px] bg-gradient-to-b from-purple-500/40 to-transparent" />
+      
+      {replies.map((reply) => (
+        <div key={reply.id} className="space-y-4">
+          <div className="relative">
+            <div className="absolute left-[-20px] top-5 w-8 h-[2px] bg-purple-500/40" />
+            <CommentCard 
+              comment={reply}
+              onReply={() => toggleReplyForm(reply.id)}
+              replyOpen={replyOpenById[reply.id] || false}
+              replyText={replyTextById[reply.id] || ""}
+              onReplyTextChange={(text) => setReplyTextById((prev) => ({ ...prev, [reply.id]: text }))}
+              onSubmitReply={() => handleSubmitReply(reply.id)}
+              isSubmitting={replySubmittingId === reply.id}
+              onToggleReply={() => toggleReplyForm(reply.id)}
+            />
+          </div>
+          
+          {/* Recursively render nested replies */}
+          {reply.children && reply.children.length > 0 && (
+            <RenderNestedReplies 
+              replies={reply.children}
+              level={level + 1}
+              replyOpenById={replyOpenById}
+              replyTextById={replyTextById}
+              replySubmittingId={replySubmittingId}
+              toggleReplyForm={toggleReplyForm}
+              setReplyTextById={setReplyTextById}
+              handleSubmitReply={handleSubmitReply}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: ReviewCardProps) => {
@@ -51,6 +241,18 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
   const [replyOpenById, setReplyOpenById] = useState<Record<string, boolean>>({});
   const [replyTextById, setReplyTextById] = useState<Record<string, string>>({});
   const [replySubmittingId, setReplySubmittingId] = useState<string | null>(null);
+  const [isTextExpanded, setIsTextExpanded] = useState(false);
+  const [showReadMore, setShowReadMore] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (textRef.current) {
+      const lineHeight = parseInt(window.getComputedStyle(textRef.current).lineHeight);
+      const maxHeight = lineHeight * 4; // 4 lines
+      const actualHeight = textRef.current.scrollHeight;
+      setShowReadMore(actualHeight > maxHeight);
+    }
+  }, [post.content]);
 
   useEffect(() => {
     // Check if user has liked/disliked this review and get current counts
@@ -164,7 +366,7 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
 
     setReplySubmittingId(childId);
     try {
-      const response = await fetch(`/api/comments/${childId}/reply`, {
+      const response = await fetch(`/api/comments/${childId}/replies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -175,8 +377,8 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
       if (response.ok) {
         setReplyTextById((prev) => ({ ...prev, [childId]: "" }));
         setReplyOpenById((prev) => ({ ...prev, [childId]: false }));
-        // Optional refresh; or load children on demand
-        if (onLoadMore) onLoadMore(childId);
+        // Reload to show new reply
+        window.location.reload();
       }
     } catch (error) {
       console.error("Failed to submit reply:", error);
@@ -251,9 +453,25 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
           </div>
 
           {/* Review Content */}
-          <p className="text-gray-300 text-base leading-relaxed mb-6 flex-grow">
-            {post.content}
-          </p>
+          <div className="mb-6 flex-grow">
+            <p 
+              ref={textRef}
+              className={`text-gray-300 text-base leading-relaxed break-words whitespace-pre-wrap transition-all duration-300 ${
+                !isTextExpanded && showReadMore ? "line-clamp-4" : ""
+              }`}
+            >
+              {post.content}
+            </p>
+            
+            {showReadMore && (
+              <button
+                onClick={() => setIsTextExpanded(!isTextExpanded)}
+                className="text-purple-400 hover:text-purple-300 text-sm font-medium mt-2 transition-colors"
+              >
+                {isTextExpanded ? "Show less" : "Read more"}
+              </button>
+            )}
+          </div>
 
           {/* Action Buttons at Bottom */}
           <div className="flex items-center gap-2 pt-4 border-t border-zinc-700/50">
@@ -299,150 +517,147 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
             </Button>
           </div>
 
-          {/* Comment Form */}
           {showCommentForm && (
-            <div className="mt-4 pt-4 border-t border-zinc-700/50">
-              <textarea
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Write a comment..."
-                className="w-full bg-zinc-800 text-white rounded-lg p-3 min-h-[100px] border border-zinc-700 focus:border-purple-500 focus:outline-none resize-none"
-              />
-              <div className="flex gap-2 mt-2 justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setShowCommentForm(false);
-                    setCommentText("");
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSubmitComment}
-                  disabled={!commentText.trim() || isSubmitting}
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  {isSubmitting ? "Posting..." : "Post Comment"}
-                </Button>
+              <div className="mt-5 pt-5 border-t border-border animate-in slide-in-from-top-2 duration-200">
+                <div className="relative">
+                  <textarea
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Share your thoughts..."
+                    className="w-full bg-input text-foreground rounded-xl p-4 pr-24 min-h-[100px] border border-border focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none placeholder:text-muted-foreground transition-all"
+                  />
+                  <div className="absolute bottom-3 right-3 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setShowCommentForm(false)
+                        setCommentText("")
+                      }}
+                      className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSubmitComment}
+                      disabled={!commentText.trim() || isSubmitting}
+                      className="px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                          Posting...
+                        </>
+                      ) : (
+                        "Post"
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
-    </div>
-    {/* Replies below, neatly attached to this card */}
-    {!isNested && shouldShowRepliesBox && (
-      <div className="pl-6">
-        <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 p-4 space-y-3 max-w-2xl">
-          {/* Direct children shown initially */}
-          {(post.children && post.children.length > 0) && (
-            <div className="space-y-3">
-              {post.children.map((child) => (
-                <div key={child.id}>
-                  <div className="flex items-start gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                      {child.author?.charAt(0).toUpperCase() || '?'}
+
+      {/* --- SEKCIJA KOMENTARA --- */}
+        {!isNested && shouldShowRepliesBox && (
+          <div className="relative mt-0 ml-4 sm:ml-10">
+            
+            {/* NIT: Shows thread line - fully colored when closed, transparent end when open */}
+            <div className={`absolute left-0 top-0 bottom-6 w-[2px] animate-in fade-in duration-500 ${
+              showComments 
+                ? "bg-gradient-to-b from-purple-500/40 via-purple-500/40 to-transparent"
+                : "bg-purple-500/40"
+            }`} />
+
+            <div className="space-y-4 pl-8 pt-4">
+              
+              {/* 1. Direktni komentari (ako želiš da su uvijek vidljivi) */}
+              {post.children && post.children.length > 0 && (
+                <div className="space-y-5 mb-4">
+                  {post.children.map((child) => (
+                    <div key={child.id} className="relative group">
+                      <div className="absolute left-[-32px] top-5 w-8 h-[2px] bg-purple-500/40" />
+                      <CommentCard 
+                        comment={child}
+                        onReply={() => toggleReplyForm(child.id)}
+                        replyOpen={replyOpenById[child.id] || false}
+                        replyText={replyTextById[child.id] || ""}
+                        onReplyTextChange={(text) => setReplyTextById((prev) => ({ ...prev, [child.id]: text }))}
+                        onSubmitReply={() => handleSubmitReply(child.id)}
+                        isSubmitting={replySubmittingId === child.id}
+                        onToggleReply={() => toggleReplyForm(child.id)}
+                      />
                     </div>
-                    <div className="flex-none inline-block max-w-[65ch]">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold text-white text-sm">{child.author || 'Unknown'}</p>
-                        <p className="text-xs text-gray-400">{child.date}</p>
+                  ))}
+                </div>
+              )}
+
+              {/* 2. Gumb koji služi kao "most" - on kontrolira pojavljivanje ostatka niti */}
+              {post.hasChildren && (
+                <div className="relative py-2">
+                  {/* Spojnica za gumb se vidi samo ako gumb ima smisla */}
+                  <div className="absolute left-[-32px] top-7 w-8 h-[2px] bg-gradient-to-r from-purple-500/50 to-purple-500/40" />
+                  
+                  <button
+                    onClick={() => {
+                      setShowComments(!showComments);
+                      if (!showComments && !nestedComments?.[post.id]) {
+                        onLoadMore?.(post.id);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 bg-zinc-800/80 border-zinc-700 text-zinc-400 hover:border-purple-500/50 hover:text-zinc-200"
+                  >
+                    <span className="text-[11px] font-bold uppercase tracking-wider">
+                      {showComments ? "Hide Comments" : "Show Comments"}
+                    </span>
+                    {post.commentCount !== undefined && post.commentCount > 0 && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30">
+                        {post.commentCount}
+                      </span>
+                    )}
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-500 ${showComments ? "rotate-180" : ""}`} />
+                  </button>
+                </div>
+              )}
+
+              {/* 3. Ugniježđeni komentari (on demand) */}
+              {showComments && nestedComments?.[post.id] && (
+                <div className="space-y-5 mt-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                  {nestedComments[post.id].map((child) => (
+                    <div key={child.id} className="space-y-4">
+                      <div className="relative">
+                        <div className="absolute left-[-32px] top-5 w-8 h-[2px] bg-purple-500/30" />
+                        <CommentCard 
+                          comment={child}
+                          onReply={() => toggleReplyForm(child.id)}
+                          replyOpen={replyOpenById[child.id] || false}
+                          replyText={replyTextById[child.id] || ""}
+                          onReplyTextChange={(text) => setReplyTextById((prev) => ({ ...prev, [child.id]: text }))}
+                          onSubmitReply={() => handleSubmitReply(child.id)}
+                          isSubmitting={replySubmittingId === child.id}
+                          onToggleReply={() => toggleReplyForm(child.id)}
+                        />
                       </div>
-                      <p className="text-gray-300 text-sm mb-2">{child.content}</p>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => toggleReplyForm(child.id)} className="text-purple-400 hover:text-purple-300">
-                          Reply
-                        </Button>
-                      </div>
-                      {replyOpenById[child.id] && (
-                        <div className="mt-2">
-                          <textarea
-                            value={replyTextById[child.id] || ""}
-                            onChange={(e) => setReplyTextById((prev) => ({ ...prev, [child.id]: e.target.value }))}
-                            placeholder="Write a reply..."
-                            className="w-full bg-zinc-800 text-white rounded-lg p-2 min-h-[60px] border border-zinc-700 focus:border-purple-500 focus:outline-none resize-none"
-                          />
-                          <div className="flex gap-2 mt-2 justify-end">
-                            <Button variant="ghost" size="sm" onClick={() => toggleReplyForm(child.id)}>Cancel</Button>
-                            <Button size="sm" onClick={() => handleSubmitReply(child.id)} disabled={!((replyTextById[child.id] || "").trim()) || replySubmittingId === child.id} className="bg-purple-600 hover:bg-purple-700">
-                              {replySubmittingId === child.id ? "Posting..." : "Post Reply"}
-                            </Button>
-                          </div>
-                        </div>
+                      {/* Nested replies - Recursive */}
+                      {child.children && child.children.length > 0 && (
+                        <RenderNestedReplies 
+                          replies={child.children}
+                          level={1}
+                          replyOpenById={replyOpenById}
+                          replyTextById={replyTextById}
+                          replySubmittingId={replySubmittingId}
+                          toggleReplyForm={toggleReplyForm}
+                          setReplyTextById={setReplyTextById}
+                          handleSubmitReply={handleSubmitReply}
+                        />
                       )}
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-
-          {/* Show More Button for comments - show if post has children */}
-          {post.hasChildren && onLoadMore && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-purple-400 hover:text-purple-300"
-              onClick={() => {
-                setShowComments(!showComments);
-                if (!showComments && !nestedComments?.[post.id]) {
-                  onLoadMore(post.id);
-                }
-              }}
-            >
-              <ChevronDown className={`w-4 h-4 mr-2 transition-transform ${showComments ? "rotate-180" : ""}`} />
-              {showComments ? "Hide comments" : `View comments (${post.hasChildren ? 'Show' : ''})`}
-            </Button>
-          )}
-
-          {/* Additional Nested Comments from "Show More" */}
-          {showComments && nestedComments?.[post.id] && (
-            <div className="mt-2 space-y-3">
-              {nestedComments[post.id].map((child) => (
-                <div key={child.id}>
-                  <div className="flex items-start gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                      {child.author?.charAt(0).toUpperCase() || '?'}
-                    </div>
-                    <div className="flex-none inline-block max-w-[65ch]">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold text-white text-sm">{child.author || 'Unknown'}</p>
-                        <p className="text-xs text-gray-400">{child.date}</p>
-                      </div>
-                      <p className="text-gray-300 text-sm mb-2">{child.content}</p>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => toggleReplyForm(child.id)} className="text-purple-400 hover:text-purple-300">
-                          Reply
-                        </Button>
-                      </div>
-                      {replyOpenById[child.id] && (
-                        <div className="mt-2">
-                          <textarea
-                            value={replyTextById[child.id] || ""}
-                            onChange={(e) => setReplyTextById((prev) => ({ ...prev, [child.id]: e.target.value }))}
-                            placeholder="Write a reply..."
-                            className="w-full bg-zinc-800 text-white rounded-lg p-2 min-h-[60px] border border-zinc-700 focus:border-purple-500 focus:outline-none resize-none"
-                          />
-                          <div className="flex gap-2 mt-2 justify-end">
-                            <Button variant="ghost" size="sm" onClick={() => toggleReplyForm(child.id)}>Cancel</Button>
-                            <Button size="sm" onClick={() => handleSubmitReply(child.id)} disabled={!((replyTextById[child.id] || "").trim()) || replySubmittingId === child.id} className="bg-purple-600 hover:bg-purple-700">
-                              {replySubmittingId === child.id ? "Posting..." : "Post Reply"}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    )}
+          </div>
+        )}
     </div>
   );
 };

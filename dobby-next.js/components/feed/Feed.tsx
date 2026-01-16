@@ -13,6 +13,8 @@ interface Comment {
   date: string;
   likes: number;
   parentId?: string;
+  hasChildren?: boolean;
+  children?: Comment[];
 }
 
 interface Review {
@@ -29,6 +31,7 @@ interface Review {
   moviePoster?: string;
   hasChildren?: boolean;
   children?: Comment[];
+  commentCount?: number;
 }
 
 export default function Feed({ 
@@ -42,6 +45,42 @@ export default function Feed({
   const [loading, setLoading] = useState(true);
   const [nestedComments, setNestedComments] = useState<Record<string, Comment[]>>({});
 
+  // Recursive function to fetch all nested replies
+  const fetchRepliesRecursive = async (commentId: string): Promise<Comment[]> => {
+    try {
+      const repliesResponse = await fetch(`/api/comments/${commentId}/replies`);
+      if (!repliesResponse.ok) return [];
+      
+      const repliesResult = await repliesResponse.json();
+      const rawReplies = repliesResult.replies || [];
+      
+      // Recursively fetch replies for each reply
+      const replies = await Promise.all(rawReplies.map(async (reply: any) => {
+        let nestedReplies: Comment[] = [];
+        if ((reply.reply_count || 0) > 0) {
+          nestedReplies = await fetchRepliesRecursive(reply.id);
+        }
+        
+        return {
+          id: reply.id,
+          author: reply.profiles?.username || 'Unknown',
+          avatar: reply.profiles?.avatar_url,
+          content: reply.comment_text,
+          date: new Date(reply.created_at).toLocaleDateString(),
+          likes: 0,
+          parentId: reply.parent_comment,
+          hasChildren: (reply.reply_count || 0) > 0,
+          children: nestedReplies
+        };
+      }));
+      
+      return replies;
+    } catch (error) {
+      console.error("Error fetching replies recursively:", error);
+      return [];
+    }
+  };
+
   const loadMoreComments = async (parentId: string) => {
     try {
       const response = await fetch(`/api/posts/${parentId}/comments?limit=10&offset=0`);
@@ -49,16 +88,24 @@ export default function Feed({
       const result = await response.json();
       const rawChildren = result.comments || result;
       
-      // Transform the data to match the Comment interface
-      const children = rawChildren.map((comment: any) => ({
-        id: comment.id,
-        author: comment.profiles?.username || 'Unknown',
-        avatar: comment.profiles?.avatar_url,
-        content: comment.comment_text,
-        date: new Date(comment.created_at).toLocaleDateString(),
-        likes: 0,
-        hasChildren: (comment.reply_count || 0) > 0,
-        parentId: comment.parent_comment
+      // Transform the data to match the Comment interface and fetch all nested replies recursively
+      const children = await Promise.all(rawChildren.map(async (comment: any) => {
+        let replies: Comment[] = [];
+        if ((comment.reply_count || 0) > 0) {
+          replies = await fetchRepliesRecursive(comment.id);
+        }
+
+        return {
+          id: comment.id,
+          author: comment.profiles?.username || 'Unknown',
+          avatar: comment.profiles?.avatar_url,
+          content: comment.comment_text,
+          date: new Date(comment.created_at).toLocaleDateString(),
+          likes: 0,
+          hasChildren: (comment.reply_count || 0) > 0,
+          parentId: comment.parent_comment,
+          children: replies
+        };
       }));
       
       setNestedComments(prev => ({

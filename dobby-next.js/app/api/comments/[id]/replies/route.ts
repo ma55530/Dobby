@@ -1,6 +1,34 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const supabase = await createClient();
+
+  // Fetch replies to this comment
+  const { data: replies, error } = await supabase
+    .from("comments")
+    .select(`
+      *,
+      profiles:user_id(
+        id,
+        username,
+        avatar_url
+      )
+    `)
+    .eq("parent_comment", id)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  return NextResponse.json({ replies: replies || [] });
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

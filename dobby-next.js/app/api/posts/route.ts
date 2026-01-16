@@ -118,6 +118,7 @@ export async function GET(request: Request) {
           movieType: mediaType as "movie" | "tv",
           moviePoster: posterData.posterUrl,
           hasChildren: (post.comment_count || 0) > 0,
+          commentCount: post.comment_count || 0,
         };
       });
 

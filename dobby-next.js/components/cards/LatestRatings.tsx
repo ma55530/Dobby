@@ -21,7 +21,7 @@ export default function LatestRatings() {
   useEffect(() => {
     const fetchLatestRatings = async () => {
       try {
-        const response = await fetch("/api/ratings?limit=10");
+        const response = await fetch("/api/ratings?limit=5");
         if (!response.ok) throw new Error("Failed to fetch ratings");
         const data = await response.json();
         setRatings(data.ratings || []);
