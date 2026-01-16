@@ -83,10 +83,10 @@ export default function TestFoldInPage() {
       try {
          const supabase = createClient();
          const {
-            data: { session },
-         } = await supabase.auth.getSession();
+            data: { user },
+         } = await supabase.auth.getUser();
 
-         if (!session) {
+         if (!user) {
             setError("Nisi prijavljen! Molim te prijavi se prvo.");
             setLoading(false);
             return;

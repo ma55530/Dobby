@@ -11,11 +11,10 @@ import {
 export async function POST(request: Request) {
    const supabase = await createClient();
    const {
-      data: { session },
+      data: { user },
       error: sessionError,
-   } = await supabase.auth.getSession();
+   } = await supabase.auth.getUser();
 
-   const user = session?.user;
    if (sessionError || !user) {
       console.log("[fold-in] Unauthorized access attempt.");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -134,17 +133,19 @@ export async function POST(request: Request) {
 
          // --- FBS Generation Logic (Inlined from recommendation-engine) ---
          const limit = 20;
-         const fetchLimit = limit * 3;
+         const fetchLimit = limit;
          const headers = { cookie: cookieHeader, accept: "application/json" };
 
          const [{ data: movieRows }, { data: showRows }] = await Promise.all([
             supabase.rpc("get_top_movies_for_user", {
                p_user_id: user.id,
                p_limit: fetchLimit,
+               p_offset: 0,
             }),
             supabase.rpc("get_top_shows_for_user", {
                p_user_id: user.id,
                p_limit: fetchLimit,
+               p_offset: 0,
             }),
          ]);
 
