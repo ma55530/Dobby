@@ -12,7 +12,7 @@ import { Conversation } from '@/lib/types/Conversation';
 import { Message } from '@/lib/types/Message';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { Send, MessageCircle, Search, Plus, Check, CheckCheck, Film, Tv, MoreVertical, Trash2 } from 'lucide-react';
+import { Send, MessageCircle, Search, Plus, Check, CheckCheck, Film, Tv, MoreVertical, Trash2, ChevronLeft } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -41,10 +41,13 @@ function MessagesContent() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
 
   const targetMessageId = searchParams.get('message');
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
   const createClientId = () => {
@@ -71,6 +74,7 @@ function MessagesContent() {
 
     const tryScrollToMessage = () => {
       if (cancelled) return;
+      if (isMobile && mobileView !== 'chat') return;
       if (targetMessageId) {
         const element = document.getElementById(`message-${targetMessageId}`);
         if (element) {
@@ -87,12 +91,47 @@ function MessagesContent() {
       scrollToBottom();
     };
 
-    tryScrollToMessage();
+    if (isMobile && mobileView === 'chat') {
+      requestAnimationFrame(tryScrollToMessage);
+    } else if (!isMobile) {
+      tryScrollToMessage();
+    }
 
     return () => {
       cancelled = true;
     };
-  }, [messages, activeConversation, targetMessageId]);
+  }, [activeConversation, targetMessageId, isMobile, mobileView, messages.length]);
+
+  useEffect(() => {
+    if (!isMobile || mobileView !== 'chat') return;
+    const id = window.setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [isMobile, mobileView, messages.length, activeConversation]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(max-width: 767px)');
+    const handleChange = () => {
+      setIsMobile(media.matches);
+      if (!media.matches) {
+        setMobileView('list');
+      }
+    };
+    handleChange();
+    media.addEventListener('change', handleChange);
+    return () => media.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (activeConversation) {
+      setMobileView('chat');
+    } else {
+      setMobileView('list');
+    }
+  }, [activeConversation, isMobile]);
 
   useEffect(() => {
     const init = async () => {
@@ -357,22 +396,23 @@ function MessagesContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <MessageCircle className="w-8 h-8 text-purple-500" />
+      <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+            <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-purple-500" />
             Messages
           </h1>
-          <Button onClick={() => setNewConversationOpen(true)} className="bg-purple-600 hover:bg-purple-700">
+          <Button onClick={() => setNewConversationOpen(true)} className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             New Message
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
-          <Card className="bg-slate-800 border-slate-700 overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-slate-700">
-              <h2 className="text-lg font-semibold text-white mb-3">Conversations</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-auto md:h-[calc(100vh-200px)]">
+          {(!isMobile || mobileView === 'list') && (
+          <Card className="bg-slate-800 border-slate-700 overflow-hidden flex flex-col md:h-full">
+            <div className="p-3 sm:p-4 border-b border-slate-700">
+              <h2 className="text-base sm:text-lg font-semibold text-white mb-3">Conversations</h2>
               {conversations.length === 0 && (
                 <p className="text-gray-400 text-sm text-center py-8">
                   No conversations yet. Start a new one!
@@ -392,6 +432,9 @@ function MessagesContent() {
       onClick={async () => {
         setActiveConversation(conv.id);
         await fetchMessages(conv.id);
+        if (isMobile) {
+          setMobileView('chat');
+        }
       }}
       className={`p-4 border-b border-slate-700 cursor-pointer transition-colors ${
         isActive
@@ -428,20 +471,34 @@ function MessagesContent() {
 
             </div>
           </Card>
+          )}
 
           {/* Active Chat */}
-          <Card className="md:col-span-2 bg-slate-800 border-slate-700 flex flex-col overflow-hidden">
+          {(!isMobile || mobileView === 'chat') && (
+          <Card className="md:col-span-2 bg-slate-800 border-slate-700 flex flex-col overflow-hidden
+                 h-[100dvh] md:h-full">
             {activeConversation && activeConversationData ? (
               <>
-                <div className="p-4 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between">
+                <div className="p-3 sm:p-4 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between">
                   <div className="flex items-center gap-3">
+                    {isMobile && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setMobileView('list')}
+                        className="md:hidden text-gray-300 hover:text-white hover:bg-slate-800"
+                        title="Back to conversations"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </Button>
+                    )}
                     <Avatar className="w-10 h-10">
                       {otherUser ? <AvatarImage src={otherUser?.avatar_url ?? undefined} /> : null}
                       <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
                         {getConversationTitle(activeConversationData)[0]?.toUpperCase() || '?'}
                       </AvatarFallback>
                     </Avatar>
-                    <h2 className="text-lg font-semibold text-white">
+                    <h2 className="text-base sm:text-lg font-semibold text-white">
                       {getConversationTitle(activeConversationData)}
                     </h2>
                   </div>
@@ -456,7 +513,7 @@ function MessagesContent() {
                   </Button>
                 </div>
 
-                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4">
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-gray-400">
                       <p>No messages yet. Start the conversation!</p>
@@ -509,7 +566,7 @@ function MessagesContent() {
                             </DropdownMenu>
                           )}
 
-                          <div className={`max-w-[70%]`}>
+                          <div className="max-w-[85%] sm:max-w-[70%]">
                             {isRecommendation && msg.metadata ? (
                               <Link
                                 href={
@@ -581,10 +638,11 @@ function MessagesContent() {
                       );
                     })
                   )}
+                  <div ref={messagesEndRef} />
                 </div>
 
-                <div className="p-4 border-t border-slate-700 bg-slate-900/50">
-                  <div className="flex gap-2">
+                <div className="p-3 sm:p-4 border-t border-slate-700 bg-slate-900/50">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Textarea
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
@@ -600,7 +658,7 @@ function MessagesContent() {
                       rows={1}
                       disabled={sending}
                     />
-                    <Button onClick={sendMessage} disabled={!newMessage.trim() || sending} className="bg-purple-600 hover:bg-purple-700">
+                    <Button onClick={sendMessage} disabled={!newMessage.trim() || sending} className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto">
                       <Send className="w-4 h-4" />
                     </Button>
                   </div>
@@ -616,6 +674,7 @@ function MessagesContent() {
               </div>
             )}
           </Card>
+          )}
         </div>
       </div>
 
