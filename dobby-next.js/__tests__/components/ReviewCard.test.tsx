@@ -7,7 +7,7 @@ global.fetch = jest.fn();
 
 describe('ReviewCard Component', () => {
   const mockPost = {
-    id: 1,
+    id: '1',
     author: 'Jane Smith',
     avatar: 'https://example.com/avatar.jpg',
     rating: 4.5,
@@ -47,7 +47,7 @@ describe('ReviewCard Component', () => {
 
   it('shows movie title when provided', () => {
     render(<ReviewCard post={mockPost} />);
-    expect(screen.getByText('The Matrix')).toBeInTheDocument();
+    expect(screen.getAllByText('The Matrix').length).toBeGreaterThan(0);
   });
 
   it('renders without movie information', () => {

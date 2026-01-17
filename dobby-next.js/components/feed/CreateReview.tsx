@@ -1,125 +1,78 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-"use client";
-import { useEffect, useRef, useState } from "react";
-import { Search } from "lucide-react";
-import { rankByQuery } from "@/lib/search/smartSearch";
+"use client"
 
-interface MovieResult {
-  id: number;
-  title: string;
-  type: "movie" | "tv";
-  poster_path?: string;
+import { useState } from "react"
+import { Search, Star, Film, Tv, X, Loader2 } from "lucide-react"
+
+// Mock types for the component
+interface Movie {
+  id: number
+  title: string
+  type: "movie" | "tv"
+  poster_path: string | null
 }
 
-type MoviesSearchResponse = {
-  results: any[];
-  page: number;
-  total_pages: number;
-  total_results: number;
-};
-
-type ShowsSearchResponse = {
-  results: any[];
-  page: number;
-  total_pages: number;
-  total_results: number;
-};
-
 export default function CreateReview() {
-  const [rating, setRating] = useState<number>(0);
-  const [text, setText] = useState("");
-  const [selectedMovie, setSelectedMovie] = useState<MovieResult | null>(null);
-  const [movieSearch, setMovieSearch] = useState("");
-  const [filteredMovies, setFilteredMovies] = useState<MovieResult[]>([]);
-  const [loadingMovies, setLoadingMovies] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [movieSearch, setMovieSearch] = useState("")
+  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null)
+  const [filteredMovies, setFilteredMovies] = useState<Movie[]>([])
+  const [loadingMovies, setLoadingMovies] = useState(false)
+  const [rating, setRating] = useState("")
+  const [text, setText] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
-  const searchRequestIdRef = useRef(0);
-
-  useEffect(() => {
-    const normalizedQuery = movieSearch.trim().replace(/\s+/g, " ");
-    if (!normalizedQuery) {
-      setFilteredMovies([]);
-      setLoadingMovies(false);
-      return;
+  // Search function with real API
+  const handleMovieSearch = async (query: string) => {
+    setMovieSearch(query)
+    if (!query.trim()) {
+      setFilteredMovies([])
+      return
     }
 
-    const requestId = ++searchRequestIdRef.current;
+    setLoadingMovies(true)
+    try {
+      const [moviesRes, showsRes] = await Promise.all([
+        fetch(`/api/movies?query=${query}&page=1`),
+        fetch(`/api/shows?query=${query}&page=1`),
+      ])
 
-    const timeoutId = setTimeout(async () => {
-      setLoadingMovies(true);
-      try {
-        const q = encodeURIComponent(normalizedQuery);
+      let allResults: Movie[] = []
 
-        // Search both movies and shows in parallel
-        const [moviesRes, showsRes] = await Promise.all([
-          fetch(`/api/movies?query=${q}&page=1`),
-          fetch(`/api/shows?query=${q}&page=1`),
-        ]);
-
-        const allResults: MovieResult[] = [];
-
-        // Process movies
-        if (moviesRes.ok) {
-          const moviesData: MoviesSearchResponse = await moviesRes.json();
-          const movies: MovieResult[] = (moviesData.results ?? [])
-            .filter((movie: any) => movie.release_date && movie.vote_average !== 0)
-            // Pull more candidates; we fuzzy-rank locally.
-            .slice(0, 20)
-            .map((movie: any) => ({
-              id: movie.id,
-              title: movie.title,
-              type: "movie" as const,
-              poster_path: movie.poster_path,
-            }));
-          allResults.push(...movies);
-        }
-
-        // Process shows
-        if (showsRes.ok) {
-          const showsData: ShowsSearchResponse | any[] = await showsRes.json();
-          const showsRaw = Array.isArray(showsData)
-            ? showsData
-            : (showsData.results ?? []);
-
-          const shows: MovieResult[] = showsRaw
-            .filter((show: any) => show.first_air_date && show.vote_average !== 0)
-            .slice(0, 20)
-            .map((show: any) => ({
-              id: show.id,
-              title: show.name,
-              type: "tv" as const,
-              poster_path: show.poster_path,
-            }));
-          allResults.push(...shows);
-        }
-
-        // Drop exact duplicates (same type + id)
-        const unique = Array.from(
-          new Map(allResults.map((item) => [`${item.type}:${item.id}`, item])).values()
-        );
-
-        // Smart rank (normalize + token + fuzzy) so typos like "housmaid" match "housemaid".
-        const ranked = rankByQuery(unique, normalizedQuery, (r) => [r.title]);
-        const finalResults = ranked.slice(0, 10);
-
-        if (requestId === searchRequestIdRef.current) {
-          setFilteredMovies(finalResults);
-        }
-      } catch (error) {
-        console.error("Error searching movies/shows:", error);
-        if (requestId === searchRequestIdRef.current) {
-          setFilteredMovies([]);
-        }
-      } finally {
-        if (requestId === searchRequestIdRef.current) {
-          setLoadingMovies(false);
-        }
+      if (moviesRes.ok) {
+        const moviesData: any = await moviesRes.json()
+        const movies: Movie[] = moviesData.results
+          .filter((movie: any) => movie.release_date && movie.vote_average !== 0)
+          .slice(0, 4)
+          .map((movie: any) => ({
+            id: movie.id,
+            title: movie.title,
+            type: "movie" as const,
+            poster_path: movie.poster_path,
+          }))
+        allResults.push(...movies)
       }
-    }, 250);
 
-    return () => clearTimeout(timeoutId);
-  }, [movieSearch]);
+      if (showsRes.ok) {
+        const showsData: any = await showsRes.json()
+        const shows: Movie[] = showsData
+          .filter((show: any) => show.first_air_date && show.vote_average !== 0)
+          .slice(0, 4)
+          .map((show: any) => ({
+            id: show.id,
+            title: show.name,
+            type: "tv" as const,
+            poster_path: show.poster_path,
+          }))
+        allResults.push(...shows)
+      }
+
+      setFilteredMovies(allResults)
+    } catch (error) {
+      console.error("Error searching movies/shows:", error)
+      setFilteredMovies([])
+    } finally {
+      setLoadingMovies(false)
+    }
+  }
 
   const submitReview = async () => {
     if (!selectedMovie || rating === "") return
@@ -185,30 +138,29 @@ export default function CreateReview() {
           <h3 className="text-sm sm:text-base font-semibold text-zinc-100">Share Your Review</h3>
         </div>
 
-      <div className="space-y-3">
-        {/* Top Row - Movie Selection */}
-        <div>
-          <label className="block text-xs font-semibold text-gray-300 mb-1">
-            Movie or Show
-          </label>
-          <div className="relative flex gap-2">
-            <div className="relative flex-1">
-              <Search size={16} className="absolute left-3 top-2.5 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={movieSearch}
-                onChange={(e) => setMovieSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
-              />
-
-              {/* Dropdown */}
-              {movieSearch && (loadingMovies || filteredMovies.length > 0) && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
-                  {loadingMovies ? (
-                    <div className="px-3 py-2 text-gray-400 text-xs">Searching...</div>
-                  ) : filteredMovies.length > 0 ? (
-                    filteredMovies.map((movie) => (
+        <div className="space-y-3">
+          {/* Search Input */}
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <input
+              type="text"
+              placeholder="Search movies or shows..."
+              value={movieSearch}
+              onChange={(e) => handleMovieSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-lg bg-zinc-800/50 border border-zinc-700/50 text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-fuchsia-500/50 focus:ring-2 focus:ring-fuchsia-500/20 transition-all"
+            />
+            
+            {/* Dropdown Results - positioned relative to search input */}
+            {movieSearch && (loadingMovies || filteredMovies.length > 0) && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900/95 backdrop-blur-sm border border-fuchsia-500/20 rounded-lg shadow-xl z-50 overflow-hidden">
+                {loadingMovies ? (
+                  <div className="flex items-center justify-center gap-2 p-4">
+                    <Loader2 size={16} className="animate-spin text-fuchsia-400" />
+                    <span className="text-zinc-500 text-xs">Searching...</span>
+                  </div>
+                ) : (
+                  <div className="max-h-[240px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-thumb]:rounded-full">
+                    {filteredMovies.map((movie) => (
                       <button
                         key={`${movie.type}-${movie.id}`}
                         onClick={() => {
@@ -311,4 +263,3 @@ export default function CreateReview() {
     </div>
   )
 }
-
