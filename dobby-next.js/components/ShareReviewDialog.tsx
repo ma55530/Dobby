@@ -71,7 +71,7 @@ export function ShareReviewDialog({
     if (sending) return;
     setSending(true);
     try {
-      const defaultMessage = `Check out my review of this ${itemType}!`;
+      const defaultMessage = `Check out this review of this ${itemType}!`;
 
       const res = await fetch(`/api/conversations/${conversationId}/messages`, {
         method: 'POST',

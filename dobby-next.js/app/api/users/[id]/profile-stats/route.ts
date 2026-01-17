@@ -12,11 +12,11 @@ export async function GET(
 
   try {
     const { data: movieRatings, error: movieRatingsError } = await supabase
-      .from('movie_ratings')
+      .from('rating')
       .select('movie_id, rating, created_at')
       .eq('user_id', userId)
       .not('rating', 'is', null)
-      .is('first_parent', null)
+      .not('movie_id', 'is', null)
       .order('rating', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(4)
@@ -26,11 +26,11 @@ export async function GET(
     }
 
     const { data: showRatings, error: showRatingsError } = await supabase
-      .from('show_ratings')
+      .from('rating')
       .select('show_id, rating, created_at')
       .eq('user_id', userId)
       .not('rating', 'is', null)
-      .is('first_parent', null)
+      .not('show_id', 'is', null)
       .order('rating', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(4)
