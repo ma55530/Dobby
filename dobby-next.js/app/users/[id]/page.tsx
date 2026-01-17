@@ -86,7 +86,10 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
         const countsRes = await fetch(`/api/follows/count/${userData.id}`);
         if (countsRes.ok) {
           const countsData = await countsRes.json();
-          setFollowCounts(countsData);
+          setFollowCounts({
+            followers: countsData.followersCount ?? countsData.followers ?? 0,
+            following: countsData.followingCount ?? countsData.following ?? 0,
+          });
         }
 
         // Fetch profile stats
