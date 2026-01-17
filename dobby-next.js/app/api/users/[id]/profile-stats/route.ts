@@ -40,7 +40,6 @@ export async function GET(
     }
 
     const movieIds = movieRatings?.map(item => item.movie_id).filter(Boolean) || []
-    const showIds = showRatings?.map(item => item.show_id).filter(Boolean) || []
 
     const topMoviesPromise = Promise.all(
       movieIds.map(async (movieId, index) => {
@@ -64,24 +63,27 @@ export async function GET(
     )
 
     const topShowsPromise = Promise.all(
-      showIds.map(async (showId, index) => {
-        try {
-          const res = await fetch(`https://api.themoviedb.org/3/tv/${showId}`, get_options)
-          if (res.ok) {
-            const show = await res.json()
-            return {
-              id: show.id,
-              name: show.name,
-              poster_path: show.poster_path || null,
-              genres: show.genres || [],
-              rating: showRatings?.[index]?.rating ?? null
+      (showRatings || [])
+        .filter(r => r.show_id)
+        .map(async (row) => {
+          const showId = row.show_id
+          try {
+            const res = await fetch(`https://api.themoviedb.org/3/tv/${showId}`, get_options)
+            if (res.ok) {
+              const show = await res.json()
+              return {
+                id: show.id,
+                name: show.name,
+                poster_path: show.poster_path || null,
+                genres: show.genres || [],
+                rating: row.rating ?? null
+              }
             }
+          } catch (err) {
+            console.error(`Error fetching show ${showId}:`, err)
           }
-        } catch (err) {
-          console.error(`Error fetching show ${showId}:`, err)
-        }
-        return null
-      })
+          return null
+        })
     )
 
     const [fetchedMovies, fetchedShows] = await Promise.all([topMoviesPromise, topShowsPromise])
