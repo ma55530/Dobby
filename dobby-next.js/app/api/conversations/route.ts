@@ -96,9 +96,90 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { recipientId } = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
 
-  if (!recipientId) {
+  const { recipientId, recipientIds, groupName, groupAvatarUrl } = (body ?? {}) as {
+    recipientId?: unknown;
+    recipientIds?: unknown;
+    groupName?: unknown;
+    groupAvatarUrl?: unknown;
+  };
+
+  // Handle group chat creation
+  if (Array.isArray(recipientIds) && recipientIds.length > 0) {
+    if (!groupName || typeof groupName !== 'string') {
+      return NextResponse.json({ error: 'Group name is required for group chats' }, { status: 400 });
+    }
+
+    // Validate all recipient IDs are strings and not the current user
+    const validRecipientIds = recipientIds.filter(
+      (id): id is string => typeof id === 'string' && id !== user.id
+    );
+
+    if (validRecipientIds.length === 0) {
+      return NextResponse.json({ error: 'At least one other user is required for a group' }, { status: 400 });
+    }
+
+    // Check if all recipients exist
+    const { data: recipientProfiles, error: recipientsError } = await supabase
+      .from('profiles')
+      .select('id')
+      .in('id', validRecipientIds);
+
+    if (recipientsError) {
+      return NextResponse.json({ error: recipientsError.message }, { status: 400 });
+    }
+
+    if (!recipientProfiles || recipientProfiles.length !== validRecipientIds.length) {
+      return NextResponse.json({ error: 'One or more recipients not found' }, { status: 404 });
+    }
+
+    // Create group conversation
+    const conversationData: any = {
+      is_group: true,
+      group_name: groupName,
+    };
+
+    if (groupAvatarUrl && typeof groupAvatarUrl === 'string') {
+      conversationData.group_avatar_url = groupAvatarUrl;
+    }
+
+    const { data: newConv, error: convError } = await supabase
+      .from('conversations')
+      .insert(conversationData)
+      .select('id')
+      .single();
+
+    if (convError) {
+      return NextResponse.json({ error: convError.message }, { status: 500 });
+    }
+
+    // Add all participants (including creator)
+    const participantsToAdd = [user.id, ...validRecipientIds].map(userId => ({
+      conversation_id: newConv.id,
+      user_id: userId,
+    }));
+
+    const { error: participantsError } = await supabase
+      .from('conversation_participants')
+      .insert(participantsToAdd);
+
+    if (participantsError) {
+      // Rollback: delete the conversation
+      await supabase.from('conversations').delete().eq('id', newConv.id);
+      return NextResponse.json({ error: participantsError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ conversationId: newConv.id });
+  }
+
+  // 1:1 conversation (backward-compatible)
+  if (!recipientId || typeof recipientId !== 'string') {
     return NextResponse.json({ error: 'Recipient ID is required' }, { status: 400 });
   }
 

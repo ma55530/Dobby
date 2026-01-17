@@ -173,6 +173,16 @@
     background: #a855f7;
   }
 
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   button:not(:disabled) {
   cursor: pointer;
   }

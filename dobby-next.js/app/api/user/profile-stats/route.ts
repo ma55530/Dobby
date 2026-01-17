@@ -46,123 +46,104 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
    }
 
-   try {
-      // Try to get favorite genres from request query params (sent from frontend with localStorage data)
-      const { searchParams } = new URL(request.url);
-      const genresParam = searchParams.get("favorite_genres");
-      let favoriteGenresFromClient: string[] = [];
-
-      if (genresParam) {
-         try {
-            const genreIds = JSON.parse(genresParam);
-            if (Array.isArray(genreIds)) {
-               favoriteGenresFromClient = genreIds
-                  .map((id: number) => GENRE_MAP[id])
-                  .filter(Boolean);
-            }
-         } catch (e) {
-            console.error("Failed to parse favorite_genres param:", e);
-         }
+  try {
+    // Try to get favorite genres from request query params (sent from frontend with localStorage data)
+    const { searchParams } = new URL(request.url);
+    const genresParam = searchParams.get('favorite_genres');
+    let favoriteGenresFromClient: string[] = [];
+    
+    if (genresParam) {
+      try {
+        const genreIds = JSON.parse(genresParam);
+        if (Array.isArray(genreIds)) {
+          favoriteGenresFromClient = genreIds
+            .map((id: number) => GENRE_MAP[id])
+            .filter(Boolean);
+        }
+      } catch (e) {
+        console.error('Failed to parse favorite_genres param:', e);
       }
+    }
+    
+    const { data: movieRatings, error: movieRatingsError } = await supabase
+      .from('movie_ratings')
+      .select('movie_id, rating, created_at')
+      .eq('user_id', user.id)
+      .not('rating', 'is', null)
+      .is('first_parent', null)
+      .order('rating', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(4)
 
-      // Fetch all watchlists for this user
-      const { data: watchlists, error: watchlistsError } = await supabase
-         .from("watchlists")
-         .select("id")
-         .eq("user_id", user.id);
+    if (movieRatingsError) {
+      console.error('Movie ratings error:', movieRatingsError)
+    }
 
-      if (watchlistsError || !watchlists || watchlists.length === 0) {
-         // Return favorite genres from client even if no watchlists
-         return NextResponse.json({
-            favoriteGenres: favoriteGenresFromClient,
-            topMovies: [],
-            topShows: [],
-         });
-      }
+    const { data: showRatings, error: showRatingsError } = await supabase
+      .from('show_ratings')
+      .select('show_id, rating, created_at')
+      .eq('user_id', user.id)
+      .not('rating', 'is', null)
+      .is('first_parent', null)
+      .order('rating', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(4)
 
-      const watchlistIds = watchlists.map((w) => w.id);
+    if (showRatingsError) {
+      console.error('Show ratings error:', showRatingsError)
+    }
 
-      // Fetch watchlist items for all watchlists
-      const { data: watchlistItems, error: watchlistError } = await supabase
-         .from("watchlist_items")
-         .select("movie_id, show_id")
-         .in("watchlist_id", watchlistIds);
+    const movieIds = movieRatings?.map(item => item.movie_id).filter(Boolean) || []
+    const showIds = showRatings?.map(item => item.show_id).filter(Boolean) || []
 
-      if (watchlistError) {
-         console.error("Watchlist error:", watchlistError);
-         // Return empty stats if error
-         return NextResponse.json({
-            favoriteGenres: [],
-            topMovies: [],
-            topShows: [],
-         });
-      }
+    // Fetch movie details from TMDB
+    const topMoviesPromise = Promise.all(
+      movieIds.map(async (movieId, index) => {
+        try {
+          const res = await fetch(`https://api.themoviedb.org/3/movie/${movieId}`, get_options);
+          if (res.ok) {
+            const movie = await res.json();
+            return {
+              id: movie.id,
+              title: movie.title,
+              poster_path: movie.poster_path || null,
+              genres: movie.genres || [],
+              rating: movieRatings?.[index]?.rating ?? null
+            };
+          }
+        } catch (err) {
+          console.error(`Error fetching movie ${movieId}:`, err);
+        }
+        return null;
+      })
+    );
 
-      const movieIds =
-         watchlistItems
-            ?.filter((item) => item.movie_id)
-            .map((item) => item.movie_id)
-            .slice(0, 10) || [];
+    // Fetch show details from TMDB
+    const topShowsPromise = Promise.all(
+      showIds.map(async (showId, index) => {
+        try {
+          const res = await fetch(`https://api.themoviedb.org/3/tv/${showId}`, get_options);
+          if (res.ok) {
+            const show = await res.json();
+            return {
+              id: show.id,
+              name: show.name,
+              poster_path: show.poster_path || null,
+              genres: show.genres || [],
+              rating: showRatings?.[index]?.rating ?? null
+            };
+          }
+        } catch (err) {
+          console.error(`Error fetching show ${showId}:`, err);
+        }
+        return null;
+      })
+    );
 
-      const showIds =
-         watchlistItems
-            ?.filter((item) => item.show_id)
-            .map((item) => item.show_id)
-            .slice(0, 10) || [];
+    const [fetchedMovies, fetchedShows] = await Promise.all([topMoviesPromise, topShowsPromise]);
 
-      // Fetch movie details from TMDB
-      const topMoviesPromise = Promise.all(
-         movieIds.map(async (movieId) => {
-            try {
-               const res = await fetch(
-                  `https://api.themoviedb.org/3/movie/${movieId}`,
-                  get_options
-               );
-               if (res.ok) {
-                  const movie = await res.json();
-                  return {
-                     id: movie.id,
-                     title: movie.title,
-                     genres: movie.genres || [],
-                  };
-               }
-            } catch (err) {
-               console.error(`Error fetching movie ${movieId}:`, err);
-            }
-            return null;
-         })
-      );
-
-      // Fetch show details from TMDB
-      const topShowsPromise = Promise.all(
-         showIds.map(async (showId) => {
-            try {
-               const res = await fetch(
-                  `https://api.themoviedb.org/3/tv/${showId}`,
-                  get_options
-               );
-               if (res.ok) {
-                  const show = await res.json();
-                  return {
-                     id: show.id,
-                     name: show.name,
-                     genres: show.genres || [],
-                  };
-               }
-            } catch (err) {
-               console.error(`Error fetching show ${showId}:`, err);
-            }
-            return null;
-         })
-      );
-
-      const [fetchedMovies, fetchedShows] = await Promise.all([
-         topMoviesPromise,
-         topShowsPromise,
-      ]);
-
-      const topMovies = fetchedMovies.filter((m) => m !== null) as any[];
-      const topShows = fetchedShows.filter((s) => s !== null) as any[];
+    const topMovies = fetchedMovies.filter(m => m !== null) as any[];
+    const topShows = fetchedShows.filter(s => s !== null) as any[];
 
       // Calculate favorite genres from all watched content (if not provided by client)
       let favoriteGenres = favoriteGenresFromClient;

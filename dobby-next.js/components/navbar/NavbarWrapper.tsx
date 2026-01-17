@@ -87,30 +87,25 @@ export default function NavbarWrapper() {
       router.push(href);
    };
 
-   return (
-      <Navbar05
-         logo={
-            <div className="flex items-center gap-2 bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 bg-clip-text text-transparent font-semibold tracking-wide text-2xl">
-               <Image
-                  src="/vercel.svg"
-                  alt="Next.js Logo"
-                  width={24}
-                  height={24}
-               />
-               <span>Dobby</span>
-            </div>
-         }
-         onNavItemClick={handleNavItemClick}
-         navigationLinks={[
-            { label: "Home", href: "/" },
-            { label: "Movies", href: "/movies" },
-            { label: "Shows", href: "/shows" },
-            { label: "Users", href: "/users" },
-            { label: "Messages", href: "/messages" },
-         ]}
-         userName={sessionUser?.name || "Guest"}
-         userEmail={sessionUser?.email || ""}
-         userAvatar={sessionUser?.avatar}
-      />
-   );
+  return (
+    <Navbar05
+      logo={
+        <div className="flex items-center gap-2 bg-gradient-to-r from-purple-500 via-fuchsia-500 to-pink-500 bg-clip-text text-transparent font-semibold tracking-wide text-2xl">
+          <Image src="/vercel.svg" alt="Next.js Logo" width={24} height={24} />
+          <span>Dobby</span>
+        </div>
+      }
+      onNavItemClick={handleNavItemClick}
+      navigationLinks={[
+        { label: "Home", href: "/" },
+        { label: "Movies", href: "/movies" },
+        { label: "Shows", href: "/shows" },
+        { label: "Friends", href: "/users" },
+        { label: "Messages", href: "/messages" },
+      ]}
+      userName={sessionUser?.name || "Guest"}
+      userEmail={sessionUser?.email || ""}
+      userAvatar={sessionUser?.avatar}
+    />
+  );
 }
