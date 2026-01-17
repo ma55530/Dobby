@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Heart, MessageCircle, Share2, ChevronDown, ThumbsDown, CornerDownRight, Send} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
-import { ShareDialog } from "@/components/ShareDialog";
+import { ShareReviewDialog } from "@/components/ShareReviewDialog";
 
 interface Comment {
   id: string;
@@ -578,36 +578,38 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
           </div>
 
           {showCommentForm && (
-              <div className="mt-5 pt-5 border-t border-border animate-in slide-in-from-top-2 duration-200">
+              <div className="mt-3 sm:mt-5 pt-3 sm:pt-5 border-t border-zinc-700/50 animate-in slide-in-from-top-2 duration-200">
                 <div className="relative">
                   <textarea
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Share your thoughts..."
-                    className="w-full bg-input text-foreground rounded-xl p-4 pr-24 min-h-[100px] border border-border focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none placeholder:text-muted-foreground transition-all"
+                    placeholder="Write your comment..."
+                    className="w-full bg-zinc-950/50 text-white text-xs sm:text-sm rounded-xl p-3 sm:p-4 pr-20 sm:pr-24 min-h-[80px] sm:min-h-[100px] border border-zinc-700 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none placeholder:text-zinc-600 transition-all text-left"
                   />
-                  <div className="absolute bottom-3 right-3 flex gap-2">
+                  <div className="absolute bottom-2 sm:bottom-3 right-2 sm:right-3 flex gap-1.5 sm:gap-2">
                     <button
+                      type="button"
                       onClick={() => {
                         setShowCommentForm(false)
                         setCommentText("")
                       }}
-                      className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm text-zinc-400 hover:text-white transition-colors"
                     >
                       Cancel
                     </button>
                     <button
+                      type="button"
                       onClick={handleSubmitComment}
                       disabled={!commentText.trim() || isSubmitting}
-                      className="px-4 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+                      className="px-3 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm font-medium bg-purple-600 text-white rounded-lg hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 sm:gap-2"
                     >
                       {isSubmitting ? (
                         <>
-                          <div className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                           Posting...
                         </>
                       ) : (
-                        "Post"
+                        "Post Comment"
                       )}
                     </button>
                   </div>
@@ -615,9 +617,9 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
               </div>
             )}
 
-          {/* Share Dialog */}
+          {/* Share Review Dialog */}
           {post.movieId && post.movieTitle && (
-            <ShareDialog
+            <ShareReviewDialog
               open={shareDialogOpen}
               onOpenChange={setShareDialogOpen}
               itemType={post.movieType === "tv" ? "show" : "movie"}

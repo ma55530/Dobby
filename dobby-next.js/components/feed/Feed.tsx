@@ -133,13 +133,19 @@ export default function Feed({
           : `/api/posts?${params}`;
         
         const response = await fetch(endpoint);
-        if (!response.ok) throw new Error("Failed to fetch reviews");
         const result = await response.json();
+        
+        // Handle errors gracefully - if user doesn't follow anyone, result will have empty array
+        if (!response.ok) {
+          console.error("Error fetching reviews:", result.error || "Unknown error");
+          setReviews([]);
+          return;
+        }
         
         // Get data from appropriate property
         const data = type === "ratings" 
-          ? (result.ratings || result)
-          : (result.posts || result);
+          ? (result.ratings || [])
+          : (result.posts || []);
         
         setReviews(data);
       } catch (error) {
@@ -192,7 +198,11 @@ export default function Feed({
         </div>
       ) : (
         <div className="text-gray-400 text-center py-8">
-          {type === "ratings" ? "No ratings yet" : "No reviews yet"}
+          {filter === "following" 
+            ? (type === "ratings" 
+                ? "No ratings from people you follow yet. Start following users to see their activity!" 
+                : "No reviews from people you follow yet. Start following users to see their activity!")
+            : (type === "ratings" ? "No ratings yet" : "No reviews yet")}
         </div>
       )}
     </div>
