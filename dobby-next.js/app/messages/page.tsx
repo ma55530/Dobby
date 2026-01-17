@@ -41,6 +41,9 @@ function MessagesContent() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+  const [groupName, setGroupName] = useState('');
+  const [groupAvatarFile, setGroupAvatarFile] = useState<File | null>(null);
+  const [groupAvatarPreview, setGroupAvatarPreview] = useState<string | null>(null);
 
   const targetMessageId = searchParams.get('message');
 
@@ -315,10 +318,72 @@ function MessagesContent() {
     }
   };
 
+  const createGroupConversation = async () => {
+    if (!groupName.trim() || selectedUsers.length < 2) {
+      alert('Please enter a group name and select at least 2 users');
+      return;
+    }
+
+    try {
+      let groupAvatarUrl = null;
+
+      // Upload group avatar if selected
+      if (groupAvatarFile) {
+        const formData = new FormData();
+        formData.append('avatar', groupAvatarFile);
+
+        const uploadRes = await fetch('/api/conversations/group-avatar', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          groupAvatarUrl = uploadData.avatar_url;
+        }
+      }
+
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientIds: selectedUsers.map(u => u.id),
+          groupName: groupName.trim(),
+          groupAvatarUrl,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setActiveConversation(data.conversationId);
+        await fetchConversations();
+        await fetchMessages(data.conversationId);
+        setNewConversationOpen(false);
+        setSearchQuery('');
+        setSearchResults([]);
+        setSelectedUsers([]);
+        setGroupName('');
+        setGroupAvatarFile(null);
+        setGroupAvatarPreview(null);
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Failed to create group');
+      }
+    } catch (error) {
+      console.error('Failed to create group:', error);
+      alert('Failed to create group');
+    }
+  };
+
   const getOtherParticipant = (conv: Conversation) =>
     conv.participants?.find(p => p.id !== currentUser?.id);
 
   const getConversationTitle = (conv: Conversation) => {
+    // If it's a group with a name, use the group name
+    if (conv.is_group && conv.group_name) {
+      return conv.group_name;
+    }
+
     const others = (conv.participants ?? []).filter((p) => p.id !== currentUser?.id);
     if (others.length === 1) {
       const other = others[0];
@@ -337,7 +402,10 @@ function MessagesContent() {
   const toggleSelectedUser = (user: any) => {
     setSelectedUsers((prev) => {
       const exists = prev.some((u) => u.id === user.id);
-      return exists ? [] : [user];
+      if (exists) {
+        return prev.filter((u) => u.id !== user.id);
+      }
+      return [...prev, user];
     });
   };
 
@@ -402,10 +470,21 @@ function MessagesContent() {
       <div className="flex items-center gap-3">
         <div className="relative">
           <Avatar className="w-12 h-12">
-            {otherCount === 1 ? <AvatarImage src={other?.avatar_url ?? undefined} /> : null}
-            <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
-              {getConversationTitle(conv)[0]?.toUpperCase() || '?'}
-            </AvatarFallback>
+            {conv.is_group ? (
+              <>
+                {conv.group_avatar_url ? <AvatarImage src={conv.group_avatar_url} /> : null}
+                <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
+                  {conv.group_name?.[0]?.toUpperCase() || 'G'}
+                </AvatarFallback>
+              </>
+            ) : (
+              <>
+                {otherCount === 1 ? <AvatarImage src={other?.avatar_url ?? undefined} /> : null}
+                <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
+                  {getConversationTitle(conv)[0]?.toUpperCase() || '?'}
+                </AvatarFallback>
+              </>
+            )}
           </Avatar>
         </div>
 
@@ -436,14 +515,34 @@ function MessagesContent() {
                 <div className="p-4 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Avatar className="w-10 h-10">
-                      {otherUser ? <AvatarImage src={otherUser?.avatar_url ?? undefined} /> : null}
-                      <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
-                        {getConversationTitle(activeConversationData)[0]?.toUpperCase() || '?'}
-                      </AvatarFallback>
+                      {activeConversationData.is_group ? (
+                        <>
+                          {activeConversationData.group_avatar_url ? (
+                            <AvatarImage src={activeConversationData.group_avatar_url} />
+                          ) : null}
+                          <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
+                            {activeConversationData.group_name?.[0]?.toUpperCase() || 'G'}
+                          </AvatarFallback>
+                        </>
+                      ) : (
+                        <>
+                          {otherUser ? <AvatarImage src={otherUser?.avatar_url ?? undefined} /> : null}
+                          <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
+                            {getConversationTitle(activeConversationData)[0]?.toUpperCase() || '?'}
+                          </AvatarFallback>
+                        </>
+                      )}
                     </Avatar>
-                    <h2 className="text-lg font-semibold text-white">
-                      {getConversationTitle(activeConversationData)}
-                    </h2>
+                    <div>
+                      <h2 className="text-lg font-semibold text-white">
+                        {getConversationTitle(activeConversationData)}
+                      </h2>
+                      {activeConversationData.is_group && activeConversationData.group_name && (
+                        <p className="text-xs text-gray-400">
+                          {activeConversationData.participants?.filter(p => p.id !== currentUser?.id).map(p => p.username).join(', ')}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <Button
                     variant="ghost"
@@ -620,15 +719,15 @@ function MessagesContent() {
       </div>
 
       <Dialog open={newConversationOpen} onOpenChange={setNewConversationOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white">
-          <DialogHeader>
-            <DialogTitle>Start New Conversation</DialogTitle>
-            <DialogDescription className="text-gray-400">
-              Search for a user to start a direct chat.
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-h-[85vh] flex flex-col">
+          <DialogHeader className="pb-2 flex-shrink-0">
+            <DialogTitle className="text-xl">Start New Conversation</DialogTitle>
+            <DialogDescription className="text-gray-400 pt-1">
+              Search and select friends. Choose 1 for direct chat or more for a group.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 pt-2 overflow-y-auto flex-1 custom-scrollbar">
             <div className="flex gap-2">
               <Input
                 value={searchQuery}
@@ -636,7 +735,7 @@ function MessagesContent() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') searchUsers();
                 }}
-                placeholder="Search users by username..."
+                placeholder="Search friends by username..."
                 className="bg-slate-900 border-slate-600 text-white"
               />
               <Button onClick={searchUsers} disabled={searching} className="bg-purple-600 hover:bg-purple-700">
@@ -662,12 +761,12 @@ function MessagesContent() {
               </div>
             )}
 
-            <div className="max-h-64 overflow-y-auto space-y-2">
+            <div className="max-h-64 overflow-y-auto space-y-3 pr-2 scrollbar-hide">
               {searching ? (
                 <div className="text-center py-8 text-gray-400">Searching...</div>
               ) : searchResults.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
-                  {searchQuery ? 'No users found' : 'Search for a user to start chatting'}
+                  {searchQuery ? 'No friends found' : 'Search for a friend to start chatting'}
                 </div>
               ) : (
                 searchResults.map((user) => (
@@ -676,8 +775,12 @@ function MessagesContent() {
                     onClick={() => toggleSelectedUser(user)}
                     className="p-3 rounded-lg bg-slate-700 hover:bg-slate-600 cursor-pointer transition-colors flex items-center gap-3"
                   >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold">
-                      {user.username?.[0]?.toUpperCase() || '?'}
+                    <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold overflow-hidden">
+                      {user.avatar_url ? (
+                        <Image src={user.avatar_url} alt={user.username || 'User'} fill className="object-cover" unoptimized />
+                      ) : (
+                        <span>{user.username?.[0]?.toUpperCase() || '?'}</span>
+                      )}
                     </div>
                     <div>
                       <p className="font-medium">{user.username}</p>
@@ -696,10 +799,61 @@ function MessagesContent() {
             {selectedUsers.length === 1 && (
               <Button
                 onClick={() => startNewConversation(selectedUsers[0].id)}
-                className="bg-purple-600 hover:bg-purple-700"
+                className="bg-purple-600 hover:bg-purple-700 w-full"
               >
                 Start Chat
               </Button>
+            )}
+
+            {selectedUsers.length >= 2 && (
+              <div className="space-y-3">
+                <Input
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="Enter group name..."
+                  className="bg-slate-900 border-slate-600 text-white"
+                />
+                
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-300">Group Avatar (optional)</label>
+                  {groupAvatarPreview && (
+                    <div className="flex justify-center">
+                      <div className="relative w-20 h-20 rounded-full overflow-hidden">
+                        <Image src={groupAvatarPreview} alt="Group avatar preview" fill className="object-cover" unoptimized />
+                      </div>
+                    </div>
+                  )}
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          alert('File size too large (max 5MB)');
+                          e.target.value = '';
+                          return;
+                        }
+                        setGroupAvatarFile(file);
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setGroupAvatarPreview(reader.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="bg-slate-900 border-slate-600 text-white"
+                  />
+                </div>
+
+                <Button
+                  onClick={createGroupConversation}
+                  className="bg-purple-600 hover:bg-purple-700 w-full"
+                  disabled={!groupName.trim()}
+                >
+                  Create Group ({selectedUsers.length} members)
+                </Button>
+              </div>
             )}
           </div>
         </DialogContent>

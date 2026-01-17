@@ -187,6 +187,74 @@ export async function POST(
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
+    // Create notifications for all participants except the sender
+    const { data: allParticipants, error: participantsError } = await supabase
+      .from('conversation_participants')
+      .select('user_id')
+      .eq('conversation_id', id);
+
+    if (!participantsError && allParticipants) {
+      // Get conversation details to check if it's a group
+      const { data: conversation, error: convError } = await supabase
+        .from('conversations')
+        .select('is_group, group_name')
+        .eq('id', id)
+        .single();
+
+      console.log('Conversation data:', conversation, 'Error:', convError);
+
+      // Get sender's profile for username
+      const { data: senderProfile } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', user.id)
+        .single();
+
+      console.log('Sender profile:', senderProfile);
+
+      // Filter out the sender and create notifications for everyone else
+      const recipientIds = allParticipants
+        .map(p => p.user_id)
+        .filter(userId => userId !== user.id);
+
+      if (recipientIds.length > 0) {
+        let notificationContent = content.substring(0, 50);
+        
+        // For group messages, prepend group name and sender
+        if (conversation?.is_group && conversation?.group_name) {
+          const senderName = senderProfile?.username || 'Someone';
+          notificationContent = `${conversation.group_name}: ${senderName} - ${content.substring(0, 30)}`;
+          console.log('Group notification content:', notificationContent);
+        } else {
+          console.log('Not a group or no group name, using regular content');
+        }
+
+        const notifications = recipientIds.map(recipientId => ({
+          user_id: recipientId,
+          actor_id: user.id,
+          type: 'message',
+          resource_id: id, // conversation_id
+          content: notificationContent,
+        }));
+
+        console.log('Creating notifications:', notifications);
+
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .insert(notifications);
+
+        if (notifError) {
+          console.error('Failed to create notifications', {
+            conversationId: id,
+            userId: user.id,
+            recipientIds,
+            error: notifError,
+          });
+          // Non-fatal - message was sent successfully
+        }
+      }
+    }
+
     // Update conversation updated_at (non-fatal if this fails)
     const { error: updateConvError } = await supabase
       .from('conversations')
