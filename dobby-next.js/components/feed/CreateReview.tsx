@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Search, Star, Film, Tv, X, Loader2 } from "lucide-react"
 
 // Mock types for the component
@@ -9,6 +9,8 @@ interface Movie {
   title: string
   type: "movie" | "tv"
   poster_path: string | null
+  year?: string
+  popularity: number
 }
 
 export default function CreateReview() {
@@ -20,58 +22,108 @@ export default function CreateReview() {
   const [text, setText] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current)
+      if (abortControllerRef.current) abortControllerRef.current.abort()
+    }
+  }, [])
+
   // Search function with real API
-  const handleMovieSearch = async (query: string) => {
+  const handleMovieSearch = (query: string) => {
     setMovieSearch(query)
+
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current)
+    }
+
     if (!query.trim()) {
       setFilteredMovies([])
+      setLoadingMovies(false)
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
       return
     }
 
     setLoadingMovies(true)
-    try {
-      const [moviesRes, showsRes] = await Promise.all([
-        fetch(`/api/movies?query=${query}&page=1`),
-        fetch(`/api/shows?query=${query}&page=1`),
-      ])
 
-      let allResults: Movie[] = []
-
-      if (moviesRes.ok) {
-        const moviesData: any = await moviesRes.json()
-        const movies: Movie[] = moviesData.results
-          .filter((movie: any) => movie.release_date && movie.vote_average !== 0)
-          .slice(0, 4)
-          .map((movie: any) => ({
-            id: movie.id,
-            title: movie.title,
-            type: "movie" as const,
-            poster_path: movie.poster_path,
-          }))
-        allResults.push(...movies)
+    debounceTimeoutRef.current = setTimeout(async () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
       }
+      const controller = new AbortController()
+      abortControllerRef.current = controller
 
-      if (showsRes.ok) {
-        const showsData: any = await showsRes.json()
-        const shows: Movie[] = showsData
-          .filter((show: any) => show.first_air_date && show.vote_average !== 0)
-          .slice(0, 4)
-          .map((show: any) => ({
-            id: show.id,
-            title: show.name,
-            type: "tv" as const,
-            poster_path: show.poster_path,
-          }))
-        allResults.push(...shows)
+      try {
+        const [moviesRes, showsRes] = await Promise.all([
+          fetch(`/api/movies?query=${query}&page=1`, { signal: controller.signal }),
+          fetch(`/api/shows?query=${query}&page=1`, { signal: controller.signal }),
+        ])
+
+        let combinedResults: Movie[] = []
+
+        if (moviesRes.ok) {
+          const moviesData: any = await moviesRes.json()
+          const movies = (moviesData.results || [])
+            .filter((movie: any) => movie.release_date)
+            .slice(0, 10)
+            .map((movie: any) => ({
+              id: movie.id,
+              title: movie.title,
+              type: "movie" as const,
+              poster_path: movie.poster_path,
+              year: movie.release_date ? movie.release_date.split("-")[0] : "",
+              popularity: movie.popularity || 0,
+            }))
+          combinedResults.push(...movies)
+        }
+
+        if (showsRes.ok) {
+          const showsData: any = await showsRes.json()
+          const shows = (showsData.results || [])
+            .filter((show: any) => show.first_air_date)
+            .slice(0, 10)
+            .map((show: any) => ({
+              id: show.id,
+              title: show.name,
+              type: "tv" as const,
+              poster_path: show.poster_path,
+              year: show.first_air_date ? show.first_air_date.split("-")[0] : "",
+              popularity: show.popularity || 0,
+            }))
+          combinedResults.push(...shows)
+        }
+
+        // Sort: Exact match > Starts with > Popularity
+        const normalizedQuery = query.toLowerCase().trim()
+        combinedResults.sort((a, b) => {
+          const aTitle = a.title.toLowerCase()
+          const bTitle = b.title.toLowerCase()
+
+          if (aTitle === normalizedQuery && bTitle !== normalizedQuery) return -1
+          if (bTitle === normalizedQuery && aTitle !== normalizedQuery) return 1
+
+          if (aTitle.startsWith(normalizedQuery) && !bTitle.startsWith(normalizedQuery)) return -1
+          if (bTitle.startsWith(normalizedQuery) && !aTitle.startsWith(normalizedQuery)) return 1
+
+          return b.popularity - a.popularity
+        })
+
+        setFilteredMovies(combinedResults.slice(0, 8))
+      } catch (error: any) {
+        if (error.name === "AbortError") return
+        console.error("Error searching movies/shows:", error)
+        setFilteredMovies([])
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingMovies(false)
+        }
       }
-
-      setFilteredMovies(allResults)
-    } catch (error) {
-      console.error("Error searching movies/shows:", error)
-      setFilteredMovies([])
-    } finally {
-      setLoadingMovies(false)
-    }
+    }, 300)
   }
 
   const submitReview = async () => {
@@ -182,7 +234,10 @@ export default function CreateReview() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs sm:text-sm text-zinc-100 truncate font-medium">{movie.title}</p>
+                          <p className="text-xs sm:text-sm text-zinc-100 truncate font-medium">
+                            {movie.title}
+                            {movie.year && <span className="text-zinc-500 font-normal ml-1.5 text-[10px] sm:text-xs">({movie.year})</span>}
+                          </p>
                           <span
                             className={`text-[9px] sm:text-[10px] uppercase tracking-wide font-semibold ${movie.type === "tv" ? "text-violet-400" : "text-fuchsia-400"}`}
                           >
