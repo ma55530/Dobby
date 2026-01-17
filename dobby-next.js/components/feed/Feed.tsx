@@ -5,18 +5,20 @@ import Post from "./Post";
 import RatingCard from "@/components/cards/RatingCard";
 
 interface Comment {
-  id: number;
+  id: string;
   author: string;
   avatar?: string;
-  rating: number;
+  rating?: number;
   content: string;
   date: string;
   likes: number;
-  parentId?: number;
+  parentId?: string;
+  hasChildren?: boolean;
+  children?: Comment[];
 }
 
 interface Review {
-  id: number;
+  id: string;
   author: string;
   avatar?: string;
   rating: number;
@@ -29,18 +31,82 @@ interface Review {
   moviePoster?: string;
   hasChildren?: boolean;
   children?: Comment[];
+  commentCount?: number;
 }
 
-export default function Feed({ type = "reviews" }: { type?: "reviews" | "ratings" }) {
+export default function Feed({ 
+  type = "reviews", 
+  filter = "public" 
+}: { 
+  type?: "reviews" | "ratings";
+  filter?: "public" | "following";
+}) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [nestedComments, setNestedComments] = useState<Record<number, Comment[]>>({});
+  const [nestedComments, setNestedComments] = useState<Record<string, Comment[]>>({});
 
-  const loadMoreComments = async (parentId: number) => {
+  // Recursive function to fetch all nested replies
+  const fetchRepliesRecursive = async (commentId: string): Promise<Comment[]> => {
     try {
-      const response = await fetch(`/api/reviews/${parentId}/children`);
+      const repliesResponse = await fetch(`/api/comments/${commentId}/replies`);
+      if (!repliesResponse.ok) return [];
+      
+      const repliesResult = await repliesResponse.json();
+      const rawReplies = repliesResult.replies || [];
+      
+      // Recursively fetch replies for each reply
+      const replies = await Promise.all(rawReplies.map(async (reply: any) => {
+        let nestedReplies: Comment[] = [];
+        if ((reply.reply_count || 0) > 0) {
+          nestedReplies = await fetchRepliesRecursive(reply.id);
+        }
+        
+        return {
+          id: reply.id,
+          author: reply.profiles?.username || 'Unknown',
+          avatar: reply.profiles?.avatar_url,
+          content: reply.comment_text,
+          date: new Date(reply.created_at).toLocaleDateString(),
+          likes: 0,
+          parentId: reply.parent_comment,
+          hasChildren: (reply.reply_count || 0) > 0,
+          children: nestedReplies
+        };
+      }));
+      
+      return replies;
+    } catch (error) {
+      console.error("Error fetching replies recursively:", error);
+      return [];
+    }
+  };
+
+  const loadMoreComments = async (parentId: string) => {
+    try {
+      const response = await fetch(`/api/posts/${parentId}/comments?limit=10&offset=0`);
       if (!response.ok) throw new Error("Failed to fetch children");
-      const children = await response.json();
+      const result = await response.json();
+      const rawChildren = result.comments || result;
+      
+      // Transform the data to match the Comment interface and fetch all nested replies recursively
+      const children = await Promise.all(rawChildren.map(async (comment: any) => {
+        let replies: Comment[] = [];
+        if ((comment.reply_count || 0) > 0) {
+          replies = await fetchRepliesRecursive(comment.id);
+        }
+
+        return {
+          id: comment.id,
+          author: comment.profiles?.username || 'Unknown',
+          avatar: comment.profiles?.avatar_url,
+          content: comment.comment_text,
+          date: new Date(comment.created_at).toLocaleDateString(),
+          likes: 0,
+          hasChildren: (comment.reply_count || 0) > 0,
+          parentId: comment.parent_comment,
+          children: replies
+        };
+      }));
       
       setNestedComments(prev => ({
         ...prev,
@@ -54,21 +120,34 @@ export default function Feed({ type = "reviews" }: { type?: "reviews" | "ratings
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const response = await fetch("/api/reviews");
-        if (!response.ok) throw new Error("Failed to fetch reviews");
-        const data = await response.json();
+        // Build query params
+        const params = new URLSearchParams({
+          limit: "20",
+          offset: "0",
+          ...(filter === "following" && { filter: "following" })
+        });
+
+        // Use different endpoints based on type
+        const endpoint = type === "ratings" 
+          ? `/api/ratings?${params}`
+          : `/api/posts?${params}`;
         
-        // Filter based on type
-        let filtered = data;
-        if (type === "reviews") {
-          // Show only reviews with content
-          filtered = data.filter((item: Review) => item.content && item.content.trim() !== "");
-        } else if (type === "ratings") {
-          // Show only ratings without content
-          filtered = data.filter((item: Review) => !item.content || item.content.trim() === "");
+        const response = await fetch(endpoint);
+        const result = await response.json();
+        
+        // Handle errors gracefully - if user doesn't follow anyone, result will have empty array
+        if (!response.ok) {
+          console.error("Error fetching reviews:", result.error || "Unknown error");
+          setReviews([]);
+          return;
         }
         
-        setReviews(filtered);
+        // Get data from appropriate property
+        const data = type === "ratings" 
+          ? (result.ratings || [])
+          : (result.posts || []);
+        
+        setReviews(data);
       } catch (error) {
         console.error("Error fetching reviews:", error);
         setReviews([]);
@@ -78,7 +157,7 @@ export default function Feed({ type = "reviews" }: { type?: "reviews" | "ratings
     };
 
     fetchReviews();
-  }, [type]);
+  }, [type, filter]);
 
   // Hide header for ratings view
   const showHeader = type === "reviews";
@@ -87,9 +166,15 @@ export default function Feed({ type = "reviews" }: { type?: "reviews" | "ratings
     <div className="w-full">
       {/* Feed Header - Only for main reviews feed */}
       {showHeader && (
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-white mb-2">Community Activity</h2>
-          <p className="text-gray-400">See what others are watching and reviewing</p>
+        <div className="mb-6 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-1 sm:mb-2">
+            {filter === "following" ? "Following Activity" : "Community Activity"}
+          </h2>
+          <p className="text-sm sm:text-base text-gray-400">
+            {filter === "following" 
+              ? "See what people you follow are watching and reviewing"
+              : "See what others are watching and reviewing"}
+          </p>
         </div>
       )}
 
@@ -113,7 +198,11 @@ export default function Feed({ type = "reviews" }: { type?: "reviews" | "ratings
         </div>
       ) : (
         <div className="text-gray-400 text-center py-8">
-          {type === "ratings" ? "No ratings yet" : "No reviews yet"}
+          {filter === "following" 
+            ? (type === "ratings" 
+                ? "No ratings from people you follow yet. Start following users to see their activity!" 
+                : "No reviews from people you follow yet. Start following users to see their activity!")
+            : (type === "ratings" ? "No ratings yet" : "No reviews yet")}
         </div>
       )}
     </div>
