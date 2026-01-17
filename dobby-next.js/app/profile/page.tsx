@@ -51,8 +51,8 @@ export default function MePage() {
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
   const [profileStats, setProfileStats] = useState<{
     favoriteGenres: string[];
-    topMovies: Array<{ id: number; title: string; genres: Array<{ id: number; name: string }> }>;
-    topShows: Array<{ id: number; name: string; genres: Array<{ id: number; name: string }> }>;
+    topMovies: Array<{ id: number; title: string; poster_path: string | null; rating: number | null; genres: Array<{ id: number; name: string }> }>;
+    topShows: Array<{ id: number; name: string; poster_path: string | null; rating: number | null; genres: Array<{ id: number; name: string }> }>;
   }>({
     favoriteGenres: [],
     topMovies: [],
@@ -570,6 +570,88 @@ export default function MePage() {
                       <span className="text-xs text-gray-500">No genres yet. Watch some movies or shows!</span>
                     )}
                   </div>
+                </div>
+                <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    
+                    <span className="text-white font-medium">Top movies</span>
+                  </div>
+                  {profileStats.topMovies.length > 0 ? (
+                    <div className="grid grid-cols-4 gap-2">
+                      {profileStats.topMovies.slice(0, 4).map((movie) => (
+                        <Link
+                          key={`top-movie-${movie.id}`}
+                          href={`/movies/${movie.id}`}
+                          className="relative group"
+                          title={movie.title}
+                        >
+                          <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-zinc-800 border border-zinc-700">
+                            {movie.poster_path ? (
+                              <Image
+                                src={getImageUrl(movie.poster_path)}
+                                alt={movie.title}
+                                fill
+                                sizes="96px"
+                                className="object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                <Film className="w-5 h-5" />
+                              </div>
+                            )}
+                          </div>
+                          {typeof movie.rating === 'number' && (
+                            <span className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-black/70 text-yellow-300">
+                              {movie.rating.toFixed(1)}
+                            </span>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-500">No movie ratings yet.</span>
+                  )}
+                </div>
+                <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    
+                    <span className="text-white font-medium">Top shows</span>
+                  </div>
+                  {profileStats.topShows.length > 0 ? (
+                    <div className="grid grid-cols-4 gap-2">
+                      {profileStats.topShows.slice(0, 4).map((show) => (
+                        <Link
+                          key={`top-show-${show.id}`}
+                          href={`/shows/${show.id}`}
+                          className="relative group"
+                          title={show.name}
+                        >
+                          <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-zinc-800 border border-zinc-700">
+                            {show.poster_path ? (
+                              <Image
+                                src={getImageUrl(show.poster_path)}
+                                alt={show.name}
+                                fill
+                                sizes="96px"
+                                className="object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                <Tv className="w-5 h-5" />
+                              </div>
+                            )}
+                          </div>
+                          {typeof show.rating === 'number' && (
+                            <span className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-black/70 text-yellow-300">
+                              {show.rating.toFixed(1)}
+                            </span>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-500">No show ratings yet.</span>
+                  )}
                 </div>
               </div>
             </div>
