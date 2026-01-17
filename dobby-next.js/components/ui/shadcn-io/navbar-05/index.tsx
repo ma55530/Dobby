@@ -419,13 +419,18 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
     ref
   ) => {
     const [isMobile, setIsMobile] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const containerRef = useRef<HTMLElement>(null);
 
     useEffect(() => {
       const checkWidth = () => {
         if (containerRef.current) {
           const width = containerRef.current.offsetWidth;
-          setIsMobile(width < 768); // 768px is md breakpoint
+          const mobile = width < 768;
+          setIsMobile(mobile); // 768px is md breakpoint
+          if (!mobile) {
+            setMobileMenuOpen(false);
+          }
         }
       };
 
@@ -509,7 +514,19 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
             )}
           </div>
           {/* Right: User and notifications */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                aria-expanded={mobileMenuOpen}
+                aria-label="Toggle navigation"
+                onClick={() => setMobileMenuOpen((prev) => !prev)}
+              >
+                <HamburgerIcon className="h-4 w-4" />
+              </Button>
+            )}
             <div className="flex items-center gap-2">
               <NotificationMenu 
                 notificationCount={notificationCount}
@@ -524,6 +541,47 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
             />
           </div>
         </div>
+        {isMobile && mobileMenuOpen && (
+          <div className="border-t border-border/60 bg-background/90 backdrop-blur-xl">
+            <div className="container mx-auto max-w-screen-2xl px-4 py-3 space-y-2">
+              {navigationLinks.map((link, index) => (
+                <button
+                  key={`${link.label}-${index}`}
+                  onClick={() => {
+                    if (onNavItemClick && link.href) onNavItemClick(link.href);
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full text-left rounded-md px-3 py-2 text-base font-semibold text-muted-foreground hover:text-primary hover:bg-white/5 transition-colors"
+                >
+                  {link.label}
+                </button>
+              ))}
+              <div className="pt-2">
+                <p className="px-3 text-xs uppercase tracking-wide text-muted-foreground/70">For You</p>
+                <div className="mt-2 space-y-1">
+                  <button
+                    onClick={() => {
+                      if (onNavItemClick) onNavItemClick('/movies/forYou');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left rounded-md px-3 py-2 text-base font-semibold text-muted-foreground hover:text-primary hover:bg-white/5 transition-colors"
+                  >
+                    Movies For You
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (onNavItemClick) onNavItemClick('/shows/forYou');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left rounded-md px-3 py-2 text-base font-semibold text-muted-foreground hover:text-primary hover:bg-white/5 transition-colors"
+                  >
+                    Shows For You
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
     );
   }

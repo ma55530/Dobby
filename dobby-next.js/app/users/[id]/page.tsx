@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Calendar, User as UserIcon, Star, UserPlus, UserCheck } from "lucide-react";
+import { Calendar, User as UserIcon, UserPlus, UserCheck, Film, Tv } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface UserProfile {
@@ -28,6 +28,11 @@ interface FollowCounts {
   following: number;
 }
 
+interface ProfileStats {
+  topMovies: Array<{ id: number; title: string; poster_path: string | null; rating: number | null }>;
+  topShows: Array<{ id: number; name: string; poster_path: string | null; rating: number | null }>;
+}
+
 export default function UserProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
   const router = useRouter();
@@ -38,9 +43,13 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [profileStats, setProfileStats] = useState<ProfileStats>({ topMovies: [], topShows: [] });
 
-  const topMovies = ["Interstellar", "Parasite", "The Godfather", "Whiplash"];
-  const topShows = ["Dark", "Chernobyl", "Breaking Bad", "True Detective"];
+  const getImageUrl = (path: string | null) => {
+    if (!path) return "/assets/placeholder.png";
+    if (path.startsWith("http")) return path;
+    return `https://image.tmdb.org/t/p/w500${path}`;
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -78,6 +87,16 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
         if (countsRes.ok) {
           const countsData = await countsRes.json();
           setFollowCounts(countsData);
+        }
+
+        // Fetch profile stats
+        const statsRes = await fetch(`/api/users/${userData.id}/profile-stats`);
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          setProfileStats({
+            topMovies: statsData.topMovies || [],
+            topShows: statsData.topShows || [],
+          });
         }
       } catch (err) {
         console.error("Error:", err);
@@ -255,31 +274,85 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
 
             <div className="mt-6 grid sm:grid-cols-2 gap-4">
               <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-3">
                   <span className="text-white font-medium">Top movies</span>
                 </div>
-                <ul className="text-gray-300 text-sm space-y-1">
-                  {topMovies.map((m) => (
-                    <li key={m} className="flex items-center gap-2">
-                      <Star className="w-3 h-3 text-yellow-400" />
-                      {m}
-                    </li>
-                  ))}
-                </ul>
+                {profileStats.topMovies.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-2">
+                    {profileStats.topMovies.slice(0, 4).map((movie) => (
+                      <a
+                        key={`top-movie-${movie.id}`}
+                        href={`/movies/${movie.id}`}
+                        className="relative group"
+                        title={movie.title}
+                      >
+                        <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-zinc-800 border border-zinc-700">
+                          {movie.poster_path ? (
+                            <Image
+                              src={getImageUrl(movie.poster_path)}
+                              alt={movie.title}
+                              fill
+                              sizes="96px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-500">
+                              <Film className="w-5 h-5" />
+                            </div>
+                          )}
+                        </div>
+                        {typeof movie.rating === 'number' && (
+                          <span className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-black/70 text-yellow-300">
+                            {movie.rating.toFixed(1)}
+                          </span>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-500">No movie ratings yet.</span>
+                )}
               </div>
 
               <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-3">
                   <span className="text-white font-medium">Top shows</span>
                 </div>
-                <ul className="text-gray-300 text-sm space-y-1">
-                  {topShows.map((s) => (
-                    <li key={s} className="flex items-center gap-2">
-                      <Star className="w-3 h-3 text-purple-300" />
-                      {s}
-                    </li>
-                  ))}
-                </ul>
+                {profileStats.topShows.length > 0 ? (
+                  <div className="grid grid-cols-4 gap-2">
+                    {profileStats.topShows.slice(0, 4).map((show) => (
+                      <a
+                        key={`top-show-${show.id}`}
+                        href={`/shows/${show.id}`}
+                        className="relative group"
+                        title={show.name}
+                      >
+                        <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-zinc-800 border border-zinc-700">
+                          {show.poster_path ? (
+                            <Image
+                              src={getImageUrl(show.poster_path)}
+                              alt={show.name}
+                              fill
+                              sizes="96px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-500">
+                              <Tv className="w-5 h-5" />
+                            </div>
+                          )}
+                        </div>
+                        {typeof show.rating === 'number' && (
+                          <span className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-black/70 text-yellow-300">
+                            {show.rating.toFixed(1)}
+                          </span>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-500">No show ratings yet.</span>
+                )}
               </div>
             </div>
           </div>
