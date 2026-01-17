@@ -96,7 +96,7 @@ export default function NavbarWrapper() {
         { label: "Home", href: "/" },
         { label: "Movies", href: "/movies" },
         { label: "Shows", href: "/shows" },
-        { label: "Users", href: "/users" },
+        { label: "Friends", href: "/users" },
         { label: "Messages", href: "/messages" },
       ]}
       userName={sessionUser?.name || "Guest"}
