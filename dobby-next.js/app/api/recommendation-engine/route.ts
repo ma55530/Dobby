@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getGenreNameById } from "@/lib/config/genres";
 import {
    isBadMovie,
    isBadShow,
@@ -33,8 +34,17 @@ export async function GET(request: Request) {
          accept: "application/json",
       };
 
+      const { data: userGenrePrefs } = await supabase
+         .from("user_genre_preferences")
+         .select("genre")
+         .eq("user_id", userId);
+      const userGenres = new Set(
+         (userGenrePrefs || []).map((p: any) => p.genre).filter(Boolean)
+      );
+
       // 1. Get Top IDs from Embeddings (RPC)
-      const fetchLimit = limit;
+      // Fetch 3x the limit to allow re-ranking with genre/popularity and add mild randomness
+      const fetchLimit = limit * 3;
       const [{ data: movieRows }, { data: showRows }] = await Promise.all([
          supabase.rpc("get_top_movies_for_user", {
             p_user_id: userId,
@@ -48,10 +58,17 @@ export async function GET(request: Request) {
          }),
       ]);
 
-      const movieIds = (movieRows || []).map(
-         (r: any) => r.movie_id
-      ) as number[];
+      const movieIds = (movieRows || []).map((r: any) => r.movie_id) as number[];
       const showIds = (showRows || []).map((r: any) => r.show_id) as number[];
+
+      const movieRankMap = new Map<number, number>();
+      (movieRows || []).forEach((row: any, idx: number) => {
+         if (typeof row?.movie_id === "number") movieRankMap.set(row.movie_id, idx);
+      });
+      const showRankMap = new Map<number, number>();
+      (showRows || []).forEach((row: any, idx: number) => {
+         if (typeof row?.show_id === "number") showRankMap.set(row.show_id, idx);
+      });
 
       // 2. Resolve Full Objects (Local DB -> TMDB)
       // Helper to resolve generic items
@@ -110,6 +127,89 @@ export async function GET(request: Request) {
          processItems(allShows, "shows", isBadShow),
       ]);
 
+      const extractGenreNames = (item: any) => {
+         const names: string[] = [];
+         if (Array.isArray(item?.genres)) {
+            item.genres.forEach((g: any) => {
+               if (typeof g === "string") names.push(g);
+               else if (g?.name) names.push(g.name);
+               else if (typeof g?.id === "number") {
+                  const mapped = getGenreNameById(g.id);
+                  if (mapped) names.push(mapped);
+               }
+            });
+         }
+         if (Array.isArray(item?.genre)) {
+            item.genre.forEach((g: any) => {
+               if (typeof g === "string") names.push(g);
+            });
+         }
+         if (Array.isArray(item?.genre_ids)) {
+            item.genre_ids.forEach((id: any) => {
+               if (typeof id === "number") {
+                  const mapped = getGenreNameById(id);
+                  if (mapped) names.push(mapped);
+               }
+            });
+         }
+         return Array.from(new Set(names));
+      };
+
+      const getPopularity = (item: any) => {
+         if (typeof item?.popularity === "number") return item.popularity;
+         if (typeof item?.vote_average === "number") {
+            const voteCount =
+               typeof item?.vote_count === "number" ? item.vote_count : 0;
+            return item.vote_average * Math.log10(voteCount + 1);
+         }
+         if (typeof item?.rating_average === "number") return item.rating_average;
+         return 0;
+      };
+
+      const scoreAndSort = (
+         items: any[],
+         rankMap: Map<number, number>
+      ) => {
+         const cleaned = items.filter(Boolean);
+         const maxPop = Math.max(1, ...cleaned.map(getPopularity));
+         const maxRank = Math.max(1, rankMap.size - 1);
+
+         const hasGenrePrefs = userGenres.size > 0;
+         const baseWeight = hasGenrePrefs ? 0.2 : 0.4;
+         const popularityWeight = hasGenrePrefs ? 0.35 : 0.6;
+         const genreWeight = hasGenrePrefs ? 0.45 : 0;
+         const jitter = 0.008;
+
+         const scored = cleaned.map((item) => {
+            const itemId = item.tmdb_id ?? item.id;
+            const rank =
+               typeof itemId === "number" ? rankMap.get(itemId) : undefined;
+            const baseScore =
+               typeof rank === "number" ? 1 - rank / maxRank : 0;
+
+            const popScore = getPopularity(item) / maxPop;
+            const itemGenres = extractGenreNames(item);
+            const matchCount = itemGenres.filter((g) => userGenres.has(g))
+               .length;
+            const genreScore =
+               userGenres.size > 0 ? matchCount / userGenres.size : 0;
+
+            const score =
+               baseWeight * baseScore +
+               popularityWeight * popScore +
+               genreWeight * genreScore +
+               Math.random() * jitter;
+
+            return { item, score };
+         });
+
+         scored.sort((a, b) => b.score - a.score);
+         return scored.map((s) => s.item);
+      };
+
+      const finalMovies = scoreAndSort(finalMoviesRaw, movieRankMap);
+      const finalShows = scoreAndSort(finalShowsRaw, showRankMap);
+
       // 4. Save Recommendations
       // Clean, dedup, and slice to original limit
       const saveRecs = async (
@@ -146,8 +246,8 @@ export async function GET(request: Request) {
       };
 
       const [movieCount, showCount] = await Promise.all([
-         saveRecs(finalMoviesRaw, "movie_recommendations", "movie_id"),
-         saveRecs(finalShowsRaw, "show_recommendations", "show_id"),
+         saveRecs(finalMovies, "movie_recommendations", "movie_id"),
+         saveRecs(finalShows, "show_recommendations", "show_id"),
       ]);
 
       return NextResponse.json({

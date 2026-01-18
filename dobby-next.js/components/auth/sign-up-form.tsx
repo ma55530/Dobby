@@ -18,6 +18,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { GoogleLogo } from "../icons/google-logo";
+import { TMDB_GENRES } from "@/lib/config/genres";
 
 interface SignUpFormProps extends React.ComponentPropsWithoutRef<"div"> {
    onSwitchToLogin?: () => void;
@@ -32,27 +33,7 @@ const LOADING_MESSAGES = [
    "Managing mischief...",
 ];
 
-const GENRES = [
-   { id: 12, name: "Adventure", modelKey: "g0" },
-   { id: 14, name: "Fantasy", modelKey: "g1" },
-   { id: 16, name: "Animation", modelKey: "g2" },
-   { id: 18, name: "Drama", modelKey: "g3" },
-   { id: 27, name: "Horror", modelKey: "g4" },
-   { id: 28, name: "Action", modelKey: "g5" },
-   { id: 35, name: "Comedy", modelKey: "g6" },
-   { id: 36, name: "History", modelKey: "g7" },
-   { id: 37, name: "Western", modelKey: "g8" },
-   { id: 53, name: "Thriller", modelKey: "g9" },
-   { id: 80, name: "Crime", modelKey: "g10" },
-   { id: 99, name: "Documentary", modelKey: "g11" },
-   { id: 878, name: "Science Fiction", modelKey: "g12" },
-   { id: 9648, name: "Mystery", modelKey: "g13" },
-   { id: 10402, name: "Music", modelKey: "g14" },
-   { id: 10749, name: "Romance", modelKey: "g15" },
-   { id: 10751, name: "Family", modelKey: "g16" },
-   { id: 10752, name: "War", modelKey: "g17" },
-   { id: 10770, name: "TV Movie", modelKey: "g18" },
-];
+const GENRES = TMDB_GENRES;
 
 export function SignUpForm({
    className,
@@ -163,11 +144,14 @@ export function SignUpForm({
                   console.error("Error saving genre preferences:", prefError);
                } else {
                   // Run fold-in to generate embeddings
-                  const selectedGenreKeys = selectedGenres
-                     .map((id) => GENRES.find((g) => g.id === id)?.modelKey)
-                     .filter((key): key is string => !!key);
+                  const selectedGenreTokens = selectedGenres
+                     .map((id) => {
+                        const genre = GENRES.find((g) => g.id === id);
+                        return genre?.modelKey ?? genre?.name;
+                     })
+                     .filter((token): token is string => !!token);
 
-                  console.log("Triggering fold-in with:", selectedGenreKeys);
+                  console.log("Triggering fold-in with:", selectedGenreTokens);
 
                   await fetch("/api/dobbySenseAPI/fold-in", {
                      method: "POST",
@@ -175,7 +159,7 @@ export function SignUpForm({
                         "Content-Type": "application/json",
                      },
                      body: JSON.stringify({
-                        selectedGenres: selectedGenreKeys,
+                        selectedGenres: selectedGenreTokens,
                      }),
                   })
                      .then(async (res) => {

@@ -7,6 +7,10 @@ import {
    fetchMissingDetails,
    findBetterSimilar,
 } from "../../recommendation-engine/fbs.functions";
+import {
+   getGenreKeyByName,
+   getGenreNameByKey,
+} from "@/lib/config/genres";
 
 export async function POST(request: Request) {
    const supabase = await createClient();
@@ -36,7 +40,10 @@ export async function POST(request: Request) {
    if (!Array.isArray(selectedGenres) || selectedGenres.length === 0) {
       console.log("[fold-in] selectedGenres missing or empty:", selectedGenres);
       return NextResponse.json(
-         { error: "selectedGenres must be a non-empty array of genre names" },
+         {
+            error:
+               "selectedGenres must be a non-empty array of genre names or model keys",
+         },
          { status: 400 }
       );
    }
@@ -54,6 +61,51 @@ export async function POST(request: Request) {
    // Start async process
    (async () => {
       try {
+         // Update persistent user preferences so the "Favorite Genres" UI stays in sync
+         // with what was just used to calculate the embedding.
+         if (selectedGenres.length > 0) {
+            console.log("[fold-in] Async: Updating user_genre_preferences...");
+            // Clear old
+            await supabase
+               .from("user_genre_preferences")
+               .delete()
+               .eq("user_id", user.id);
+
+            // Insert new
+            const normalizedKeys = selectedGenres
+               .map((g) => getGenreKeyByName(g) ?? g)
+               .filter((g): g is string => Boolean(g));
+
+            const preferenceNames = normalizedKeys
+               .map((key) => getGenreNameByKey(key))
+               .filter((name): name is string => Boolean(name));
+
+            if (preferenceNames.length > 0) {
+               const prefs = preferenceNames.map((name) => ({
+                  user_id: user.id,
+                  genre: name,
+               }));
+               const { error: prefError } = await supabase
+                  .from("user_genre_preferences")
+                  .insert(prefs);
+
+               if (prefError) {
+                  console.error(
+                     "[fold-in] Async: Error updating user_genre_preferences:",
+                     prefError
+                  );
+               } else {
+                  console.log(
+                     "[fold-in] Async: user_genre_preferences updated."
+                  );
+               }
+            } else {
+               console.warn(
+                  "[fold-in] Async: No mapped genre names to persist."
+               );
+            }
+         }
+
          // Fetch latest genre layer from Supabase
          console.log(
             "[fold-in] Fetching latest genre layer from Supabase for async process..."
@@ -82,8 +134,12 @@ export async function POST(request: Request) {
          const nameToIdx = new Map<string, number>();
          genre_names.forEach((g, i) => nameToIdx.set(g, i));
 
+         const normalizedSelectedKeys = selectedGenres
+            .map((g) => getGenreKeyByName(g) ?? g)
+            .filter((g): g is string => Boolean(g));
+
          const selectedIdxs: number[] = [];
-         for (const g of selectedGenres) {
+         for (const g of normalizedSelectedKeys) {
             const idx = nameToIdx.get(g);
             if (typeof idx === "number") selectedIdxs.push(idx);
          }
