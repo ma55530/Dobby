@@ -7,10 +7,7 @@ import {
    fetchMissingDetails,
    findBetterSimilar,
 } from "../../recommendation-engine/fbs.functions";
-import {
-   getGenreKeyByName,
-   getGenreNameByKey,
-} from "@/lib/config/genres";
+import { getGenreKeyByName, getGenreNameByKey } from "@/lib/config/genres";
 
 export async function POST(request: Request) {
    const supabase = await createClient();
@@ -32,7 +29,7 @@ export async function POST(request: Request) {
       console.log("[fold-in] Invalid JSON payload.");
       return NextResponse.json(
          { error: "Invalid JSON payload" },
-         { status: 400 }
+         { status: 400 },
       );
    }
 
@@ -41,10 +38,9 @@ export async function POST(request: Request) {
       console.log("[fold-in] selectedGenres missing or empty:", selectedGenres);
       return NextResponse.json(
          {
-            error:
-               "selectedGenres must be a non-empty array of genre names or model keys",
+            error: "selectedGenres must be a non-empty array of genre names or model keys",
          },
-         { status: 400 }
+         { status: 400 },
       );
    }
 
@@ -92,23 +88,23 @@ export async function POST(request: Request) {
                if (prefError) {
                   console.error(
                      "[fold-in] Async: Error updating user_genre_preferences:",
-                     prefError
+                     prefError,
                   );
                } else {
                   console.log(
-                     "[fold-in] Async: user_genre_preferences updated."
+                     "[fold-in] Async: user_genre_preferences updated.",
                   );
                }
             } else {
                console.warn(
-                  "[fold-in] Async: No mapped genre names to persist."
+                  "[fold-in] Async: No mapped genre names to persist.",
                );
             }
          }
 
          // Fetch latest genre layer from Supabase
          console.log(
-            "[fold-in] Fetching latest genre layer from Supabase for async process..."
+            "[fold-in] Fetching latest genre layer from Supabase for async process...",
          );
          const { data: model, error: modelError } = await supabase
             .from("genre_layers")
@@ -120,7 +116,7 @@ export async function POST(request: Request) {
          if (modelError || !model) {
             console.error(
                "[fold-in] Error fetching genre layer in async process:",
-               modelError
+               modelError,
             );
             return;
          }
@@ -178,13 +174,13 @@ export async function POST(request: Request) {
          if (upsertError) {
             console.error(
                "[fold-in] Async: Error upserting embedding:",
-               upsertError
+               upsertError,
             );
             return;
          }
 
          console.log(
-            "[fold-in] Async: Embedding upserted. Starting FBS generation..."
+            "[fold-in] Async: Embedding upserted. Starting FBS generation...",
          );
 
          // --- FBS Generation Logic (Inlined from recommendation-engine) ---
@@ -206,15 +202,15 @@ export async function POST(request: Request) {
          ]);
 
          const movieIds = (movieRows || []).map(
-            (r: any) => r.movie_id
+            (r: any) => r.movie_id,
          ) as number[];
          const showIds = (showRows || []).map(
-            (r: any) => r.show_id
+            (r: any) => r.show_id,
          ) as number[];
 
          const resolveItems = async (
             ids: number[],
-            table: "movies" | "shows"
+            table: "movies" | "shows",
          ) => {
             const { data: local } = await supabase
                .from(table)
@@ -227,7 +223,7 @@ export async function POST(request: Request) {
                missingIds,
                table,
                baseUrl,
-               headers
+               headers,
             );
             return [...(local || []), ...fetched];
          };
@@ -237,10 +233,7 @@ export async function POST(request: Request) {
             resolveItems(showIds, "shows"),
          ]);
 
-         const processItems = (
-            items: any[],
-            checkBad: (i: any) => boolean
-         ) => {
+         const processItems = (items: any[], checkBad: (i: any) => boolean) => {
             return items.map((item) => {
                if (checkBad(item)) {
                   return null;
@@ -255,7 +248,7 @@ export async function POST(request: Request) {
          const saveRecs = async (
             items: any[],
             table: "movie_recommendations" | "show_recommendations",
-            col: "movie_id" | "show_id"
+            col: "movie_id" | "show_id",
          ) => {
             const valid = items.filter(Boolean);
             const unique = new Map();
@@ -281,7 +274,7 @@ export async function POST(request: Request) {
          ]);
 
          console.log(
-            "[fold-in] Async: FBS generation complete. Updating user flags."
+            "[fold-in] Async: FBS generation complete. Updating user flags.",
          );
 
          // Complete!
