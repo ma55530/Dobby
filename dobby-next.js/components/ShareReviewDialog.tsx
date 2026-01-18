@@ -16,11 +16,17 @@ interface ShareReviewDialogProps {
   posterPath: string | null;
   rating: number;
   year: string;
+  reviewAuthor: string;
+  reviewContent: string;
+  postId: string;
 }
 
 interface Conversation {
   id: string;
-  participants: Array<{ id: string; username?: string; email: string }>;
+  is_group?: boolean;
+  group_name?: string;
+  group_avatar_url?: string;
+  participants: Array<{ id: string; username?: string; email: string; avatar_url?: string }>;
 }
 
 export function ShareReviewDialog({
@@ -32,6 +38,9 @@ export function ShareReviewDialog({
   posterPath,
   rating,
   year,
+  reviewAuthor,
+  reviewContent,
+  postId,
 }: ShareReviewDialogProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,24 +76,35 @@ export function ShareReviewDialog({
     return conv.participants.find((p) => p.id !== currentUserId) ?? null;
   };
 
+  const getConversationTitle = (conv: Conversation) => {
+    if (conv.is_group && conv.group_name) {
+      return conv.group_name;
+    }
+    
+    const otherUser = getOtherUser(conv);
+    return otherUser?.username || otherUser?.email || 'Unknown User';
+  };
+
   const sendRecommendation = async (conversationId: string) => {
     if (sending) return;
     setSending(true);
     try {
-      const defaultMessage = `Check out this review of this ${itemType}!`;
-
       const res = await fetch(`/api/conversations/${conversationId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: message.trim() || defaultMessage,
-          message_type: itemType === 'movie' ? 'movie_recommendation' : 'show_recommendation',
+          content: message.trim(),
+          message_type: 'review',
           metadata: {
             [itemType === 'movie' ? 'movie_id' : 'show_id']: itemId,
+            item_type: itemType,
             title,
             poster_path: posterPath,
             rating,
             year,
+            review_author: reviewAuthor,
+            review_content: reviewContent,
+            post_id: postId,
           },
         }),
       });
@@ -109,19 +129,28 @@ export function ShareReviewDialog({
 
     if (!searchLower) return true;
 
-    const otherUser = getOtherUser(conv);
-    if (!otherUser) {
-      return conv.participants.some((p) => {
-        const usernameMatch = p.username?.toLowerCase().includes(searchLower);
-        const emailMatch = p.email.toLowerCase().includes(searchLower);
-        return Boolean(usernameMatch || emailMatch);
-      });
+    // Check group name first
+    if (conv.is_group && conv.group_name) {
+      if (conv.group_name.toLowerCase().includes(searchLower)) {
+        return true;
+      }
     }
 
-    return (
-      otherUser?.username?.toLowerCase().includes(searchLower) ||
-      otherUser?.email.toLowerCase().includes(searchLower)
-    );
+    // Check participants
+    const otherUser = getOtherUser(conv);
+    if (otherUser) {
+      return (
+        otherUser.username?.toLowerCase().includes(searchLower) ||
+        otherUser.email.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // For groups, search in all participant names
+    return conv.participants.some((p) => {
+      const usernameMatch = p.username?.toLowerCase().includes(searchLower);
+      const emailMatch = p.email.toLowerCase().includes(searchLower);
+      return Boolean(usernameMatch || emailMatch);
+    });
   });
 
   return (
@@ -180,6 +209,9 @@ export function ShareReviewDialog({
             ) : (
               filteredConversations.map((conv) => {
                 const otherUser = getOtherUser(conv);
+                const displayName = getConversationTitle(conv);
+                const isGroup = conv.is_group;
+                
                 return (
                   <div
                     key={conv.id}
@@ -187,13 +219,30 @@ export function ShareReviewDialog({
                     className="p-3 rounded-lg bg-slate-700 hover:bg-slate-600 cursor-pointer transition-colors flex items-center justify-between"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold">
-                        {otherUser?.username?.[0]?.toUpperCase() || otherUser?.email?.[0]?.toUpperCase() || '?'}
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold overflow-hidden">
+                        {isGroup && conv.group_avatar_url ? (
+                          <img
+                            src={conv.group_avatar_url}
+                            alt={conv.group_name || 'Group'}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : !isGroup && otherUser?.avatar_url ? (
+                          <img
+                            src={otherUser.avatar_url}
+                            alt={otherUser.username || 'User'}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span>{displayName[0]?.toUpperCase() || '?'}</span>
+                        )}
                       </div>
                       <div>
-                        <p className="font-medium">
-                          {otherUser?.username || otherUser?.email || 'Unknown User'}
-                        </p>
+                        <p className="font-medium">{displayName}</p>
+                        {isGroup && conv.participants.length > 0 && (
+                          <p className="text-xs text-gray-400">
+                            {conv.participants.length} members
+                          </p>
+                        )}
                       </div>
                     </div>
                     <Send className="w-4 h-4 text-purple-400" />

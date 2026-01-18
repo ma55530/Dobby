@@ -405,10 +405,10 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
   return (
     <div className="w-full space-y-3">
     <div className="bg-zinc-900/50 border border-zinc-700/50 rounded-lg overflow-hidden hover:border-zinc-600 transition-all duration-300 hover:shadow-lg">
-      <div className="flex gap-4 sm:gap-6">
+      <div className="flex gap-4 sm:gap-6 pl-4 sm:pl-6">
         {/* Movie Poster - Hidden on mobile, shown on tablet+ */}
         {post.moviePoster && (
-          <div className="hidden sm:block sm:w-40 md:w-48 sm:h-60 md:h-72 relative flex-shrink-0 bg-zinc-800">
+          <div className="hidden sm:block sm:w-40 md:w-48 relative flex-shrink-0 bg-zinc-800 rounded-lg overflow-hidden self-center" style={{ aspectRatio: '2/3', maxHeight: '360px' }}>
             <Image
               src={post.moviePoster}
               alt={post.movieTitle || "Movie poster"}
@@ -628,6 +628,9 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
               posterPath={post.moviePoster || null}
               rating={post.rating}
               year={post.date.split(',')[1]?.trim() || new Date().getFullYear().toString()}
+              reviewAuthor={post.author}
+              reviewContent={post.content}
+              postId={post.id}
             />
           )}
           </div>

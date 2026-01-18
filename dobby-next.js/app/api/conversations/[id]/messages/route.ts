@@ -77,8 +77,18 @@ export async function POST(
       metadata?: unknown;
     };
 
-    if (!content || typeof content !== 'string') {
+    // Content is required for regular messages, but optional for review/recommendation messages
+    const isSpecialMessage = message_type === 'review' || 
+                             message_type === 'movie_recommendation' || 
+                             message_type === 'show_recommendation';
+    
+    if (!isSpecialMessage && (!content || typeof content !== 'string')) {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 });
+    }
+    
+    // If content is provided, it must be a string
+    if (content !== undefined && typeof content !== 'string') {
+      return NextResponse.json({ error: 'Content must be a string' }, { status: 400 });
     }
 
     // Verify user is participant

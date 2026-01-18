@@ -64,7 +64,7 @@ export default function FollowingPage() {
                     <span className="truncate">My Watchlists</span>
                   </button>
                   <button
-                    onClick={() => router.push("/conversations/messages")}
+                    onClick={() => router.push("/messages")}
                     className="flex items-center justify-center md:justify-start gap-2 px-3 py-2 rounded-lg bg-zinc-800/50 text-gray-300 hover:bg-purple-600/50 transition-colors text-xs sm:text-sm font-medium whitespace-nowrap flex-1 md:flex-none"
                   >
                     <MessageSquare size={16} className="flex-shrink-0" />

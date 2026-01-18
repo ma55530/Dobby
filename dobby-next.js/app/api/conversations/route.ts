@@ -201,29 +201,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Recipient not found' }, { status: 404 });
   }
 
-  // Check if a conversation already exists between these two users
-  // This is a bit complex in SQL, so we might do a quick check or just create a new one.
-  // For simplicity, let's try to find one first.
+  // Check if a 1:1 conversation already exists between these two users
+  // We need to find conversations where:
+  // 1. Both users are participants
+  // 2. It's NOT a group chat (is_group = false or null)
+  // 3. There are exactly 2 participants
   
-  // 1. Find conversations where current user is a participant
+  // 1. Find non-group conversations where current user is a participant
   const { data: myConvs } = await supabase
     .from('conversation_participants')
-    .select('conversation_id')
-    .eq('user_id', user.id);
+    .select('conversation_id, conversations!inner(is_group)')
+    .eq('user_id', user.id)
+    .or('is_group.is.null,is_group.eq.false', { foreignTable: 'conversations' });
 
   if (myConvs && myConvs.length > 0) {
     const myConvIds = myConvs.map(c => c.conversation_id);
     
-    // 2. Check if recipient is in any of those conversations
-    const { data: existingConv } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .in('conversation_id', myConvIds)
-      .eq('user_id', recipientId)
-      .single();
+    // 2. Check if recipient is in any of those 1:1 conversations
+    for (const convId of myConvIds) {
+      // Count participants in this conversation
+      const { data: participants, error: countError } = await supabase
+        .from('conversation_participants')
+        .select('user_id')
+        .eq('conversation_id', convId);
 
-    if (existingConv) {
-      return NextResponse.json({ conversationId: existingConv.conversation_id });
+      if (countError) continue;
+
+      // Check if it's a 1:1 conversation (exactly 2 participants)
+      // and if the recipient is one of them
+      if (participants && participants.length === 2) {
+        const hasRecipient = participants.some(p => p.user_id === recipientId);
+        if (hasRecipient) {
+          return NextResponse.json({ conversationId: convId });
+        }
+      }
     }
   }
 

@@ -66,10 +66,10 @@ export async function GET(request: Request) {
       query = query.in("user_id", followedUserIds);
     }
 
-    // Execute query
+    // Execute query - fetch more to account for filtering
     const { data: ratings, error: ratingsError } = await query
       .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+      .limit(limit * 3); // Fetch 3x to account for reviews being filtered out
 
     if (ratingsError) {
       console.error("Supabase ratings error:", ratingsError);
@@ -81,7 +81,9 @@ export async function GET(request: Request) {
     }
 
     // Filter to only include ratings without post_text (ratings only, no reviews)
-    const ratingsOnly = ratings.filter((r: any) => !r.post || !r.post.post_text || r.post.post_text.trim() === "");
+    const ratingsOnly = ratings
+      .filter((r: any) => !r.post || !r.post.post_text || r.post.post_text.trim() === "")
+      .slice(0, limit); // Take only the requested number after filtering
 
     // Build poster map - fetch posters based on type
     const posterMap = new Map();

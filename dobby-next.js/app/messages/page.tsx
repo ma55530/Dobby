@@ -12,7 +12,7 @@ import { Conversation } from '@/lib/types/Conversation';
 import { Message } from '@/lib/types/Message';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { Send, MessageCircle, Search, Plus, Check, CheckCheck, Film, Tv, MoreVertical, Trash2, ChevronLeft } from 'lucide-react';
+import { Send, MessageCircle, Search, Plus, Check, CheckCheck, Film, Tv, MoreVertical, Trash2, ChevronLeft, Repeat} from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -46,6 +46,7 @@ function MessagesContent() {
   const [groupAvatarPreview, setGroupAvatarPreview] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+  const [expandedReviews, setExpandedReviews] = useState<Set<string>>(new Set());
 
   const targetMessageId = searchParams.get('message');
 
@@ -341,19 +342,26 @@ function MessagesContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recipientId: userId }),
       });
-
+      
       if (res.ok) {
         const data = await res.json();
-        setActiveConversation(data.conversationId);
-        await fetchConversations();
-        await fetchMessages(data.conversationId);
+        
         setNewConversationOpen(false);
         setSearchQuery('');
         setSearchResults([]);
         setSelectedUsers([]);
+        
+        await fetchConversations();
+        setActiveConversation(data.conversationId);
+        await fetchMessages(data.conversationId);
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Failed to create conversation:', res.status, errorData);
+        alert(`Failed to create conversation: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to start conversation:', error);
+      alert('Failed to start conversation. Check console for details.');
     }
   };
 
@@ -625,6 +633,8 @@ function MessagesContent() {
                       const isRecommendation =
                         msg.message_type === 'movie_recommendation' ||
                         msg.message_type === 'show_recommendation';
+                      
+                      const isReview = msg.message_type === 'review';
 
                       return (
                         <div
@@ -665,8 +675,109 @@ function MessagesContent() {
                             </DropdownMenu>
                           )}
 
-                          <div className="max-w-[85%] sm:max-w-[70%]">
-                            {isRecommendation && msg.metadata ? (
+                    <div className="max-w-[85%] sm:max-w-[70%]">
+                      {isReview && msg.metadata ? (
+                        <div className="space-y-2">
+                          {/* Review Label */}
+                          <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${
+                            isMe ? 'bg-purple-500/30 text-purple-200' : 'bg-slate-700/50 text-slate-300'
+                          }`}>
+                            <Repeat className="w-3 h-3 fill-current" />
+                            <span>Shared Review</span>
+                          </div>
+                          
+                          {/* Review Card */}
+                          <div
+                            className={`rounded-2xl overflow-hidden border-2 ${
+                              isMe
+                                ? 'bg-fuchsia-900/40 border-purple-500 text-white'
+                                : 'bg-slate-800/90 border-slate-700 text-white'
+                            }`}
+                          >
+                            <div className="flex gap-3 p-3">
+                              {(msg.metadata as any)?.poster_path && (
+                                <div className="relative w-14 h-20 flex-shrink-0 rounded-lg overflow-hidden shadow-md">
+                                  <Image
+                                    src={`https://image.tmdb.org/t/p/w200${(msg.metadata as any).poster_path}`}
+                                    alt={(msg.metadata as any).title || 'Poster'}
+                                    fill
+                                    sizes="56px"
+                                    className="object-cover"
+                                  />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0 space-y-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  {(msg.metadata as any).item_type === 'movie' ? (
+                                    <Film className="w-4 h-4 opacity-60 flex-shrink-0" />
+                                  ) : (
+                                    <Tv className="w-4 h-4 opacity-60 flex-shrink-0" />
+                                  )}
+                                  <p className="font-semibold text-sm line-clamp-1">
+                                    {(msg.metadata as any).title}
+                                  </p>
+                                </div>
+                                
+                                {(msg.metadata as any)?.rating && (
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-yellow-400 text-sm">★</span>
+                                      <span className="font-bold text-sm">{(msg.metadata as any).rating}</span>
+                                      <span className="text-xs opacity-60">/10</span>
+                                    </div>
+                                    <span className="text-xs opacity-50">by</span>
+                                    <span className="text-xs font-medium opacity-80">
+                                      {(msg.metadata as any).review_author || 'Unknown'}
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                {(msg.metadata as any)?.review_content && (() => {
+                                  const reviewContent = (msg.metadata as any).review_content;
+                                  const isExpanded = expandedReviews.has(msg.id);
+                                  const needsExpansion = reviewContent.length > 150;
+                                  
+                                  return (
+                                    <div>
+                                      <p className={`text-xs opacity-90 leading-relaxed break-words ${
+                                        !isExpanded && needsExpansion ? 'line-clamp-3' : ''
+                                      }`}>
+                                        {reviewContent}
+                                      </p>
+                                      {needsExpansion && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedReviews(prev => {
+                                              const newSet = new Set(prev);
+                                              if (isExpanded) {
+                                                newSet.delete(msg.id);
+                                              } else {
+                                                newSet.add(msg.id);
+                                              }
+                                              return newSet;
+                                            });
+                                          }}
+                                          className="text-xs mt-1 opacity-70 hover:opacity-100 underline"
+                                        >
+                                          {isExpanded ? 'Read less' : 'Read more'}
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Sender's Comment */}
+                          {msg.content && (
+                            <div className={`rounded-2xl px-4 py-2 ${isMe ? 'bg-purple-600 text-white' : 'bg-slate-700 text-gray-100'}`}>
+                              <p className="break-words">{msg.content}</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : isRecommendation && msg.metadata ? (
                               <Link
                                 href={
                                   msg.message_type === 'movie_recommendation'
