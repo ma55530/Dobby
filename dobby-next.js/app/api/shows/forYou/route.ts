@@ -35,11 +35,7 @@ export async function GET(request: Request) {
 
       const showIds = recs.map((r) => r.show_id);
 
-      // Shuffle the selected recommendations so they don't appear in the exact same order every time
-      for (let i = showIds.length - 1; i > 0; i--) {
-         const j = Math.floor(Math.random() * (i + 1));
-         [showIds[i], showIds[j]] = [showIds[j], showIds[i]];
-      }
+      // Keep order based on recommendation creation time
 
       // Initialize user cache if not exists
       if (!userShowCaches[userId]) {
