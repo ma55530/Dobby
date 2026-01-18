@@ -145,6 +145,7 @@ export async function GET() {
         movieType: item.type as "movie" | "tv",
         moviePoster: posterData.posterUrl,
         hasChildren: false, // Will be populated if we fetch children
+        userId: item.user_id,
       };
     });
 

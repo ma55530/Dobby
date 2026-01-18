@@ -1,10 +1,21 @@
 "use client";
 
 import Image from "next/image";
-import { Heart, MessageCircle, Share2, ChevronDown, ThumbsDown, CornerDownRight, Send} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Heart, MessageCircle, Share2, ChevronDown, ThumbsDown, CornerDownRight, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
 import { ShareReviewDialog } from "@/components/ShareReviewDialog";
+import { createClient } from "@/lib/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Comment {
   id: string;
@@ -17,6 +28,7 @@ interface Comment {
   parentId?: string;
   hasChildren?: boolean;
   children?: Comment[];
+  userId?: string;
 }
 
 interface ReviewCardProps {
@@ -35,6 +47,7 @@ interface ReviewCardProps {
     hasChildren?: boolean;
     children?: Comment[];
     commentCount?: number;
+    userId?: string;
   };
   onLoadMore?: (parentId: string) => void;
   nestedComments?: Record<string, Comment[]>;
@@ -50,6 +63,8 @@ function CommentCard({
   onSubmitReply,
   isSubmitting,
   onToggleReply,
+  currentUserId,
+  isAdmin,
 }: {
   comment: Comment;
   onReply: () => void;
@@ -59,10 +74,14 @@ function CommentCard({
   onSubmitReply: () => void;
   isSubmitting: boolean;
   onToggleReply: () => void;
+  currentUserId: string | null;
+  isAdmin: boolean;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
   const [needsExpansion, setNeedsExpansion] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     if (textRef.current) {
@@ -71,6 +90,31 @@ function CommentCard({
       setNeedsExpansion(actualHeight > lineHeight * 1.2); // More than 1 line
     }
   }, [comment.content]);
+
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true);
+    setDeleteDialogOpen(false);
+    try {
+      const response = await fetch(`/api/comments/${comment.id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        alert("Failed to delete comment");
+      }
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+      alert("Failed to delete comment");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="group relative">
@@ -130,6 +174,16 @@ function CommentCard({
                 <CornerDownRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 Reply
               </button>
+              {currentUserId && comment.userId && (currentUserId === comment.userId || isAdmin) && (
+                <button
+                  onClick={handleDeleteClick}
+                  disabled={isDeleting}
+                  className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase tracking-wider disabled:opacity-50"
+                >
+                  <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </button>
+              )}
             </div>
 
             {/* REPLY FORM - Identičan onome na Reviewu */}
@@ -175,6 +229,34 @@ function CommentCard({
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="bg-zinc-900 border border-zinc-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Delete Comment</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Are you sure you want to delete this comment? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-6">
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteDialogOpen(false)}
+              className="bg-zinc-800 text-white hover:bg-zinc-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -189,6 +271,8 @@ function RenderNestedReplies({
   toggleReplyForm,
   setReplyTextById,
   handleSubmitReply,
+  currentUserId,
+  isAdmin,
 }: {
   replies: Comment[];
   level: number;
@@ -198,6 +282,8 @@ function RenderNestedReplies({
   toggleReplyForm: (id: string) => void;
   setReplyTextById: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   handleSubmitReply: (id: string) => void;
+  currentUserId: string | null;
+  isAdmin: boolean;
 }) {
   return (
     <div className="relative ml-4 sm:ml-8 space-y-3 sm:space-y-4 mt-3 sm:mt-4">
@@ -217,6 +303,8 @@ function RenderNestedReplies({
               onSubmitReply={() => handleSubmitReply(reply.id)}
               isSubmitting={replySubmittingId === reply.id}
               onToggleReply={() => toggleReplyForm(reply.id)}
+              currentUserId={currentUserId}
+              isAdmin={isAdmin}
             />
           </div>
           
@@ -231,6 +319,8 @@ function RenderNestedReplies({
               toggleReplyForm={toggleReplyForm}
               setReplyTextById={setReplyTextById}
               handleSubmitReply={handleSubmitReply}
+              currentUserId={currentUserId}
+              isAdmin={isAdmin}
             />
           )}
         </div>
@@ -255,7 +345,13 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [showReadMore, setShowReadMore] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
+  const supabase = createClient();
+  const router = useRouter();
 
   useEffect(() => {
     if (textRef.current) {
@@ -265,6 +361,23 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
       setShowReadMore(actualHeight > maxHeight);
     }
   }, [post.content]);
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id || null);
+      
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("isAdmin")
+          .eq("id", user.id)
+          .single();
+        setIsAdmin(profile?.isAdmin || false);
+      }
+    };
+    fetchCurrentUser();
+  }, [supabase]);
 
   useEffect(() => {
     // Check if user has liked/disliked this review and get current counts
@@ -399,13 +512,39 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
     }
   };
 
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true);
+    setDeleteDialogOpen(false);
+    try {
+      const response = await fetch(`/api/posts/${post.id}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        const data = await response.json();
+        alert(data.error || "Failed to delete review");
+      }
+    } catch (error) {
+      console.error("Failed to delete review:", error);
+      alert("Failed to delete review");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Control replies box visibility - show if has comments or children loaded
   const shouldShowRepliesBox = post.hasChildren || (post.children?.length ?? 0) > 0 || (showComments && !!nestedComments?.[post.id]);
 
   return (
     <div className="w-full space-y-3">
-    <div className="bg-zinc-900/50 border border-zinc-700/50 rounded-lg overflow-hidden hover:border-zinc-600 transition-all duration-300 hover:shadow-lg">
-      <div className="flex gap-4 sm:gap-6 pl-4 sm:pl-6">
+      <div className="bg-zinc-900/50 border border-zinc-700/50 rounded-lg overflow-hidden hover:border-zinc-600 transition-all duration-300 hover:shadow-lg">
+        <div className="flex gap-4 sm:gap-6 pl-4 sm:pl-6">
         {/* Movie Poster - Hidden on mobile, shown on tablet+ */}
         {post.moviePoster && (
           <div className="hidden sm:block sm:w-40 md:w-48 relative flex-shrink-0 bg-zinc-800 rounded-lg overflow-hidden self-center" style={{ aspectRatio: '2/3', maxHeight: '360px' }}>
@@ -449,7 +588,13 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-white text-xs sm:text-sm truncate">{post.author}</p>
+                  {post.userId ? (
+                    <Link href={`/users/${post.author}`} className="hover:opacity-80 transition-opacity">
+                      <p className="font-semibold text-white text-xs sm:text-sm truncate hover:text-purple-400 transition-colors">{post.author}</p>
+                    </Link>
+                  ) : (
+                    <p className="font-semibold text-white text-xs sm:text-sm truncate">{post.author}</p>
+                  )}
                   <p className="text-xs sm:text-sm text-gray-400">{post.date}</p>
                 </div>
               </div>
@@ -457,9 +602,17 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
               {/* Movie Title on mobile - shown next to poster */}
               {post.movieTitle && (
                 <div className="sm:hidden">
-                  <h3 className="font-bold text-sm text-white line-clamp-2 mb-1">
-                    {post.movieTitle}
-                  </h3>
+                  {post.movieId && post.movieType ? (
+                    <Link href={`/${post.movieType === 'movie' ? 'movies' : 'shows'}/${post.movieId}`} className="hover:opacity-80 transition-opacity">
+                      <h3 className="font-bold text-sm text-white line-clamp-2 mb-1 hover:text-purple-400 transition-colors">
+                        {post.movieTitle}
+                      </h3>
+                    </Link>
+                  ) : (
+                    <h3 className="font-bold text-sm text-white line-clamp-2 mb-1">
+                      {post.movieTitle}
+                    </h3>
+                  )}
                   {post.movieType && (
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${
                       post.movieType === 'movie' 
@@ -478,9 +631,17 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
           {post.movieTitle && (
             <div className="hidden sm:block mb-2 sm:mb-3">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-2">
-                <h3 className="font-bold text-lg sm:text-xl text-white line-clamp-2">
-                  {post.movieTitle}
-                </h3>
+                {post.movieId && post.movieType ? (
+                  <Link href={`/${post.movieType === 'movie' ? 'movies' : 'shows'}/${post.movieId}`} className="hover:opacity-80 transition-opacity">
+                    <h3 className="font-bold text-lg sm:text-xl text-white line-clamp-2 hover:text-purple-400 transition-colors">
+                      {post.movieTitle}
+                    </h3>
+                  </Link>
+                ) : (
+                  <h3 className="font-bold text-lg sm:text-xl text-white line-clamp-2">
+                    {post.movieTitle}
+                  </h3>
+                )}
                 {post.movieType && (
                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                     post.movieType === 'movie' 
@@ -575,6 +736,20 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
               <Share2 className="w-4 sm:w-5 h-4 sm:h-5" />
               <span>Share</span>
             </Button>
+            
+            {currentUserId && post.userId && (currentUserId === post.userId || isAdmin) && (
+              <Button 
+                key="delete-button"
+                variant="ghost" 
+                size="default" 
+                className="gap-1 sm:gap-2 flex-1 text-xs sm:text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                onClick={handleDeleteClick}
+                disabled={isDeleting}
+              >
+                <Trash2 className="w-4 sm:w-5 h-4 sm:h-5" />
+                <span>{isDeleting ? "Deleting..." : "Delete"}</span>
+              </Button>
+            )}
           </div>
 
           {showCommentForm && (
@@ -665,6 +840,8 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
                         onSubmitReply={() => handleSubmitReply(child.id)}
                         isSubmitting={replySubmittingId === child.id}
                         onToggleReply={() => toggleReplyForm(child.id)}
+                        currentUserId={currentUserId}
+                        isAdmin={isAdmin}
                       />
                     </div>
                   ))}
@@ -715,6 +892,8 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
                           onSubmitReply={() => handleSubmitReply(child.id)}
                           isSubmitting={replySubmittingId === child.id}
                           onToggleReply={() => toggleReplyForm(child.id)}
+                          currentUserId={currentUserId}
+                          isAdmin={isAdmin}
                         />
                       </div>
                       {/* Nested replies - Recursive */}
@@ -728,6 +907,8 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
                           toggleReplyForm={toggleReplyForm}
                           setReplyTextById={setReplyTextById}
                           handleSubmitReply={handleSubmitReply}
+                          currentUserId={currentUserId}
+                          isAdmin={isAdmin}
                         />
                       )}
                     </div>
@@ -737,7 +918,34 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
             </div>
           </div>
         )}
-      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="bg-zinc-900 border border-zinc-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Delete Review</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Are you sure you want to delete this review? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-6">
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteDialogOpen(false)}
+              className="bg-zinc-800 text-white hover:bg-zinc-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 

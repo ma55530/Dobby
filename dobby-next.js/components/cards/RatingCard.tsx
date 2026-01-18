@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function RatingCard({ post }: any) {
   return (
@@ -9,7 +10,13 @@ export default function RatingCard({ post }: any) {
       <div className="flex-1 p-3 flex flex-col justify-between">
         {/* Title and Rating */}
         <div>
-          <h4 className="font-bold text-xs text-white line-clamp-1">{post.movieTitle}</h4>
+          {post.movieId && post.movieType ? (
+            <Link href={`/${post.movieType === 'movie' ? 'movies' : 'shows'}/${post.movieId}`} className="hover:opacity-80 transition-opacity">
+              <h4 className="font-bold text-xs text-white line-clamp-1 hover:text-purple-400 transition-colors">{post.movieTitle}</h4>
+            </Link>
+          ) : (
+            <h4 className="font-bold text-xs text-white line-clamp-1">{post.movieTitle}</h4>
+          )}
           
           {/* Rating Display */}
           <div className="flex items-center gap-2 mt-1">
@@ -39,7 +46,13 @@ export default function RatingCard({ post }: any) {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-white text-xs truncate">{post.author}</p>
+            {post.userId ? (
+              <Link href={`/users/${post.author}`} className="hover:opacity-80 transition-opacity">
+                <p className="font-semibold text-white text-xs truncate hover:text-purple-400 transition-colors">{post.author}</p>
+              </Link>
+            ) : (
+              <p className="font-semibold text-white text-xs truncate">{post.author}</p>
+            )}
           </div>
         </div>
       </div>

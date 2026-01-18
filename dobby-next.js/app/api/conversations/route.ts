@@ -49,10 +49,36 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Fetch last message for each conversation separately
+  const conversationsWithMessages = await Promise.all(
+    conversations.map(async (conv: any) => {
+      // Get the last message for this conversation
+      const { data: messages } = await supabase
+        .from('messages')
+        .select('id, content, created_at, is_read, sender_id')
+        .eq('conversation_id', conv.id)
+        .order('created_at', { ascending: false })
+        .limit(100); // Get recent messages for unread count
+
+      const lastMessage = messages && messages.length > 0 ? messages[0] : null;
+      
+      // Count unread messages (messages sent by others that aren't read)
+      const unreadCount = messages
+        ? messages.filter((m: any) => m.is_read !== true && m.sender_id !== user.id).length
+        : 0;
+
+      return {
+        ...conv,
+        messages,
+        last_message: lastMessage,
+        unread_count: unreadCount
+      };
+    })
+  );
+
   // Filter out the current user from participants list for cleaner UI data
-  // and pick the last message
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const formattedConversations = conversations.map((conv: any) => {
+  const formattedConversations = conversationsWithMessages.map((conv: any) => {
     const otherParticipants = conv.participants
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((p: any) => p.user)
@@ -86,8 +112,6 @@ export async function GET() {
     return {
       ...conv,
       participants: otherParticipants,
-      last_message: lastMessage,
-      unread_count: unreadCount
     };
   });
 
