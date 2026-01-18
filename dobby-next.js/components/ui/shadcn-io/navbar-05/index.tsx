@@ -176,6 +176,22 @@ const NotificationMenu = ({
     }
   };
 
+  const handleClearAll = async () => {
+    try {
+      const notificationIds = notifications.map(n => n.id);
+      const res = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds }),
+      });
+      if (res.ok) {
+        setNotifications([]);
+      }
+    } catch (error) {
+      console.error("Error clearing notifications:", error);
+    }
+  };
+
   const getNotificationLink = (notification: Notification) => {
     if (notification.type === 'message') {
       return `/messages`;
@@ -211,7 +227,19 @@ const NotificationMenu = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
-        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+        <div className="flex items-center justify-between px-2 py-1.5">
+          <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>
+          {notifications.length > 0 && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleClearAll}
+              className="h-7 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Clear All
+            </Button>
+          )}
+        </div>
         <DropdownMenuSeparator />
         {loading && (
           <div className="p-8 text-center text-muted-foreground">

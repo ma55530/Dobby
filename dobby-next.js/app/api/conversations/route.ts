@@ -37,10 +37,12 @@ export async function GET() {
         content,
         created_at,
         is_read,
-        sender_id
+        sender_id,
+        message_type
       )
     `)
     .in('id', conversationIds)
+    .order('created_at', { ascending: false, referencedTable: 'messages' })
     .order('updated_at', { ascending: false });
 
   if (error) {
@@ -62,6 +64,17 @@ export async function GET() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? conv.messages.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] 
       : null;
+
+    // Format last message content
+    if (lastMessage) {
+      if (lastMessage.message_type === 'review' && !lastMessage.content) {
+        lastMessage.content = 'Shared a review';
+      } else if (lastMessage.message_type === 'movie' && !lastMessage.content) {
+        lastMessage.content = 'Shared a movie';
+      } else if (lastMessage.message_type === 'show' && !lastMessage.content) {
+        lastMessage.content = 'Shared a show';
+      }
+    }
 
     // Count unread messages (messages sent by others that aren't read)
     // Treat NULL as unread (older rows might have is_read = NULL)

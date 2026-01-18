@@ -62,6 +62,31 @@ export function ShareDialog({
     setConversations(data);
   };
 
+  const getConversationTitle = (conv: any) => {
+    // For group conversations
+    if (conv.is_group && conv.group_name) {
+      return conv.group_name;
+    }
+    
+    // For 1-on-1 conversations
+    const otherUser = getOtherUser(conv);
+    return otherUser?.username || otherUser?.email || 'Unknown User';
+  };
+
+  const getConversationAvatar = (conv: any) => {
+    // For group conversations
+    if (conv.is_group) {
+      if (conv.group_avatar_url) {
+        return conv.group_avatar_url;
+      }
+      return conv.group_name?.[0]?.toUpperCase() || 'G';
+    }
+    
+    // For 1-on-1 conversations
+    const otherUser = getOtherUser(conv);
+    return otherUser?.username?.[0]?.toUpperCase() || otherUser?.email?.[0]?.toUpperCase() || '?';
+  };
+
   const getOtherUser = (conv: Conversation) => {
     if (!currentUserId) return null;
     return conv.participants.find((p) => p.id !== currentUserId) ?? null;
@@ -102,14 +127,20 @@ export function ShareDialog({
     }
   };
 
-  const filteredConversations = conversations.filter((conv) => {
+  const filteredConversations = conversations.filter((conv: any) => {
     const searchLower = searchQuery.toLowerCase();
 
     if (!searchLower) return true;
 
+    // Check group name for group conversations
+    if (conv.is_group && conv.group_name) {
+      return conv.group_name.toLowerCase().includes(searchLower);
+    }
+
+    // Check participants for 1-on-1
     const otherUser = getOtherUser(conv);
     if (!otherUser) {
-      return conv.participants.some((p) => {
+      return conv.participants.some((p: any) => {
         const usernameMatch = p.username?.toLowerCase().includes(searchLower);
         const emailMatch = p.email.toLowerCase().includes(searchLower);
         return Boolean(usernameMatch || emailMatch);
@@ -169,8 +200,7 @@ export function ShareDialog({
                 No conversations found. Start a conversation first!
               </p>
             ) : (
-              filteredConversations.map((conv) => {
-                const otherUser = getOtherUser(conv);
+              filteredConversations.map((conv: any) => {
                 return (
                   <div
                     key={conv.id}
@@ -179,12 +209,21 @@ export function ShareDialog({
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold">
-                        {otherUser?.username?.[0]?.toUpperCase() || otherUser?.email?.[0]?.toUpperCase() || '?'}
+                        {typeof getConversationAvatar(conv) === 'string' && getConversationAvatar(conv).startsWith('http') ? (
+                          <img src={getConversationAvatar(conv)} alt="" className="w-full h-full object-cover rounded-full" />
+                        ) : (
+                          getConversationAvatar(conv)
+                        )}
                       </div>
                       <div>
                         <p className="font-medium">
-                          {otherUser?.username || otherUser?.email || 'Unknown User'}
+                          {getConversationTitle(conv)}
                         </p>
+                        {conv.is_group && (
+                          <p className="text-xs text-gray-400">
+                            {conv.participants?.length || 0} members
+                          </p>
+                        )}
                       </div>
                     </div>
                     <Send className="w-4 h-4 text-purple-400" />
