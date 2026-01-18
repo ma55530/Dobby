@@ -110,7 +110,10 @@ export default function MePage() {
 
    useEffect(() => {
       const fetchData = async () => {
-         const [profileRes] = await Promise.all([fetch("/api/user")]);
+         const [profileRes, genresRes] = await Promise.all([
+            fetch("/api/user"),
+            fetch("/api/genres")
+         ]);
 
          if (!profileRes.ok) {
             setError("Failed to load profile");
@@ -119,6 +122,12 @@ export default function MePage() {
          }
          const profileData = await profileRes.json();
          setProfile(profileData);
+
+         // Load genres
+         if (genresRes.ok) {
+            const genresData = await genresRes.json();
+            setAllGenres(genresData.genres || []);
+         }
 
          // Load favorite genres from localStorage
          const savedGenres = localStorage.getItem(
