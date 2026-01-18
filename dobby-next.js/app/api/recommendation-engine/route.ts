@@ -233,14 +233,9 @@ export async function GET(request: Request) {
          }));
 
          if (payload.length > 0) {
-            // Only delete previous recommendations if this is the first batch (offset 0)
-            if (offset === 0) {
-               await supabase.from(table).delete().eq("user_id", userId);
-            }
-            // Upsert (update if exists) to ensure created_at is refreshed
-            await supabase
-               .from(table)
-               .upsert(payload, { onConflict: "user_id, " + col });
+            // Always delete previous recommendations before inserting a new batch
+            await supabase.from(table).delete().eq("user_id", userId);
+            await supabase.from(table).insert(payload);
          }
          return sliced.length;
       };
