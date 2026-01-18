@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { updateUserEmbedding } from "@/lib/dobbySense";
 
 export async function POST(
   req: Request,
@@ -78,6 +79,11 @@ export async function POST(
   if (ratingError) {
     return NextResponse.json({ error: ratingError.message }, { status: 400 });
   }
+
+  // Fire-and-forget vector update for recommendation engine
+  updateUserEmbedding(supabase, user.id, showId, "show", rating).catch((err) =>
+    console.error("Failed to update user embedding (show)", err)
+  );
 
   return NextResponse.json({
     success: true,

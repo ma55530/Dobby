@@ -12,52 +12,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { TMDB_GENRES, getGenreKeyByName } from "@/lib/config/genres";
 
-// genre list
-const AVAILABLE_GENRES = [
-   "Action",
-   "Adventure",
-   "Animation",
-   "Comedy",
-   "Crime",
-   "Documentary",
-   "Drama",
-   "Family",
-   "Fantasy",
-   "History",
-   "Horror",
-   "Music",
-   "Mystery",
-   "Romance",
-   "Science Fiction",
-   "TV Movie",
-   "Thriller",
-   "War",
-   "Western",
-];
-
-// Mapiraj žanrove na kodove (prilagodi prema svom modelu)
-const GENRE_CODE_MAP: Record<string, string> = {
-   Action: "g0",
-   Adventure: "g1",
-   Animation: "g2",
-   Comedy: "g3",
-   Crime: "g4",
-   Documentary: "g5",
-   Drama: "g6",
-   Family: "g7",
-   Fantasy: "g8",
-   History: "g9",
-   Horror: "g10",
-   Music: "g11",
-   Mystery: "g12",
-   Romance: "g13",
-   "Science Fiction": "g14",
-   "TV Movie": "g15",
-   Thriller: "g16",
-   War: "g17",
-   Western: "g18",
-};
+const AVAILABLE_GENRES = TMDB_GENRES.map((g) => g.name);
 
 export default function TestFoldInPage() {
    const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
@@ -92,12 +49,12 @@ export default function TestFoldInPage() {
             return;
          }
 
-         // Mapiraj odabrane žanrove na kodove
-         const selectedGenreCodes = selectedGenres
-            .map((g) => GENRE_CODE_MAP[g])
+         // Mapiraj odabrane žanrove na kodove (ili vrati ime ako nema key)
+         const selectedGenreTokens = selectedGenres
+            .map((g) => getGenreKeyByName(g) ?? g)
             .filter(Boolean);
 
-         if (selectedGenreCodes.length === 0) {
+         if (selectedGenreTokens.length === 0) {
             setError("Nijedan odabrani žanr nije podržan.");
             setLoading(false);
             return;
@@ -108,7 +65,7 @@ export default function TestFoldInPage() {
             headers: {
                "Content-Type": "application/json",
             },
-            body: JSON.stringify({ selectedGenres: selectedGenreCodes }),
+            body: JSON.stringify({ selectedGenres: selectedGenreTokens }),
          });
 
          const data = await response.json();
