@@ -237,33 +237,20 @@ export async function POST(request: Request) {
             resolveItems(showIds, "shows"),
          ]);
 
-         const processItems = async (
+         const processItems = (
             items: any[],
-            type: "movies" | "shows",
             checkBad: (i: any) => boolean
          ) => {
-            return Promise.all(
-               items.map(async (item) => {
-                  if (checkBad(item)) {
-                     // Similarly use baseUrl
-                     const better = await findBetterSimilar(
-                        item.id ?? item.tmdb_id,
-                        type,
-                        baseUrl,
-                        headers,
-                        checkBad
-                     );
-                     return better || null;
-                  }
-                  return item;
-               })
-            );
+            return items.map((item) => {
+               if (checkBad(item)) {
+                  return null;
+               }
+               return item;
+            });
          };
 
-         const [finalMoviesRaw, finalShowsRaw] = await Promise.all([
-            processItems(allMovies, "movies", isBadMovie),
-            processItems(allShows, "shows", isBadShow),
-         ]);
+         const finalMoviesRaw = processItems(allMovies, isBadMovie);
+         const finalShowsRaw = processItems(allShows, isBadShow);
 
          const saveRecs = async (
             items: any[],
@@ -280,8 +267,12 @@ export async function POST(request: Request) {
             }));
             if (payload.length > 0) {
                await supabase.from(table).delete().eq("user_id", user.id);
-               await supabase.from(table).insert(payload);
+               // Upsert (update if exists) to ensure created_at is refreshed
+               await supabase
+                  .from(table)
+                  .upsert(payload, { onConflict: "user_id, " + col });
             }
+            return sliced.length;
          };
 
          await Promise.all([
