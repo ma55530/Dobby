@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Fuse from "fuse.js";
 import TrackCard from "@/components/tracks/TrackCard";
 import { Movies } from "@/lib/types/Movies";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { rankByQuery } from "@/lib/search/smartSearch";
 
 type MoviesSearchResponse = {
   results: Movies[];
@@ -59,7 +59,7 @@ export default function MoviesPage() {
   const addToRecentSearches = (searchQuery: string) => {
     if (!searchQuery.trim()) return;
     const newSearches = [
-      searchQuery,
+      searchQuery.trim().replace(/\s+/g, " "),
       ...recentSearches.filter((s) => s !== searchQuery),
     ].slice(0, 5);
     setRecentSearches(newSearches);
@@ -67,9 +67,12 @@ export default function MoviesPage() {
   };
 
   const handleSearch = async (searchQuery: string, searchPage: number) => {
-    if (!searchQuery) return;
+    const normalizedQuery = searchQuery.trim().replace(/\s+/g, " ");
+    if (!normalizedQuery) return;
     setLoading(true);
-    const res = await fetch(`/api/movies?query=${searchQuery}&page=${searchPage}`);
+    const res = await fetch(
+      `/api/movies?query=${encodeURIComponent(normalizedQuery)}&page=${searchPage}`
+    );
     if (!res.ok) {
       setHasMore(false);
       setLoading(false);
@@ -82,16 +85,8 @@ export default function MoviesPage() {
       (movie) => movie.release_date && movie.vote_average !== 0
     );
 
-    // Apply fuzzy search for better matching
-    const fuse = new Fuse(filteredMovies, {
-      keys: ["title"],
-      threshold: 0.3, // Lower = stricter matching
-    });
-
-    const fuzzyResults = fuse.search(searchQuery).map((result) => result.item);
-
-    // Use fuzzy results if found, otherwise use filtered results
-    filteredMovies = fuzzyResults.length > 0 ? fuzzyResults : filteredMovies;
+    // Rank (normalize + token + fuzzy) instead of filtering out candidates.
+    filteredMovies = rankByQuery(filteredMovies, normalizedQuery, (m: Movies) => [m.title, (m as unknown as Record<string, unknown>).original_title as string]);
 
     setResults((prev) => {
   const combined =
@@ -110,10 +105,11 @@ export default function MoviesPage() {
 
   const onSearch = () => {
     if (!query.trim()) return;
+    const normalizedQuery = query.trim().replace(/\s+/g, " ");
     setPage(1);
     setHasMore(true);
-    addToRecentSearches(query);
-    handleSearch(query, 1);
+    addToRecentSearches(normalizedQuery);
+    handleSearch(normalizedQuery, 1);
     setIsFocused(false); 
   };
 

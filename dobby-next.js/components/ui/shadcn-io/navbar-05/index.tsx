@@ -176,11 +176,41 @@ const NotificationMenu = ({
     }
   };
 
+  const handleClearAll = async () => {
+    try {
+      const notificationIds = notifications.map(n => n.id);
+      const res = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationIds }),
+      });
+      if (res.ok) {
+        setNotifications([]);
+      }
+    } catch (error) {
+      console.error("Error clearing notifications:", error);
+    }
+  };
+
   const getNotificationLink = (notification: Notification) => {
     if (notification.type === 'message') {
-      return `/messages?conversation=${notification.resource_id}`;
+      return `/messages`;
     }
     return `/users/${notification.actor.username}`;
+  };
+
+  const resolveConversationId = async (resourceId: string) => {
+    const res = await fetch(
+      `/api/notifications/resolve-message?messageId=${encodeURIComponent(resourceId)}`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const conversationId = data?.conversationId;
+      if (typeof conversationId === 'string' && conversationId.length > 0) {
+        return conversationId;
+      }
+    }
+    return null;
   };
 
   return (
@@ -197,7 +227,19 @@ const NotificationMenu = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
-        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+        <div className="flex items-center justify-between px-2 py-1.5">
+          <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>
+          {notifications.length > 0 && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleClearAll}
+              className="h-7 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Clear All
+            </Button>
+          )}
+        </div>
         <DropdownMenuSeparator />
         {loading && (
           <div className="p-8 text-center text-muted-foreground">
@@ -214,7 +256,27 @@ const NotificationMenu = ({
           <Link 
             key={notification.id} 
             href={getNotificationLink(notification)}
-            onClick={() => handleMarkAsRead(notification.id)}
+            onClick={async (e) => {
+              if (notification.type === 'message') {
+                e.preventDefault();
+                await handleMarkAsRead(notification.id);
+
+                if (notification.resource_id) {
+                  const conversationId = await resolveConversationId(notification.resource_id);
+                  if (conversationId) {
+                    window.location.href = `/messages?conversation=${conversationId}&message=${notification.resource_id}`;
+                    return;
+                  }
+                  // fallback: treat as conversation id
+                  window.location.href = `/messages?conversation=${notification.resource_id}`;
+                  return;
+                }
+                window.location.href = '/messages';
+                return;
+              }
+
+              handleMarkAsRead(notification.id);
+            }}
             className="block p-3 border-b last:border-0 hover:bg-accent/50 transition-colors"
           >
             <div className="flex items-start gap-3">
@@ -385,13 +447,18 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
     ref
   ) => {
     const [isMobile, setIsMobile] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const containerRef = useRef<HTMLElement>(null);
 
     useEffect(() => {
       const checkWidth = () => {
         if (containerRef.current) {
           const width = containerRef.current.offsetWidth;
-          setIsMobile(width < 768); // 768px is md breakpoint
+          const mobile = width < 768;
+          setIsMobile(mobile); // 768px is md breakpoint
+          if (!mobile) {
+            setMobileMenuOpen(false);
+          }
         }
       };
 
@@ -475,7 +542,19 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
             )}
           </div>
           {/* Right: User and notifications */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                aria-expanded={mobileMenuOpen}
+                aria-label="Toggle navigation"
+                onClick={() => setMobileMenuOpen((prev) => !prev)}
+              >
+                <HamburgerIcon className="h-4 w-4" />
+              </Button>
+            )}
             <div className="flex items-center gap-2">
               <NotificationMenu 
                 notificationCount={notificationCount}
@@ -490,6 +569,47 @@ export const Navbar05 = React.forwardRef<HTMLElement, Navbar05Props>(
             />
           </div>
         </div>
+        {isMobile && mobileMenuOpen && (
+          <div className="border-t border-border/60 bg-background/90 backdrop-blur-xl">
+            <div className="container mx-auto max-w-screen-2xl px-4 py-3 space-y-2">
+              {navigationLinks.map((link, index) => (
+                <button
+                  key={`${link.label}-${index}`}
+                  onClick={() => {
+                    if (onNavItemClick && link.href) onNavItemClick(link.href);
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full text-left rounded-md px-3 py-2 text-base font-semibold text-muted-foreground hover:text-primary hover:bg-white/5 transition-colors"
+                >
+                  {link.label}
+                </button>
+              ))}
+              <div className="pt-2">
+                <p className="px-3 text-xs uppercase tracking-wide text-muted-foreground/70">For You</p>
+                <div className="mt-2 space-y-1">
+                  <button
+                    onClick={() => {
+                      if (onNavItemClick) onNavItemClick('/movies/forYou');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left rounded-md px-3 py-2 text-base font-semibold text-muted-foreground hover:text-primary hover:bg-white/5 transition-colors"
+                  >
+                    Movies For You
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (onNavItemClick) onNavItemClick('/shows/forYou');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left rounded-md px-3 py-2 text-base font-semibold text-muted-foreground hover:text-primary hover:bg-white/5 transition-colors"
+                  >
+                    Shows For You
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
     );
   }

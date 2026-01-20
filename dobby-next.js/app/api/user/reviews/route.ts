@@ -24,35 +24,40 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "10", 10);
+    const limit = parseInt(searchParams.get("limit") || "5", 10);
 
-    // Fetch user's movie ratings (only those with review_title - actual reviews, not comments)
-    const { data: movieRatings, error: movieError } = await supabase
-      .from("movie_ratings")
-      .select("id, movie_id, rating, review, review_title, created_at, user_id, likes")
+    // Fetch user's ratings from unified rating table with post details
+    const { data: ratings, error: ratingsError } = await supabase
+      .from("rating")
+      .select(`
+        id,
+        movie_id,
+        show_id,
+        rating,
+        created_at,
+        post (
+          id,
+          post_text
+        ),
+        profiles (
+          username,
+          avatar_url
+        )
+      `)
       .eq("user_id", user.id)
-      .not("review_title", "is", null)
+      .not("rating", "is", null)
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .limit(limit * 3); // Fetch 3x to account for filtering out ratings without reviews
 
-    if (movieError) {
-      console.error("Error fetching movie ratings:", movieError);
-      return NextResponse.json({ error: "Failed to fetch movie ratings" }, { status: 500 });
+    if (ratingsError) {
+      console.error("Error fetching ratings:", ratingsError);
+      return NextResponse.json({ error: "Failed to fetch ratings" }, { status: 500 });
     }
 
-    // Fetch user's show ratings (only those with review_title - actual reviews, not comments)
-    const { data: showRatings, error: showError } = await supabase
-      .from("show_ratings")
-      .select("id, show_id, rating, review, review_title, created_at, user_id, likes")
-      .eq("user_id", user.id)
-      .not("review_title", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-
-    if (showError) {
-      console.error("Error fetching show ratings:", showError);
-      return NextResponse.json({ error: "Failed to fetch show ratings" }, { status: 500 });
-    }
+    // Filter to only include ratings with review text (actual reviews)
+    const reviewRatings = (ratings || []).filter(
+      (r: Record<string, unknown>) => (r.post as Record<string, unknown>)?.post_text && ((r.post as Record<string, unknown>).post_text as string).trim() !== ""
+    ).slice(0, limit);
 
     // Fetch user profile
     const { data: profile } = await supabase
@@ -61,110 +66,82 @@ export async function GET(request: Request) {
       .eq("id", user.id)
       .single();
 
-    // Fetch TMDB data for movies
-    const movieIds = movieRatings?.map((r) => r.movie_id) || [];
-    const posterMap: Record<number, { title: string; poster: string }> = {};
+    // Build poster map - fetch posters based on type
+    const posterMap = new Map<string, { title: string; poster: string }>();
+    
+    // Get unique movie IDs and show IDs
+    const movieIds = [...new Set(reviewRatings.filter((r: Record<string, unknown>) => r.movie_id).map((r: Record<string, unknown>) => r.movie_id))];
+    const showIds = [...new Set(reviewRatings.filter((r: Record<string, unknown>) => r.show_id).map((r: Record<string, unknown>) => r.show_id))];
 
-    if (movieIds.length > 0) {
-      const posterPromises = movieIds.map(async (id) => {
-        try {
-          const response = await fetch(
-            `https://api.themoviedb.org/3/movie/${id}`,
-            get_options
-          );
-          if (response.ok) {
-            const movie: TmdbMovie = await response.json();
-            return {
-              id: movie.id,
-              title: movie.title,
-              poster: movie.poster_path
-                ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-                : "/placeholder-poster.png",
-            };
-          }
-        } catch (err) {
-          console.error(`Failed to fetch movie ${id}:`, err);
+    // Fetch movie posters
+    for (const movieId of movieIds) {
+      try {
+        const res = await fetch(
+          `https://api.themoviedb.org/3/movie/${movieId}`,
+          get_options
+        );
+        if (res.ok) {
+          const movieData: TmdbMovie = await res.json();
+          const posterUrl = movieData.poster_path 
+            ? `https://image.tmdb.org/t/p/w500${movieData.poster_path}`
+            : "/placeholder-poster.png";
+          posterMap.set(`movie_${movieId}`, { title: movieData.title, poster: posterUrl });
         }
-        return null;
-      });
-
-      const posters = await Promise.all(posterPromises);
-      posters.forEach((p) => {
-        if (p) posterMap[p.id] = { title: p.title, poster: p.poster };
-      });
+      } catch (error) {
+        console.error(`Failed to fetch poster for movie ${movieId}:`, error);
+      }
     }
 
-    // Fetch TMDB data for shows
-    const showIds = showRatings?.map((r) => r.show_id) || [];
-    const showPosterMap: Record<number, { title: string; poster: string }> = {};
-
-    if (showIds.length > 0) {
-      const showPosterPromises = showIds.map(async (id) => {
-        try {
-          const response = await fetch(
-            `https://api.themoviedb.org/3/tv/${id}`,
-            get_options
-          );
-          if (response.ok) {
-            const show: TmdbShow = await response.json();
-            return {
-              id: show.id,
-              title: show.name,
-              poster: show.poster_path
-                ? `https://image.tmdb.org/t/p/w500${show.poster_path}`
-                : "/placeholder-poster.png",
-            };
-          }
-        } catch (err) {
-          console.error(`Failed to fetch show ${id}:`, err);
+    // Fetch show posters
+    for (const showId of showIds) {
+      try {
+        const res = await fetch(
+          `https://api.themoviedb.org/3/tv/${showId}`,
+          get_options
+        );
+        if (res.ok) {
+          const showData: TmdbShow = await res.json();
+          const posterUrl = showData.poster_path 
+            ? `https://image.tmdb.org/t/p/w500${showData.poster_path}`
+            : "/placeholder-poster.png";
+          posterMap.set(`tv_${showId}`, { title: showData.name, poster: posterUrl });
         }
-        return null;
-      });
-
-      const showPosters = await Promise.all(showPosterPromises);
-      showPosters.forEach((p) => {
-        if (p) showPosterMap[p.id] = { title: p.title, poster: p.poster };
-      });
+      } catch (error) {
+        console.error(`Failed to fetch poster for show ${showId}:`, error);
+      }
     }
 
-    // Map movie ratings to reviews
-    const movieReviews = (movieRatings || []).map((rating) => ({
-      id: rating.id,
-      author: profile?.username || "Unknown",
-      avatar: profile?.avatar_url,
-      rating: rating.rating,
-      content: rating.review || "",
-      date: new Date(rating.created_at).toLocaleDateString(),
-      likes: rating.likes || 0,
-      movieId: rating.movie_id,
-      movieTitle: rating.review_title,
-      movieType: "movie" as const,
-      moviePoster: posterMap[rating.movie_id]?.poster,
-      children: [],
-    }));
+    // Transform data to match frontend Review interface
+    const transformedReviews = reviewRatings.map((ratingItem: Record<string, unknown>) => {
+      const isMovie = !!ratingItem.movie_id;
+      const mediaId = isMovie ? ratingItem.movie_id : ratingItem.show_id;
+      const mediaType = isMovie ? "movie" : "tv";
+      const posterData = posterMap.get(`${mediaType}_${mediaId}`) || { title: "Untitled", poster: "/placeholder-poster.png" };
+      const post = ratingItem.post as Record<string, unknown> | undefined;
+      const profiles = ratingItem.profiles as Record<string, unknown> | undefined;
+      
+      return {
+        id: post?.id || ratingItem.id,
+        author: profiles?.username || profile?.username || "Unknown",
+        avatar: profiles?.avatar_url || profile?.avatar_url,
+        rating: ratingItem.rating,
+        content: post?.post_text || "",
+        date: new Date(ratingItem.created_at as string).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        }),
+        likes: 0,
+        movieId: mediaId,
+        movieTitle: posterData.title,
+        movieType: mediaType as "movie" | "tv",
+        moviePoster: posterData.poster,
+        children: [],
+        userId: user.id,
+      };
+    });
 
-    // Map show ratings to reviews
-    const showReviews = (showRatings || []).map((rating) => ({
-      id: rating.id,
-      author: profile?.username || "Unknown",
-      avatar: profile?.avatar_url,
-      rating: rating.rating,
-      content: rating.review || "",
-      date: new Date(rating.created_at).toLocaleDateString(),
-      likes: rating.likes || 0,
-      movieId: rating.show_id,
-      movieTitle: rating.review_title,
-      movieType: "tv" as const,
-      moviePoster: showPosterMap[rating.show_id]?.poster,
-      children: [],
-    }));
-
-    // Combine and sort by date
-    const allReviews = [...movieReviews, ...showReviews].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
-    return NextResponse.json({ reviews: allReviews.slice(0, limit) });
+    return NextResponse.json({ reviews: transformedReviews });
   } catch (err) {
     console.error("Error in user reviews endpoint:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

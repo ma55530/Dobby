@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Movies } from '@/lib/types/Movies';
 import { get_options } from '@/lib/TMDB_API/requestOptions';
+import { buildTmdbQueryVariants, rankByQuery } from '@/lib/search/smartSearch';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -14,25 +15,52 @@ export async function GET(request: Request) {
     );
   }
 
-  const url = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&page=${page}`;
-
-  try {
-    const response = await fetch(url, get_options);
-
+  const tmdbSearch = async (q: string, p: string): Promise<Record<string, unknown>> => {
+    const u = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(q)}&page=${p}`;
+    const response = await fetch(u, get_options);
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('TMDB API Error:', errorData);
-      return NextResponse.json(
-        {
-          error: `Failed to fetch movies from TMDB: ${errorData.status_message}`,
-        },
-        { status: response.status }
+      throw new Error(errorData?.status_message || 'TMDB search failed');
+    }
+    return response.json();
+  };
+
+  try {
+    const data = await tmdbSearch(query, page);
+
+    let movies: Movies[] = (data.results ?? []) as Movies[];
+
+    // If TMDB returns nothing (common with typos), fetch extra candidates via query variants.
+    if (movies.length === 0) {
+      const variants = buildTmdbQueryVariants(query);
+      const variantData = await Promise.all(
+        variants.map(async (v: string): Promise<Movies[]> => {
+          try {
+            const vd = await tmdbSearch(v, '1');
+            return (vd.results ?? []) as Movies[];
+          } catch {
+            return [] as Movies[];
+          }
+        })
       );
+
+      const combined = variantData.flat();
+      movies = Array.from(new Map(combined.map((m) => [m.id, m])).values());
+
+      // Rank locally so best match comes first.
+      movies = rankByQuery(movies, query, (m: Movies) => [m.title, (m as unknown as Record<string, unknown>).original_title as string]);
+
+      return NextResponse.json({
+        results: movies,
+        page: 1,
+        total_pages: 1,
+        total_results: movies.length,
+      });
     }
 
-    const data = await response.json();
+    // Rank the returned page to improve ordering.
+    movies = rankByQuery(movies, query, (m: Movies) => [m.title, (m as unknown as Record<string, unknown>).original_title as string]);
 
-    const movies: Movies[] = data.results;
     return NextResponse.json({
       results: movies,
       page: data.page,

@@ -48,8 +48,8 @@ export default function UsersPage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#1a1625] to-[#0f0c18] text-white">
       <div className="container mx-auto px-4 py-12 max-w-4xl">
-        <h1 className="text-4xl md:text-5xl font-extrabold mb-2">Find Users</h1>
-        <p className="text-gray-400 mb-8">Search for other users by username or name</p>
+        <h1 className="text-4xl md:text-5xl font-extrabold mb-2">Find Friends</h1>
+        <p className="text-gray-400 mb-8">Search for friends by username or name</p>
 
         {/* Search Form */}
         <form onSubmit={handleSearch} className="mb-8">
@@ -83,7 +83,7 @@ export default function UsersPage() {
         {!loading && searched && results.length === 0 && (
           <div className="text-center text-gray-400 py-12">
             <UserIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <p className="text-xl">No users found</p>
+            <p className="text-xl">No friends found</p>
             <p className="text-sm mt-2">Try a different search term</p>
           </div>
         )}
@@ -91,7 +91,7 @@ export default function UsersPage() {
         {!loading && results.length > 0 && (
           <div className="space-y-4">
             <p className="text-gray-400 mb-4">
-              Found {results.length} {results.length === 1 ? "user" : "users"}
+              Found {results.length} {results.length === 1 ? "friend" : "friends"}
             </p>
             {results.map((user) => (
               <Link key={user.id} href={`/users/${user.username}`}>

@@ -1,18 +1,19 @@
 import ReviewCard from "@/components/cards/ReviewCard";
 
 interface Comment {
-  id: number;
+  id: string;
   author: string;
   avatar?: string;
-  rating: number;
+  rating?: number;
   content: string;
   date: string;
   likes: number;
-  parentId?: number;
+  parentId?: string;
+  userId?: string;
 }
 
 interface Review {
-  id: number;
+  id: string;
   author: string;
   avatar?: string;
   rating: number;
@@ -25,12 +26,13 @@ interface Review {
   moviePoster?: string;
   hasChildren?: boolean;
   children?: Comment[];
+  userId?: string;
 }
 
 interface PostProps {
   post: Review;
-  onLoadMore?: (parentId: number) => void;
-  nestedComments?: Record<number, Comment[]>;
+  onLoadMore?: (parentId: string) => void;
+  nestedComments?: Record<string, Comment[]>;
 }
 
 const Post = ({ post, onLoadMore, nestedComments }: PostProps) => {

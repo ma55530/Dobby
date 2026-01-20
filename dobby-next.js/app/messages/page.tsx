@@ -12,7 +12,7 @@ import { Conversation } from '@/lib/types/Conversation';
 import { Message } from '@/lib/types/Message';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { Send, MessageCircle, Search, Plus, Check, CheckCheck, Film, Tv, MoreVertical, Trash2 } from 'lucide-react';
+import { Send, MessageCircle, Search, Plus, Check, CheckCheck, Film, Tv, MoreVertical, Trash2, ChevronLeft, Repeat} from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -34,24 +34,108 @@ function MessagesContent() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
 
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+  const [groupName, setGroupName] = useState('');
+  const [groupAvatarFile, setGroupAvatarFile] = useState<File | null>(null);
+  const [groupAvatarPreview, setGroupAvatarPreview] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+  const [expandedReviews, setExpandedReviews] = useState<Set<string>>(new Set());
+
+  const targetMessageId = searchParams.get('message');
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
-  useEffect(() => {
-    if (scrollContainerRef.current) {
-      const { scrollHeight, clientHeight } = scrollContainerRef.current;
-      scrollContainerRef.current.scrollTo({
-        top: scrollHeight - clientHeight,
-        behavior: 'smooth'
-      });
+  const createClientId = () => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return (crypto as any).randomUUID() as string;
     }
-  }, [messages, activeConversation]);
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 12;
+
+    const scrollToBottom = () => {
+      if (scrollContainerRef.current) {
+        const { scrollHeight, clientHeight } = scrollContainerRef.current;
+        scrollContainerRef.current.scrollTo({
+          top: scrollHeight - clientHeight,
+          behavior: 'smooth'
+        });
+      }
+    };
+
+    const tryScrollToMessage = () => {
+      if (cancelled) return;
+      if (isMobile && mobileView !== 'chat') return;
+      if (targetMessageId) {
+        const element = document.getElementById(`message-${targetMessageId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+        if (attempts < maxAttempts) {
+          attempts += 1;
+          requestAnimationFrame(tryScrollToMessage);
+          return;
+        }
+      }
+
+      scrollToBottom();
+    };
+
+    if (isMobile && mobileView === 'chat') {
+      requestAnimationFrame(tryScrollToMessage);
+    } else if (!isMobile) {
+      tryScrollToMessage();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeConversation, targetMessageId, isMobile, mobileView, messages.length]);
+
+  useEffect(() => {
+    if (!isMobile || mobileView !== 'chat') return;
+    const id = window.setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [isMobile, mobileView, messages.length, activeConversation]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(max-width: 767px)');
+    const handleChange = () => {
+      setIsMobile(media.matches);
+      if (!media.matches) {
+        setMobileView('list');
+      }
+    };
+    handleChange();
+    media.addEventListener('change', handleChange);
+    return () => media.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    if (activeConversation) {
+      setMobileView('chat');
+    } else {
+      setMobileView('list');
+    }
+  }, [activeConversation, isMobile]);
 
   useEffect(() => {
     const init = async () => {
@@ -150,43 +234,9 @@ function MessagesContent() {
 
       await fetch(`/api/conversations/${conversationId}/messages`, { method: 'PATCH' });
 
-      // Identify unread messages from others to mark their notifications as read
-      // We can just try to mark all notifications for these messages as read.
-      const messageIds = uniqueMessages.map(m => m.id);
-      if (messageIds.length > 0) {
-        await markMessageNotificationsAsRead(messageIds);
-      }
-
       setConversations(prev =>
         prev.map(c => c.id === conversationId ? { ...c, unread_count: 0 } : c)
       );
-    }
-  };
-
-  const markMessageNotificationsAsRead = async (messageIds: string[]) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Find notifications for these messages
-      const { data: notifications } = await supabase
-        .from('notifications')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('type', 'message')
-        .in('resource_id', messageIds)
-        .eq('is_read', false);
-
-      if (notifications && notifications.length > 0) {
-        const ids = notifications.map((n: any) => n.id);
-        await fetch('/api/notifications', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ notificationIds: ids }),
-        });
-      }
-    } catch (error) {
-      console.error('Error marking notifications as read:', error);
     }
   };
 
@@ -224,13 +274,20 @@ function MessagesContent() {
 
   const sendMessage = async () => {
     if (!activeConversation || !newMessage.trim()) return;
+    if (sendingRef.current) return;
+
+    sendingRef.current = true;
     setSending(true);
 
     try {
+      const clientId = createClientId();
       const res = await fetch(`/api/conversations/${activeConversation}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newMessage.trim() }),
+        body: JSON.stringify({
+          content: newMessage.trim(),
+          metadata: { client_id: clientId },
+        }),
       });
 
       if (res.ok) {
@@ -253,6 +310,7 @@ function MessagesContent() {
     } catch (error) {
       console.error('Failed to send message:', error);
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };
@@ -284,6 +342,63 @@ function MessagesContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recipientId: userId }),
       });
+      
+      if (res.ok) {
+        const data = await res.json();
+        
+        setNewConversationOpen(false);
+        setSearchQuery('');
+        setSearchResults([]);
+        setSelectedUsers([]);
+        
+        await fetchConversations();
+        setActiveConversation(data.conversationId);
+        await fetchMessages(data.conversationId);
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Failed to create conversation:', res.status, errorData);
+        alert(`Failed to create conversation: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to start conversation:', error);
+      alert('Failed to start conversation. Check console for details.');
+    }
+  };
+
+  const createGroupConversation = async () => {
+    if (!groupName.trim() || selectedUsers.length < 2) {
+      alert('Please enter a group name and select at least 2 users');
+      return;
+    }
+
+    try {
+      let groupAvatarUrl = null;
+
+      // Upload group avatar if selected
+      if (groupAvatarFile) {
+        const formData = new FormData();
+        formData.append('avatar', groupAvatarFile);
+
+        const uploadRes = await fetch('/api/conversations/group-avatar', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          groupAvatarUrl = uploadData.avatar_url;
+        }
+      }
+
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientIds: selectedUsers.map(u => u.id),
+          groupName: groupName.trim(),
+          groupAvatarUrl,
+        }),
+      });
 
       if (res.ok) {
         const data = await res.json();
@@ -293,14 +408,53 @@ function MessagesContent() {
         setNewConversationOpen(false);
         setSearchQuery('');
         setSearchResults([]);
+        setSelectedUsers([]);
+        setGroupName('');
+        setGroupAvatarFile(null);
+        setGroupAvatarPreview(null);
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Failed to create group');
       }
     } catch (error) {
-      console.error('Failed to start conversation:', error);
+      console.error('Failed to create group:', error);
+      alert('Failed to create group');
     }
   };
 
   const getOtherParticipant = (conv: Conversation) =>
     conv.participants?.find(p => p.id !== currentUser?.id);
+
+  const getConversationTitle = (conv: Conversation) => {
+    // If it's a group with a name, use the group name
+    if (conv.is_group && conv.group_name) {
+      return conv.group_name;
+    }
+
+    const others = (conv.participants ?? []).filter((p) => p.id !== currentUser?.id);
+    if (others.length === 1) {
+      const other = others[0];
+      return other?.username || other?.email || 'Unknown User';
+    }
+
+    const names = others
+      .map((p) => p.username || p.email)
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(', ');
+
+    return names || 'Conversation';
+  };
+
+  const toggleSelectedUser = (user: any) => {
+    setSelectedUsers((prev) => {
+      const exists = prev.some((u) => u.id === user.id);
+      if (exists) {
+        return prev.filter((u) => u.id !== user.id);
+      }
+      return [...prev, user];
+    });
+  };
 
   const activeConversationData = conversations.find(c => c.id === activeConversation);
   const otherUser = activeConversationData ? getOtherParticipant(activeConversationData) : null;
@@ -318,22 +472,23 @@ function MessagesContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 to-slate-900">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <MessageCircle className="w-8 h-8 text-purple-500" />
+      <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+            <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-purple-500" />
             Messages
           </h1>
-          <Button onClick={() => setNewConversationOpen(true)} className="bg-purple-600 hover:bg-purple-700">
+          <Button onClick={() => setNewConversationOpen(true)} className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto">
             <Plus className="w-4 h-4 mr-2" />
             New Message
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
-          <Card className="bg-slate-800 border-slate-700 overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-slate-700">
-              <h2 className="text-lg font-semibold text-white mb-3">Conversations</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-auto md:h-[calc(100vh-200px)]">
+          {(!isMobile || mobileView === 'list') && (
+          <Card className="bg-slate-800 border-slate-700 overflow-hidden flex flex-col md:h-full">
+            <div className="p-3 sm:p-4 border-b border-slate-700">
+              <h2 className="text-base sm:text-lg font-semibold text-white mb-3">Conversations</h2>
               {conversations.length === 0 && (
                 <p className="text-gray-400 text-sm text-center py-8">
                   No conversations yet. Start a new one!
@@ -344,6 +499,7 @@ function MessagesContent() {
             <div className="overflow-y-auto flex-1">
               {conversations.map((conv) => {
   const other = getOtherParticipant(conv);
+  const otherCount = (conv.participants ?? []).filter((p) => p.id !== currentUser?.id).length;
   const isActive = activeConversation === conv.id;
 
   return (
@@ -352,6 +508,9 @@ function MessagesContent() {
       onClick={async () => {
         setActiveConversation(conv.id);
         await fetchMessages(conv.id);
+        if (isMobile) {
+          setMobileView('chat');
+        }
       }}
       className={`p-4 border-b border-slate-700 cursor-pointer transition-colors ${
         isActive
@@ -362,16 +521,27 @@ function MessagesContent() {
       <div className="flex items-center gap-3">
         <div className="relative">
           <Avatar className="w-12 h-12">
-            <AvatarImage src={other?.avatar_url ?? undefined} />
-            <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
-              {other?.username?.[0]?.toUpperCase() || '?'}
-            </AvatarFallback>
+            {conv.is_group ? (
+              <>
+                {conv.group_avatar_url ? <AvatarImage src={conv.group_avatar_url} /> : null}
+                <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
+                  {conv.group_name?.[0]?.toUpperCase() || 'G'}
+                </AvatarFallback>
+              </>
+            ) : (
+              <>
+                {otherCount === 1 ? <AvatarImage src={other?.avatar_url ?? undefined} /> : null}
+                <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
+                  {getConversationTitle(conv)[0]?.toUpperCase() || '?'}
+                </AvatarFallback>
+              </>
+            )}
           </Avatar>
         </div>
 
         <div className="flex-1 min-w-0">
           <p className="truncate text-white font-semibold">
-            {other?.username || other?.email || 'Unknown User'}
+            {getConversationTitle(conv)}
           </p>
           <p className={`text-sm truncate ${conv.unread_count && conv.unread_count > 0 ? 'text-gray-200 font-medium' : 'text-gray-400'}`}>
             {conv.last_message?.content || 'No messages yet'}
@@ -388,22 +558,56 @@ function MessagesContent() {
 
             </div>
           </Card>
+          )}
 
           {/* Active Chat */}
-          <Card className="md:col-span-2 bg-slate-800 border-slate-700 flex flex-col overflow-hidden">
-            {activeConversation && otherUser ? (
+          {(!isMobile || mobileView === 'chat') && (
+          <Card className="md:col-span-2 bg-slate-800 border-slate-700 flex flex-col overflow-hidden
+                 h-[100dvh] md:h-full">
+            {activeConversation && activeConversationData ? (
               <>
-                <div className="p-4 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between">
+                <div className="p-3 sm:p-4 border-b border-slate-700 bg-slate-900/50 flex items-center justify-between">
                   <div className="flex items-center gap-3">
+                    {isMobile && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setMobileView('list')}
+                        className="md:hidden text-gray-300 hover:text-white hover:bg-slate-800"
+                        title="Back to conversations"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </Button>
+                    )}
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={otherUser.avatar_url ?? undefined} />
-                      <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
-                        {otherUser.username?.[0]?.toUpperCase() || '?'}
-                      </AvatarFallback>
+                      {activeConversationData.is_group ? (
+                        <>
+                          {activeConversationData.group_avatar_url ? (
+                            <AvatarImage src={activeConversationData.group_avatar_url} />
+                          ) : null}
+                          <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
+                            {activeConversationData.group_name?.[0]?.toUpperCase() || 'G'}
+                          </AvatarFallback>
+                        </>
+                      ) : (
+                        <>
+                          {otherUser ? <AvatarImage src={otherUser?.avatar_url ?? undefined} /> : null}
+                          <AvatarFallback className="bg-gradient-to-br from-purple-400 to-pink-400 text-white font-semibold">
+                            {getConversationTitle(activeConversationData)[0]?.toUpperCase() || '?'}
+                          </AvatarFallback>
+                        </>
+                      )}
                     </Avatar>
-                    <h2 className="text-lg font-semibold text-white">
-                      {otherUser.username || otherUser.email}
-                    </h2>
+                    <div>
+                      <h2 className="text-lg font-semibold text-white">
+                        {getConversationTitle(activeConversationData)}
+                      </h2>
+                      {activeConversationData.is_group && activeConversationData.group_name && (
+                        <p className="text-xs text-gray-400">
+                          {activeConversationData.participants?.filter(p => p.id !== currentUser?.id).map(p => p.username).join(', ')}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <Button
                     variant="ghost"
@@ -416,7 +620,7 @@ function MessagesContent() {
                   </Button>
                 </div>
 
-                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4">
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-gray-400">
                       <p>No messages yet. Start the conversation!</p>
@@ -429,9 +633,15 @@ function MessagesContent() {
                       const isRecommendation =
                         msg.message_type === 'movie_recommendation' ||
                         msg.message_type === 'show_recommendation';
+                      
+                      const isReview = msg.message_type === 'review';
 
                       return (
-                        <div key={`${msg.id}-${index}`} className={`flex items-start gap-2 ${isMe ? 'justify-end' : 'justify-start'} group`}>
+                        <div
+                          key={`${msg.id}-${index}`}
+                          id={`message-${msg.id}`}
+                          className={`flex items-start gap-2 ${isMe ? 'justify-end' : 'justify-start'} group transition-colors duration-500`}
+                        >
                           
                           {!isMe && (
                             <Avatar className="h-8 w-8 mt-1">
@@ -465,8 +675,109 @@ function MessagesContent() {
                             </DropdownMenu>
                           )}
 
-                          <div className={`max-w-[70%]`}>
-                            {isRecommendation && msg.metadata ? (
+                    <div className="max-w-[85%] sm:max-w-[70%]">
+                      {isReview && msg.metadata ? (
+                        <div className="space-y-2">
+                          {/* Review Label */}
+                          <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-semibold ${
+                            isMe ? 'bg-purple-500/30 text-purple-200' : 'bg-slate-700/50 text-slate-300'
+                          }`}>
+                            <Repeat className="w-3 h-3 fill-current" />
+                            <span>Shared Review</span>
+                          </div>
+                          
+                          {/* Review Card */}
+                          <div
+                            className={`rounded-2xl overflow-hidden border-2 ${
+                              isMe
+                                ? 'bg-fuchsia-900/40 border-purple-500 text-white'
+                                : 'bg-slate-800/90 border-slate-700 text-white'
+                            }`}
+                          >
+                            <div className="flex gap-3 p-3">
+                              {(msg.metadata as any)?.poster_path && (
+                                <div className="relative w-14 h-20 flex-shrink-0 rounded-lg overflow-hidden shadow-md">
+                                  <Image
+                                    src={`https://image.tmdb.org/t/p/w200${(msg.metadata as any).poster_path}`}
+                                    alt={(msg.metadata as any).title || 'Poster'}
+                                    fill
+                                    sizes="56px"
+                                    className="object-cover"
+                                  />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0 space-y-1.5">
+                                <div className="flex items-center gap-1.5">
+                                  {(msg.metadata as any).item_type === 'movie' ? (
+                                    <Film className="w-4 h-4 opacity-60 flex-shrink-0" />
+                                  ) : (
+                                    <Tv className="w-4 h-4 opacity-60 flex-shrink-0" />
+                                  )}
+                                  <p className="font-semibold text-sm line-clamp-1">
+                                    {(msg.metadata as any).title}
+                                  </p>
+                                </div>
+                                
+                                {(msg.metadata as any)?.rating && (
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-yellow-400 text-sm">★</span>
+                                      <span className="font-bold text-sm">{(msg.metadata as any).rating}</span>
+                                      <span className="text-xs opacity-60">/10</span>
+                                    </div>
+                                    <span className="text-xs opacity-50">by</span>
+                                    <span className="text-xs font-medium opacity-80">
+                                      {(msg.metadata as any).review_author || 'Unknown'}
+                                    </span>
+                                  </div>
+                                )}
+                                
+                                {(msg.metadata as any)?.review_content && (() => {
+                                  const reviewContent = (msg.metadata as any).review_content;
+                                  const isExpanded = expandedReviews.has(msg.id);
+                                  const needsExpansion = reviewContent.length > 150;
+                                  
+                                  return (
+                                    <div>
+                                      <p className={`text-xs opacity-90 leading-relaxed break-words ${
+                                        !isExpanded && needsExpansion ? 'line-clamp-3' : ''
+                                      }`}>
+                                        {reviewContent}
+                                      </p>
+                                      {needsExpansion && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setExpandedReviews(prev => {
+                                              const newSet = new Set(prev);
+                                              if (isExpanded) {
+                                                newSet.delete(msg.id);
+                                              } else {
+                                                newSet.add(msg.id);
+                                              }
+                                              return newSet;
+                                            });
+                                          }}
+                                          className="text-xs mt-1 opacity-70 hover:opacity-100 underline"
+                                        >
+                                          {isExpanded ? 'Read less' : 'Read more'}
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Sender's Comment */}
+                          {msg.content && (
+                            <div className={`rounded-2xl px-4 py-2 ${isMe ? 'bg-purple-600 text-white' : 'bg-slate-700 text-gray-100'}`}>
+                              <p className="break-words">{msg.content}</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : isRecommendation && msg.metadata ? (
                               <Link
                                 href={
                                   msg.message_type === 'movie_recommendation'
@@ -537,24 +848,27 @@ function MessagesContent() {
                       );
                     })
                   )}
+                  <div ref={messagesEndRef} />
                 </div>
 
-                <div className="p-4 border-t border-slate-700 bg-slate-900/50">
-                  <div className="flex gap-2">
+                <div className="p-3 sm:p-4 border-t border-slate-700 bg-slate-900/50">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Textarea
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();
+                          if (sendingRef.current) return;
                           sendMessage();
                         }
                       }}
                       placeholder="Type a message..."
                       className="bg-slate-800 border-slate-600 text-white resize-none"
                       rows={1}
+                      disabled={sending}
                     />
-                    <Button onClick={sendMessage} disabled={!newMessage.trim() || sending} className="bg-purple-600 hover:bg-purple-700">
+                    <Button onClick={sendMessage} disabled={!newMessage.trim() || sending} className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto">
                       <Send className="w-4 h-4" />
                     </Button>
                   </div>
@@ -570,19 +884,20 @@ function MessagesContent() {
               </div>
             )}
           </Card>
+          )}
         </div>
       </div>
 
       <Dialog open={newConversationOpen} onOpenChange={setNewConversationOpen}>
-        <DialogContent className="bg-slate-800 border-slate-700 text-white">
-          <DialogHeader>
-            <DialogTitle>Start New Conversation</DialogTitle>
-            <DialogDescription className="text-gray-400">
-              Search for a user and start chatting.
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-h-[85vh] flex flex-col">
+          <DialogHeader className="pb-2 flex-shrink-0">
+            <DialogTitle className="text-xl">Start New Conversation</DialogTitle>
+            <DialogDescription className="text-gray-400 pt-1">
+              Search and select friends. Choose 1 for direct chat or more for a group.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 pt-2 overflow-y-auto flex-1 custom-scrollbar">
             <div className="flex gap-2">
               <Input
                 value={searchQuery}
@@ -590,7 +905,7 @@ function MessagesContent() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') searchUsers();
                 }}
-                placeholder="Search users by username..."
+                placeholder="Search friends by username..."
                 className="bg-slate-900 border-slate-600 text-white"
               />
               <Button onClick={searchUsers} disabled={searching} className="bg-purple-600 hover:bg-purple-700">
@@ -598,31 +913,118 @@ function MessagesContent() {
               </Button>
             </div>
 
-            <div className="max-h-64 overflow-y-auto space-y-2">
+            {selectedUsers.length > 0 && (
+              <div className="bg-slate-900/60 border border-slate-700 rounded-lg p-3">
+                <div className="text-sm text-gray-300 mb-2">Selected:</div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedUsers.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => toggleSelectedUser(u)}
+                      className="px-2 py-1 rounded-md bg-slate-700 hover:bg-slate-600 text-xs"
+                      title="Remove"
+                    >
+                      {u.username || u.email}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="max-h-64 overflow-y-auto space-y-3 pr-2 scrollbar-hide">
               {searching ? (
                 <div className="text-center py-8 text-gray-400">Searching...</div>
               ) : searchResults.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
-                  {searchQuery ? 'No users found' : 'Search for a user to start chatting'}
+                  {searchQuery ? 'No friends found' : 'Search for a friend to start chatting'}
                 </div>
               ) : (
                 searchResults.map((user) => (
                   <div
                     key={user.id}
-                    onClick={() => startNewConversation(user.id)}
+                    onClick={() => toggleSelectedUser(user)}
                     className="p-3 rounded-lg bg-slate-700 hover:bg-slate-600 cursor-pointer transition-colors flex items-center gap-3"
                   >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold">
-                      {user.username?.[0]?.toUpperCase() || '?'}
+                    <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-semibold overflow-hidden">
+                      {user.avatar_url ? (
+                        <Image src={user.avatar_url} alt={user.username || 'User'} fill className="object-cover" unoptimized />
+                      ) : (
+                        <span>{user.username?.[0]?.toUpperCase() || '?'}</span>
+                      )}
                     </div>
                     <div>
                       <p className="font-medium">{user.username}</p>
                       <p className="text-sm text-gray-400">{user.email}</p>
                     </div>
+                    <div className="ml-auto">
+                      {selectedUsers.some((u) => u.id === user.id) ? (
+                        <span className="text-xs text-purple-300">Selected</span>
+                      ) : null}
+                    </div>
                   </div>
                 ))
               )}
             </div>
+
+            {selectedUsers.length === 1 && (
+              <Button
+                onClick={() => startNewConversation(selectedUsers[0].id)}
+                className="bg-purple-600 hover:bg-purple-700 w-full"
+              >
+                Start Chat
+              </Button>
+            )}
+
+            {selectedUsers.length >= 2 && (
+              <div className="space-y-3">
+                <Input
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="Enter group name..."
+                  className="bg-slate-900 border-slate-600 text-white"
+                />
+                
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-300">Group Avatar (optional)</label>
+                  {groupAvatarPreview && (
+                    <div className="flex justify-center">
+                      <div className="relative w-20 h-20 rounded-full overflow-hidden">
+                        <Image src={groupAvatarPreview} alt="Group avatar preview" fill className="object-cover" unoptimized />
+                      </div>
+                    </div>
+                  )}
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          alert('File size too large (max 5MB)');
+                          e.target.value = '';
+                          return;
+                        }
+                        setGroupAvatarFile(file);
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setGroupAvatarPreview(reader.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="bg-slate-900 border-slate-600 text-white"
+                  />
+                </div>
+
+                <Button
+                  onClick={createGroupConversation}
+                  className="bg-purple-600 hover:bg-purple-700 w-full"
+                  disabled={!groupName.trim()}
+                >
+                  Create Group ({selectedUsers.length} members)
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

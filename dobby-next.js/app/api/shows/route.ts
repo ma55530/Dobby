@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { Show } from '@/lib/types/Show';
+import { Shows } from '@/lib/types/Shows';
 import { get_options } from '@/lib/TMDB_API/requestOptions';
+import { buildTmdbQueryVariants, rankByQuery } from '@/lib/search/smartSearch';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -15,33 +16,62 @@ export async function GET(request: Request) {
     );
   }
 
-    const url = `https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(query)}&page=${page}`;
+    const tmdbSearch = async (q: string, p: string): Promise<Record<string, unknown>> => {
+      const u = `https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(q)}&page=${p}`;
+      const response = await fetch(u, get_options);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData?.status_message || 'TMDB search failed');
+      }
+      return response.json();
+    };
 
     // Fetch shows from TMDB API
     try {
-    const response = await fetch(url, get_options);
+      const data = await tmdbSearch(query, page);
 
-    // Handle TMDB API errors
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('TMDB API Error:', errorData);
+      let shows: Shows[] = (data.results ?? []) as Shows[];
+
+      // If TMDB returns nothing (common with typos), fetch extra candidates via query variants.
+      if (shows.length === 0) {
+        const variants = buildTmdbQueryVariants(query);
+        const variantData = await Promise.all(
+          variants.map(async (v: string): Promise<Shows[]> => {
+            try {
+              const vd = await tmdbSearch(v, '1');
+              return (vd.results ?? []) as Shows[];
+            } catch {
+              return [] as Shows[];
+            }
+          })
+        );
+
+        const combined = variantData.flat();
+        shows = Array.from(new Map(combined.map((s) => [s.id, s])).values());
+
+        shows = rankByQuery(shows, query, (s: Shows) => [s.name, (s as unknown as Record<string, unknown>).original_name as string]);
+
+        return NextResponse.json({
+          results: shows,
+          page: 1,
+          total_pages: 1,
+          total_results: shows.length,
+        });
+      }
+
+      shows = rankByQuery(shows, query, (s: Shows) => [s.name, (s as unknown as Record<string, unknown>).original_name as string]);
+
+      return NextResponse.json({
+        results: shows,
+        page: data.page,
+        total_pages: data.total_pages,
+        total_results: data.total_results,
+      });
+    } catch (error) {
+      console.error('Error fetching shows:', error);
       return NextResponse.json(
-        {
-          error: `Failed to fetch shows from TMDB: ${errorData.status_message}`,
-        },
-        { status: response.status }
+        { error: 'Failed to fetch shows' },
+        { status: 500 }
       );
     }
-
-    const data = await response.json();
-
-    const shows: Show[] = data.results;
-    return NextResponse.json(shows);
-    } catch (error) {
-    console.error('Error fetching shows:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch shows' },
-      { status: 500 }
-    );
-  }
 }

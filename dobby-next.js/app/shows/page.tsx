@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Fuse from "fuse.js";
 import TrackCard from "@/components/tracks/TrackCard";
 import { Shows } from "@/lib/types/Shows";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { rankByQuery } from "@/lib/search/smartSearch";
+
+type ShowsSearchResponse = {
+  results: Shows[];
+  page: number;
+  total_pages: number;
+  total_results: number;
+};
 
 async function fetchShowCategory(endpoint: string): Promise<Shows[]> {
   const res = await fetch(endpoint);
@@ -19,6 +26,7 @@ export default function ShowsPage() {
   const [results, setResults] = useState<Shows[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [isFocused, setIsFocused] = useState(false); 
 
@@ -53,7 +61,7 @@ export default function ShowsPage() {
     if (!searchQuery.trim()) return;
 
     const newSearches = [
-      searchQuery,
+      searchQuery.trim().replace(/\s+/g, " "),
       ...recentSearches.filter(s => s !== searchQuery)
     ].slice(0, 5);
 
@@ -62,10 +70,20 @@ export default function ShowsPage() {
   };
 
   const handleSearch = async (searchQuery: string, searchPage: number) => {
-    if (!searchQuery) return;
+    const normalizedQuery = searchQuery.trim().replace(/\s+/g, " ");
+    if (!normalizedQuery) return;
     setLoading(true);
-    const res = await fetch(`/api/shows?query=${searchQuery}&page=${searchPage}`);
-    const shows: Shows[] = await res.json();
+    const res = await fetch(
+      `/api/shows?query=${encodeURIComponent(normalizedQuery)}&page=${searchPage}`
+    );
+    if (!res.ok) {
+      setHasMore(false);
+      setLoading(false);
+      return;
+    }
+
+    const data: ShowsSearchResponse | Shows[] = await res.json();
+    const shows: Shows[] = Array.isArray(data) ? data : data.results;
 
     let filteredShows = shows.filter(
       (show) =>
@@ -73,16 +91,8 @@ export default function ShowsPage() {
         show.vote_average !== 0
     );
 
-    // Apply fuzzy search for better matching
-    const fuse = new Fuse(filteredShows, {
-      keys: ["name"],
-      threshold: 0.3, // Lower = stricter matching
-    });
-
-    const fuzzyResults = fuse.search(searchQuery).map((result) => result.item);
-
-    // Use fuzzy results if found, otherwise use filtered results
-    filteredShows = fuzzyResults.length > 0 ? fuzzyResults : filteredShows;
+    // Rank (normalize + token + fuzzy) instead of filtering out candidates.
+    filteredShows = rankByQuery(filteredShows, normalizedQuery, (s: Shows) => [s.name, (s as unknown as Record<string, unknown>).original_name as string]);
 
     setResults((prev) => {
   const combined =
@@ -93,18 +103,27 @@ export default function ShowsPage() {
   );
 });
 
+    const moreAvailable =
+      !Array.isArray(data) &&
+      searchPage < data.total_pages &&
+      filteredShows.length > 0;
+    setHasMore(moreAvailable);
+
     setLoading(false);
   };
 
   const onSearch = () => {
     if (!query.trim()) return;
+    const normalizedQuery = query.trim().replace(/\s+/g, " ");
     setPage(1);
-    addToRecentSearches(query);
-    handleSearch(query, 1);
+    setHasMore(true);
+    addToRecentSearches(normalizedQuery);
+    handleSearch(normalizedQuery, 1);
     setIsFocused(false);
   };
 
   const onShowMore = () => {
+    if (!hasMore || loading) return;
     const newPage = page + 1;
     setPage(newPage);
     handleSearch(query, newPage);
@@ -181,7 +200,7 @@ export default function ShowsPage() {
               href={`/shows/${show.id}`}
             />
           ))}
-          {results.length > 0 && (
+          {results.length > 0 && hasMore && (
             <div className="flex justify-center mt-4 w-full">
               <Button onClick={onShowMore} disabled={loading}>
                 {loading ? "Loading..." : "Show More"}

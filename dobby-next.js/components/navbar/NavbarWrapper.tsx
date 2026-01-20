@@ -5,83 +5,87 @@ import { Navbar05 } from "@/components/ui/shadcn-io/navbar-05";
 import Image from "next/image";
 
 export default function NavbarWrapper() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const [sessionUser, setSessionUser] = useState<{ email: string; name: string; avatar?: string } | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
+   const pathname = usePathname();
+   const router = useRouter();
+   const [sessionUser, setSessionUser] = useState<{
+      email: string;
+      name: string;
+      avatar?: string;
+   } | null>(null);
+   const [authChecked, setAuthChecked] = useState(false);
 
-  const showNavbarOn = [
-    "/home",
-    "/movies",
-    "/shows",
-    "/movies/forYou",
-    "/shows/forYou",
-    "/users",
-    "/watchlist",
-    "/profile",
-    "/messages",
-  ];
+   const showNavbarOn = [
+      "/home",
+      "/movies",
+      "/shows",
+      "/movies/forYou",
+      "/shows/forYou",
+      "/users",
+      "/watchlist",
+      "/profile",
+      "/messages",
+   ];
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await fetch("/api/user");
-        if (!res.ok) {
-          setAuthChecked(true);
-          return;
-        }
-        
-        // Check if response is JSON before parsing
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          setAuthChecked(true);
-          return;
-        }
-        
-        const profile = await res.json();
-        setSessionUser({
-          email: profile.email,
-          name: profile.username,
-          avatar: profile.avatar_url,
-        });
-      } catch (error) {
-        console.error("Failed to fetch profile:", error);
-      } finally {
-        setAuthChecked(true);
-      }
-    };
-    
-    fetchProfile();
-    
-    // Listen for profile updates and refetch
-    const handleProfileUpdate = () => {
-      console.log("Profile update event received, refetching...");
+   useEffect(() => {
+      const fetchProfile = async () => {
+         try {
+            const res = await fetch("/api/user");
+            if (!res.ok) {
+               setAuthChecked(true);
+               return;
+            }
+
+            // Check if response is JSON before parsing
+            const contentType = res.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+               setAuthChecked(true);
+               return;
+            }
+
+            const profile = await res.json();
+            setSessionUser({
+               email: profile.email,
+               name: profile.username,
+               avatar: profile.avatar_url,
+            });
+         } catch (error) {
+            console.error("Failed to fetch profile:", error);
+         } finally {
+            setAuthChecked(true);
+         }
+      };
+
       fetchProfile();
-    };
-    
-    window.addEventListener('profileUpdated', handleProfileUpdate);
-    
-    return () => {
-      window.removeEventListener('profileUpdated', handleProfileUpdate);
-    };
-  }, []);
 
-  // Hide navbar on root path and all auth pages
-  if (pathname === "/" || pathname.startsWith("/auth")) return null;
-  
-  // On /home, hide navbar if user is not authenticated
-  if (pathname === "/home" && authChecked && !sessionUser) return null;
+      // Listen for profile updates and refetch
+      const handleProfileUpdate = () => {
+         console.log("Profile update event received, refetching...");
+         fetchProfile();
+      };
 
-  // Check if pathname starts with any of the array entries
-  const shouldHideNavbar = !showNavbarOn.some((route) =>
-    pathname.startsWith(route)
-  );
+      window.addEventListener("profileUpdated", handleProfileUpdate);
 
-  if (shouldHideNavbar) return null;
+      return () => {
+         window.removeEventListener("profileUpdated", handleProfileUpdate);
+      };
+   }, [pathname]); // Re-run when route changes to ensure session is up to date
 
-  const handleNavItemClick = (href: string) => {
-    router.push(href);
-  };
+   // Hide navbar on root path and all auth pages
+   if (pathname === "/" || pathname.startsWith("/auth")) return null;
+
+   // On /home, hide navbar if user is not authenticated
+   if (pathname === "/home" && authChecked && !sessionUser) return null;
+
+   // Check if pathname starts with any of the array entries
+   const shouldHideNavbar = !showNavbarOn.some((route) =>
+      pathname.startsWith(route)
+   );
+
+   if (shouldHideNavbar) return null;
+
+   const handleNavItemClick = (href: string) => {
+      router.push(href);
+   };
 
   return (
     <Navbar05
@@ -96,7 +100,7 @@ export default function NavbarWrapper() {
         { label: "Home", href: "/" },
         { label: "Movies", href: "/movies" },
         { label: "Shows", href: "/shows" },
-        { label: "Users", href: "/users" },
+        { label: "Friends", href: "/users" },
         { label: "Messages", href: "/messages" },
       ]}
       userName={sessionUser?.name || "Guest"}
