@@ -74,9 +74,13 @@ export async function GET() {
 
   // Filter out the current user from participants list for cleaner UI data
   const formattedConversations = conversationsWithMessages.map((conv) => {
-    const otherParticipants = conv.participants
-      ?.map((p: UserProfile) => p)
-      ?.filter((p: UserProfile) => p.id !== user.id) || [];
+    const rawParticipants = (
+      (conv as unknown as { participants?: Array<{ user?: UserProfile }> }).participants ?? []
+    );
+    // Supabase returns participants as { user: profiles(*) } rows; normalize to UserProfile
+    const otherParticipants = rawParticipants
+      .map((p) => p?.user)
+      .filter((p: UserProfile | undefined): p is UserProfile => !!p && p.id !== user.id);
       
     // Sort messages to get the last one
     const messages = conv.messages || [];
