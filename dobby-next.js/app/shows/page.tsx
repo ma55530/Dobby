@@ -92,7 +92,7 @@ export default function ShowsPage() {
     );
 
     // Rank (normalize + token + fuzzy) instead of filtering out candidates.
-    filteredShows = rankByQuery(filteredShows, normalizedQuery, (s) => [s.name, (s as any).original_name]);
+    filteredShows = rankByQuery(filteredShows, normalizedQuery, (s: Shows) => [s.name, (s as unknown as Record<string, unknown>).original_name as string]);
 
     setResults((prev) => {
   const combined =

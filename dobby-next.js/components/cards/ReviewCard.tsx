@@ -2,8 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Heart, MessageCircle, Share2, ChevronDown, ThumbsDown, CornerDownRight, Send, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Share2, ChevronDown, ThumbsDown, CornerDownRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
 import { ShareReviewDialog } from "@/components/ShareReviewDialog";
@@ -56,7 +55,6 @@ interface ReviewCardProps {
 
 function CommentCard({
   comment,
-  onReply,
   replyOpen,
   replyText,
   onReplyTextChange,
@@ -351,7 +349,6 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
   const supabase = createClient();
-  const router = useRouter();
 
   useEffect(() => {
     if (textRef.current) {

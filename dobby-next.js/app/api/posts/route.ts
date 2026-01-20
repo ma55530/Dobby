@@ -87,8 +87,8 @@ export async function GET(request: Request) {
     const posterMap = new Map();
     
     // Get unique movie IDs and show IDs
-    const movieIds = [...new Set(posts.filter((p: any) => p.rating?.movie_id).map((p: any) => p.rating.movie_id))];
-    const showIds = [...new Set(posts.filter((p: any) => p.rating?.show_id).map((p: any) => p.rating.show_id))];
+    const movieIds = [...new Set(posts.filter((p: Record<string, unknown>) => (p.rating as Record<string, unknown>)?.movie_id).map((p: Record<string, unknown>) => (p.rating as Record<string, unknown>).movie_id))];
+    const showIds = [...new Set(posts.filter((p: Record<string, unknown>) => (p.rating as Record<string, unknown>)?.show_id).map((p: Record<string, unknown>) => (p.rating as Record<string, unknown>).show_id))];
 
     // Fetch movie posters
     for (const movieId of movieIds) {
@@ -99,10 +99,10 @@ export async function GET(request: Request) {
         );
         if (res.ok) {
           const movieData = await res.json();
-          const posterUrl = movieData.poster_path 
+          const poster = movieData.poster_path 
             ? `https://image.tmdb.org/t/p/w500${movieData.poster_path}`
             : "";
-          posterMap.set(`movie_${movieId}`, { posterUrl, title: movieData.title });
+          posterMap.set(`movie_${movieId}`, { poster, title: movieData.title });
         }
       } catch (error) {
         console.error(`Failed to fetch poster for movie ${movieId}:`, error);
@@ -118,10 +118,10 @@ export async function GET(request: Request) {
         );
         if (res.ok) {
           const showData = await res.json();
-          const posterUrl = showData.poster_path 
+          const poster = showData.poster_path 
             ? `https://image.tmdb.org/t/p/w500${showData.poster_path}`
             : "";
-          posterMap.set(`tv_${showId}`, { posterUrl, title: showData.name });
+          posterMap.set(`tv_${showId}`, { poster, title: showData.name });
         }
       } catch (error) {
         console.error(`Failed to fetch poster for show ${showId}:`, error);
@@ -130,20 +130,21 @@ export async function GET(request: Request) {
 
     // Transform data to match frontend Review interface
     const transformedPosts = posts
-      .filter((post: any) => post.rating) // Only include posts that have a rating
-      .map((post: any) => {
-        const isMovie = !!post.rating.movie_id;
-        const mediaId = isMovie ? post.rating.movie_id : post.rating.show_id;
+      .filter((post: Record<string, unknown>) => post.rating) // Only include posts that have a rating
+      .map((post: Record<string, unknown>) => {
+        const rating = post.rating as Record<string, unknown>;
+        const isMovie = !!rating.movie_id;
+        const mediaId = isMovie ? rating.movie_id : rating.show_id;
         const mediaType = isMovie ? "movie" : "tv";
-        const posterData = posterMap.get(`${mediaType}_${mediaId}`) || { posterUrl: "", title: "Untitled" };
+        const posterData = posterMap.get(`${mediaType}_${mediaId}`) || { poster: "", title: "Untitled" };
         
         return {
           id: post.id,
-          author: post.rating.profiles?.username || "Anonymous",
-          avatar: post.rating.profiles?.avatar_url,
-          rating: post.rating.rating,
+          author: (rating.profiles as Record<string, unknown>)?.username || "Anonymous",
+          avatar: (rating.profiles as Record<string, unknown>)?.avatar_url,
+          rating: rating.rating,
           content: post.post_text || "",
-          date: new Date(post.rating.created_at).toLocaleDateString("en-US", {
+          date: new Date(rating.created_at as string).toLocaleDateString("en-US", {
             year: "numeric",
             month: "short",
             day: "numeric",
@@ -152,10 +153,10 @@ export async function GET(request: Request) {
           movieId: mediaId,
           movieTitle: posterData.title,
           movieType: mediaType as "movie" | "tv",
-          moviePoster: posterData.posterUrl,
-          hasChildren: (post.comment_count || 0) > 0,
-          commentCount: post.comment_count || 0,
-          userId: post.rating.user_id,
+          moviePoster: posterData.poster,
+          hasChildren: ((post.comment_count as number) || 0) > 0,
+          commentCount: (post.comment_count as number) || 0,
+          userId: rating.user_id,
         };
       });
 

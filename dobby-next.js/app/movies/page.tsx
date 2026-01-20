@@ -86,7 +86,7 @@ export default function MoviesPage() {
     );
 
     // Rank (normalize + token + fuzzy) instead of filtering out candidates.
-    filteredMovies = rankByQuery(filteredMovies, normalizedQuery, (m) => [m.title, (m as any).original_title]);
+    filteredMovies = rankByQuery(filteredMovies, normalizedQuery, (m: Movies) => [m.title, (m as unknown as Record<string, unknown>).original_title as string]);
 
     setResults((prev) => {
   const combined =

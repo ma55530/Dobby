@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { Conversation } from '@/lib/types/Conversation';
+import { UserProfile } from '@/lib/types/UserProfile';
 
 export async function GET() {
   const supabase = await createClient();
@@ -51,67 +53,59 @@ export async function GET() {
 
   // Fetch last message for each conversation separately
   const conversationsWithMessages = await Promise.all(
-    conversations.map(async (conv: any) => {
+    conversations.map(async (conv: Conversation) => {
       // Get the last message for this conversation
       const { data: messages } = await supabase
         .from('messages')
-        .select('id, content, created_at, is_read, sender_id')
+        .select('id, content, created_at, is_read, sender_id, message_type')
         .eq('conversation_id', conv.id)
         .order('created_at', { ascending: false })
         .limit(100); // Get recent messages for unread count
 
       const lastMessage = messages && messages.length > 0 ? messages[0] : null;
       
-      // Count unread messages (messages sent by others that aren't read)
-      const unreadCount = messages
-        ? messages.filter((m: any) => m.is_read !== true && m.sender_id !== user.id).length
-        : 0;
-
       return {
         ...conv,
         messages,
         last_message: lastMessage,
-        unread_count: unreadCount
       };
     })
   );
 
   // Filter out the current user from participants list for cleaner UI data
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const formattedConversations = conversationsWithMessages.map((conv: any) => {
+  const formattedConversations = conversationsWithMessages.map((conv) => {
     const otherParticipants = conv.participants
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((p: any) => p.user)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((p: any) => p.id !== user.id);
+      ?.map((p: UserProfile) => p)
+      ?.filter((p: UserProfile) => p.id !== user.id) || [];
       
     // Sort messages to get the last one
-    const lastMessage = conv.messages && conv.messages.length > 0 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? conv.messages.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] 
+    const messages = conv.messages || [];
+    const lastMessage = messages.length > 0 
+      ? messages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] 
       : null;
 
     // Format last message content
     if (lastMessage) {
-      if (lastMessage.message_type === 'review' && !lastMessage.content) {
+      const msgType = (lastMessage as { message_type?: string }).message_type;
+      if (msgType === 'review' && !lastMessage.content) {
         lastMessage.content = 'Shared a review';
-      } else if (lastMessage.message_type === 'movie' && !lastMessage.content) {
+      } else if (msgType === 'movie' && !lastMessage.content) {
         lastMessage.content = 'Shared a movie';
-      } else if (lastMessage.message_type === 'show' && !lastMessage.content) {
+      } else if (msgType === 'show' && !lastMessage.content) {
         lastMessage.content = 'Shared a show';
       }
     }
 
     // Count unread messages (messages sent by others that aren't read)
     // Treat NULL as unread (older rows might have is_read = NULL)
-    const unreadCount = conv.messages
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ? conv.messages.filter((m: any) => m.is_read !== true && m.sender_id !== user.id).length
+    const unreadCount = messages
+      ? messages.filter((m) => m.is_read !== true && m.sender_id !== user.id).length
       : 0;
 
     return {
       ...conv,
       participants: otherParticipants,
+      unread_count: unreadCount,
     };
   });
 
@@ -177,7 +171,7 @@ export async function POST(request: Request) {
     }
 
     // Create group conversation
-    const conversationData: any = {
+    const conversationData: Record<string, unknown> = {
       is_group: true,
       group_name: groupName,
     };

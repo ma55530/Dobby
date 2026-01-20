@@ -207,7 +207,7 @@ export async function PATCH(request: Request) {
          if (genreRows.length > 0) {
             const { error: genreError } = await supabase
                .from("user_genre_preferences")
-               .insert(genreRows as any);
+               .insert(genreRows as Record<string, unknown>[]);
 
             if (genreError) {
                console.error("Error updating genres:", genreError);

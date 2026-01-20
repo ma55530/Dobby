@@ -56,7 +56,7 @@ export async function GET(request: Request) {
 
     // Filter to only include ratings with review text (actual reviews)
     const reviewRatings = (ratings || []).filter(
-      (r: any) => r.post && r.post.post_text && r.post.post_text.trim() !== ""
+      (r: Record<string, unknown>) => (r.post as Record<string, unknown>)?.post_text && ((r.post as Record<string, unknown>).post_text as string).trim() !== ""
     ).slice(0, limit);
 
     // Fetch user profile
@@ -70,8 +70,8 @@ export async function GET(request: Request) {
     const posterMap = new Map<string, { title: string; poster: string }>();
     
     // Get unique movie IDs and show IDs
-    const movieIds = [...new Set(reviewRatings.filter((r: any) => r.movie_id).map((r: any) => r.movie_id))];
-    const showIds = [...new Set(reviewRatings.filter((r: any) => r.show_id).map((r: any) => r.show_id))];
+    const movieIds = [...new Set(reviewRatings.filter((r: Record<string, unknown>) => r.movie_id).map((r: Record<string, unknown>) => r.movie_id))];
+    const showIds = [...new Set(reviewRatings.filter((r: Record<string, unknown>) => r.show_id).map((r: Record<string, unknown>) => r.show_id))];
 
     // Fetch movie posters
     for (const movieId of movieIds) {
@@ -112,19 +112,21 @@ export async function GET(request: Request) {
     }
 
     // Transform data to match frontend Review interface
-    const transformedReviews = reviewRatings.map((ratingItem: any) => {
+    const transformedReviews = reviewRatings.map((ratingItem: Record<string, unknown>) => {
       const isMovie = !!ratingItem.movie_id;
       const mediaId = isMovie ? ratingItem.movie_id : ratingItem.show_id;
       const mediaType = isMovie ? "movie" : "tv";
       const posterData = posterMap.get(`${mediaType}_${mediaId}`) || { title: "Untitled", poster: "/placeholder-poster.png" };
+      const post = ratingItem.post as Record<string, unknown> | undefined;
+      const profiles = ratingItem.profiles as Record<string, unknown> | undefined;
       
       return {
-        id: ratingItem.post?.id || ratingItem.id,
-        author: ratingItem.profiles?.username || profile?.username || "Unknown",
-        avatar: ratingItem.profiles?.avatar_url || profile?.avatar_url,
+        id: post?.id || ratingItem.id,
+        author: profiles?.username || profile?.username || "Unknown",
+        avatar: profiles?.avatar_url || profile?.avatar_url,
         rating: ratingItem.rating,
-        content: ratingItem.post?.post_text || "",
-        date: new Date(ratingItem.created_at).toLocaleDateString("en-US", {
+        content: post?.post_text || "",
+        date: new Date(ratingItem.created_at as string).toLocaleDateString("en-US", {
           year: "numeric",
           month: "short",
           day: "numeric",

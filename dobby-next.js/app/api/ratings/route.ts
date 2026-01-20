@@ -82,15 +82,15 @@ export async function GET(request: Request) {
 
     // Filter to only include ratings without post_text (ratings only, no reviews)
     const ratingsOnly = ratings
-      .filter((r: any) => !r.post || !r.post.post_text || r.post.post_text.trim() === "")
+      .filter((r: Record<string, unknown>) => !(r.post as Record<string, unknown>)?.post_text || !(r.post as Record<string, unknown>).post_text || (r.post as Record<string, unknown>).post_text === "")
       .slice(0, limit); // Take only the requested number after filtering
 
     // Build poster map - fetch posters based on type
-    const posterMap = new Map();
+    const posterMap = new Map<string, { title: string; poster: string }>();
     
     // Get unique movie IDs and show IDs
-    const movieIds = [...new Set(ratingsOnly.filter((r: any) => r.movie_id).map((r: any) => r.movie_id))];
-    const showIds = [...new Set(ratingsOnly.filter((r: any) => r.show_id).map((r: any) => r.show_id))];
+    const movieIds = [...new Set(ratingsOnly.filter((r: Record<string, unknown>) => r.movie_id).map((r: Record<string, unknown>) => r.movie_id))];
+    const showIds = [...new Set(ratingsOnly.filter((r: Record<string, unknown>) => r.show_id).map((r: Record<string, unknown>) => r.show_id))];
 
     // Fetch movie posters
     for (const movieId of movieIds) {
@@ -101,10 +101,10 @@ export async function GET(request: Request) {
         );
         if (res.ok) {
           const movieData = await res.json();
-          const posterUrl = movieData.poster_path 
+          const poster = movieData.poster_path 
             ? `https://image.tmdb.org/t/p/w500${movieData.poster_path}`
             : "";
-          posterMap.set(`movie_${movieId}`, { posterUrl, title: movieData.title });
+          posterMap.set(`movie_${movieId}`, { poster, title: movieData.title });
         }
       } catch (error) {
         console.error(`Failed to fetch poster for movie ${movieId}:`, error);
@@ -120,10 +120,10 @@ export async function GET(request: Request) {
         );
         if (res.ok) {
           const showData = await res.json();
-          const posterUrl = showData.poster_path 
+          const poster = showData.poster_path 
             ? `https://image.tmdb.org/t/p/w500${showData.poster_path}`
             : "";
-          posterMap.set(`tv_${showId}`, { posterUrl, title: showData.name });
+          posterMap.set(`tv_${showId}`, { poster, title: showData.name });
         }
       } catch (error) {
         console.error(`Failed to fetch poster for show ${showId}:`, error);
@@ -131,19 +131,20 @@ export async function GET(request: Request) {
     }
 
     // Transform data to match frontend Review interface
-    const transformedRatings = ratingsOnly.map((ratingItem: any) => {
+    const transformedRatings = ratingsOnly.map((ratingItem: Record<string, unknown>) => {
       const isMovie = !!ratingItem.movie_id;
       const mediaId = isMovie ? ratingItem.movie_id : ratingItem.show_id;
       const mediaType = isMovie ? "movie" : "tv";
-      const posterData = posterMap.get(`${mediaType}_${mediaId}`) || { posterUrl: "", title: "Untitled" };
+      const posterData = posterMap.get(`${mediaType}_${mediaId}`) || { poster: "", title: "Untitled" };
+      const profiles = ratingItem.profiles as Record<string, unknown> | undefined;
       
       return {
         id: ratingItem.id,
-        author: ratingItem.profiles?.username || "Anonymous",
-        avatar: ratingItem.profiles?.avatar_url,
+        author: profiles?.username || "Anonymous",
+        avatar: profiles?.avatar_url,
         rating: ratingItem.rating,
         content: "", // No content for ratings-only
-        date: new Date(ratingItem.created_at).toLocaleDateString("en-US", {
+        date: new Date(ratingItem.created_at as string).toLocaleDateString("en-US", {
           year: "numeric",
           month: "short",
           day: "numeric",
@@ -152,7 +153,7 @@ export async function GET(request: Request) {
         movieId: mediaId,
         movieTitle: posterData.title,
         movieType: mediaType as "movie" | "tv",
-        moviePoster: posterData.posterUrl,
+        moviePoster: posterData.poster,
         hasChildren: false,
         userId: ratingItem.user_id,
       };

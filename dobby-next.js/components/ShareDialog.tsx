@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Search, Send } from 'lucide-react';
+import { Conversation as ConversationType } from '@/lib/types/Conversation';
+import { UserProfile } from '@/lib/types/UserProfile';
 
 interface ShareDialogProps {
   open: boolean;
@@ -18,11 +20,6 @@ interface ShareDialogProps {
   year: string;
 }
 
-interface Conversation {
-  id: string;
-  participants: Array<{ id: string; username?: string; email: string }>;
-}
-
 export function ShareDialog({
   open,
   onOpenChange,
@@ -33,7 +30,7 @@ export function ShareDialog({
   rating,
   year,
 }: ShareDialogProps) {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<ConversationType[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -62,7 +59,7 @@ export function ShareDialog({
     setConversations(data);
   };
 
-  const getConversationTitle = (conv: any) => {
+  const getConversationTitle = (conv: ConversationType): string => {
     // For group conversations
     if (conv.is_group && conv.group_name) {
       return conv.group_name;
@@ -73,7 +70,7 @@ export function ShareDialog({
     return otherUser?.username || otherUser?.email || 'Unknown User';
   };
 
-  const getConversationAvatar = (conv: any) => {
+  const getConversationAvatar = (conv: ConversationType): string => {
     // For group conversations
     if (conv.is_group) {
       if (conv.group_avatar_url) {
@@ -87,8 +84,8 @@ export function ShareDialog({
     return otherUser?.username?.[0]?.toUpperCase() || otherUser?.email?.[0]?.toUpperCase() || '?';
   };
 
-  const getOtherUser = (conv: Conversation) => {
-    if (!currentUserId) return null;
+  const getOtherUser = (conv: ConversationType) => {
+    if (!currentUserId || !conv.participants) return null;
     return conv.participants.find((p) => p.id !== currentUserId) ?? null;
   };
 
@@ -127,7 +124,7 @@ export function ShareDialog({
     }
   };
 
-  const filteredConversations = conversations.filter((conv: any) => {
+  const filteredConversations = conversations.filter((conv: ConversationType): boolean => {
     const searchLower = searchQuery.toLowerCase();
 
     if (!searchLower) return true;
@@ -140,16 +137,16 @@ export function ShareDialog({
     // Check participants for 1-on-1
     const otherUser = getOtherUser(conv);
     if (!otherUser) {
-      return conv.participants.some((p: any) => {
+      return conv.participants?.some((p: UserProfile) => {
         const usernameMatch = p.username?.toLowerCase().includes(searchLower);
-        const emailMatch = p.email.toLowerCase().includes(searchLower);
+        const emailMatch = p.email?.toLowerCase().includes(searchLower);
         return Boolean(usernameMatch || emailMatch);
-      });
+      }) || false;
     }
 
     return (
       otherUser?.username?.toLowerCase().includes(searchLower) ||
-      otherUser?.email.toLowerCase().includes(searchLower)
+      otherUser?.email?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -200,7 +197,7 @@ export function ShareDialog({
                 No conversations found. Start a conversation first!
               </p>
             ) : (
-              filteredConversations.map((conv: any) => {
+              filteredConversations.map((conv: ConversationType) => {
                 return (
                   <div
                     key={conv.id}

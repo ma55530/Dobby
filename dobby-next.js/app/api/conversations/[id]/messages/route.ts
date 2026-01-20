@@ -121,7 +121,7 @@ export async function POST(
     // avoid inserting the same message multiple times when users spam Enter.
     const clientId =
       typeof metadata === 'object' && metadata !== null
-        ? (metadata as any).client_id
+        ? (metadata as Record<string, unknown>).client_id
         : undefined;
 
     if (typeof clientId === 'string' && clientId.trim().length > 0) {
@@ -157,7 +157,7 @@ export async function POST(
     } = {
       conversation_id: id,
       sender_id: user.id,
-      content: content,
+      content: content || '',
       is_read: false,
     };
 
@@ -228,12 +228,12 @@ export async function POST(
         .filter(userId => userId !== user.id);
 
       if (recipientIds.length > 0) {
-        let notificationContent = content.substring(0, 50);
+        let notificationContent = (content || '').substring(0, 50);
         
         // For group messages, prepend group name and sender
         if (conversation?.is_group && conversation?.group_name) {
           const senderName = senderProfile?.username || 'Someone';
-          notificationContent = `${conversation.group_name}: ${senderName} - ${content.substring(0, 30)}`;
+          notificationContent = `${conversation.group_name}: ${senderName} - ${(content || '').substring(0, 30)}`;
           console.log('Group notification content:', notificationContent);
         } else {
           console.log('Not a group or no group name, using regular content');

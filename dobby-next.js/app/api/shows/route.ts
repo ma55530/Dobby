@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { Show } from '@/lib/types/Show';
+import { Shows } from '@/lib/types/Shows';
 import { get_options } from '@/lib/TMDB_API/requestOptions';
 import { buildTmdbQueryVariants, rankByQuery } from '@/lib/search/smartSearch';
 
@@ -16,9 +16,7 @@ export async function GET(request: Request) {
     );
   }
 
-    const url = `https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(query)}&page=${page}`;
-
-    const tmdbSearch = async (q: string, p: string) => {
+    const tmdbSearch = async (q: string, p: string): Promise<Record<string, unknown>> => {
       const u = `https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(q)}&page=${p}`;
       const response = await fetch(u, get_options);
       if (!response.ok) {
@@ -32,18 +30,18 @@ export async function GET(request: Request) {
     try {
       const data = await tmdbSearch(query, page);
 
-      let shows: Show[] = (data.results ?? []) as Show[];
+      let shows: Shows[] = (data.results ?? []) as Shows[];
 
       // If TMDB returns nothing (common with typos), fetch extra candidates via query variants.
       if (shows.length === 0) {
         const variants = buildTmdbQueryVariants(query);
         const variantData = await Promise.all(
-          variants.map(async (v) => {
+          variants.map(async (v: string): Promise<Shows[]> => {
             try {
               const vd = await tmdbSearch(v, '1');
-              return (vd.results ?? []) as Show[];
+              return (vd.results ?? []) as Shows[];
             } catch {
-              return [] as Show[];
+              return [] as Shows[];
             }
           })
         );
@@ -51,7 +49,7 @@ export async function GET(request: Request) {
         const combined = variantData.flat();
         shows = Array.from(new Map(combined.map((s) => [s.id, s])).values());
 
-        shows = rankByQuery(shows, query, (s) => [s.name, (s as any).original_name]);
+        shows = rankByQuery(shows, query, (s: Shows) => [s.name, (s as unknown as Record<string, unknown>).original_name as string]);
 
         return NextResponse.json({
           results: shows,
@@ -61,7 +59,7 @@ export async function GET(request: Request) {
         });
       }
 
-      shows = rankByQuery(shows, query, (s) => [s.name, (s as any).original_name]);
+      shows = rankByQuery(shows, query, (s: Shows) => [s.name, (s as unknown as Record<string, unknown>).original_name as string]);
 
       return NextResponse.json({
         results: shows,

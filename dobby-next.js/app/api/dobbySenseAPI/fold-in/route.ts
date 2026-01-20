@@ -201,11 +201,11 @@ export async function POST(request: Request) {
          ]);
 
          const movieIds = (movieRows || []).map(
-            (r: any) => r.movie_id,
-         ) as number[];
+            (r: Record<string, unknown>) => r.movie_id as number,
+         );
          const showIds = (showRows || []).map(
-            (r: any) => r.show_id,
-         ) as number[];
+            (r: Record<string, unknown>) => r.show_id as number,
+         );
 
          const resolveItems = async (
             ids: number[],
@@ -215,10 +215,10 @@ export async function POST(request: Request) {
                .from(table)
                .select("*")
                .in("tmdb_id", ids);
-            const localMap = new Map(local?.map((i: any) => [i.tmdb_id, i]));
+            const localMap = new Map(local?.map((i: Record<string, unknown>) => [i.tmdb_id, i]));
             const missingIds = ids.filter((id) => !localMap.has(id));
 
-            const fetched = await fetchMissingDetails<any>(
+            const fetched = await fetchMissingDetails<Record<string, unknown>>(
                missingIds,
                table,
                baseUrl,
@@ -233,15 +233,15 @@ export async function POST(request: Request) {
          ]);
 
          const processItems = async (
-            items: any[],
+            items: Record<string, unknown>[],
             type: "movies" | "shows",
-            checkBad: (i: any) => boolean,
-         ) => {
+            checkBad: (i: Record<string, unknown>) => boolean,
+         ): Promise<Record<string, unknown>[]> => {
             return Promise.all(
                items.map(async (item) => {
                   if (checkBad(item)) {
                      const better = await findBetterSimilar(
-                        item.id ?? item.tmdb_id,
+                        (item.id ?? item.tmdb_id) as number,
                         type,
                         baseUrl,
                         headers,
@@ -255,15 +255,15 @@ export async function POST(request: Request) {
          };
 
          const [finalMoviesRaw, finalShowsRaw] = await Promise.all([
-            processItems(allMovies, "movies", isBadMovie),
-            processItems(allShows, "shows", isBadShow),
+            processItems(allMovies, "movies", isBadMovie as unknown as (i: Record<string, unknown>) => boolean),
+            processItems(allShows, "shows", isBadShow as unknown as (i: Record<string, unknown>) => boolean),
          ]);
 
             const fetchPopular = async (
                type: "movies" | "shows",
                needed: number,
-            ) => {
-               const results: any[] = [];
+            ): Promise<Record<string, unknown>[]> => {
+               const results: Record<string, unknown>[] = [];
                let page = 1;
                while (results.length < needed && page <= 2) {
                   try {
@@ -283,21 +283,21 @@ export async function POST(request: Request) {
                return results;
             };
 
-         const extractGenreNames = (item: any) => {
+         const extractGenreNames = (item: Record<string, unknown>): string[] => {
             const names: string[] = [];
             if (Array.isArray(item?.genres)) {
-               item.genres.forEach((g: any) => {
+               (item.genres as unknown[]).forEach((g: unknown) => {
                   if (typeof g === "string") names.push(g);
-                  else if (g?.name) names.push(g.name);
+                  else if (typeof g === 'object' && g !== null && 'name' in g) names.push((g as Record<string, unknown>).name as string);
                });
             }
             if (Array.isArray(item?.genre)) {
-               item.genre.forEach((g: any) => {
+               (item.genre as unknown[]).forEach((g: unknown) => {
                   if (typeof g === "string") names.push(g);
                });
             }
             if (Array.isArray(item?.genre_ids)) {
-               item.genre_ids.forEach((id: any) => {
+               (item.genre_ids as unknown[]).forEach((id: unknown) => {
                   if (typeof id === "number") {
                      const mapped = getGenreNameById(id) ?? null;
                      if (mapped) names.push(mapped);
@@ -307,15 +307,15 @@ export async function POST(request: Request) {
             return Array.from(new Set(names));
          };
 
-         const getPopularity = (item: any) => {
+         const getPopularity = (item: Record<string, unknown>): number => {
             if (typeof item?.popularity === "number") return item.popularity;
             if (typeof item?.vote_average === "number") {
                const voteCount =
-                  typeof item?.vote_count === "number" ? item.vote_count : 0;
-               return item.vote_average * Math.log10(voteCount + 1);
+                  typeof item?.vote_count === "number" ? (item.vote_count as number) : 0;
+               return (item.vote_average as number) * Math.log10(voteCount + 1);
             }
             if (typeof item?.rating_average === "number")
-               return item.rating_average;
+               return item.rating_average as number;
             return 0;
          };
 
@@ -355,7 +355,7 @@ export async function POST(request: Request) {
             return weighted / totalWeight;
          };
 
-         const scoreAndSort = (items: any[]) => {
+         const scoreAndSort = (items: Record<string, unknown>[]): Record<string, unknown>[] => {
             const cleaned = items.filter(Boolean);
             const maxPop = Math.max(1, ...cleaned.map(getPopularity));
             const hasGenrePrefs = userGenres.size > 0;
@@ -395,10 +395,10 @@ export async function POST(request: Request) {
          const finalShows = scoreAndSort(finalShowsRaw);
 
          const saveRecs = async (
-            items: any[],
+            items: Record<string, unknown>[],
             table: "movie_recommendations" | "show_recommendations",
             col: "movie_id" | "show_id",
-         ) => {
+         ): Promise<number> => {
             const valid = items.filter(Boolean);
             const unique = new Map();
             valid.forEach((i) => unique.set(i.tmdb_id ?? i.id, i));
@@ -409,7 +409,7 @@ export async function POST(request: Request) {
                   table === "movie_recommendations" ? "movies" : "shows",
                   needed,
                );
-               popular.forEach((i: any) => unique.set(i.tmdb_id ?? i.id, i));
+               popular.forEach((i: Record<string, unknown>) => unique.set(i.tmdb_id ?? i.id, i));
             }
 
             const sliced = Array.from(unique.values()).slice(0, limit);

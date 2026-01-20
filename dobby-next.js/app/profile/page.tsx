@@ -214,7 +214,7 @@ export default function MePage() {
       fetchData();
       fetchWatchlists();
       fetchUserReviews();
-   }, []);
+   }, [favoriteGenreIds.length]);
 
    const fetchFollowList = async (type: "followers" | "following") => {
       try {

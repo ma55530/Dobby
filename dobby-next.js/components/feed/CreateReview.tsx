@@ -64,36 +64,36 @@ export default function CreateReview() {
           fetch(`/api/shows?query=${query}&page=1`, { signal: controller.signal }),
         ])
 
-        let combinedResults: Movie[] = []
+        const combinedResults: Movie[] = []
 
         if (moviesRes.ok) {
-          const moviesData: any = await moviesRes.json()
-          const movies = (moviesData.results || [])
-            .filter((movie: any) => movie.release_date)
+          const moviesData: Record<string, unknown> = await moviesRes.json()
+          const movies = ((moviesData.results as unknown[]) || [])
+            .filter((movie: unknown) => (movie as Record<string, unknown>).release_date)
             .slice(0, 10)
-            .map((movie: any) => ({
-              id: movie.id,
-              title: movie.title,
+            .map((movie: unknown) => ({
+              id: (movie as Record<string, unknown>).id as number,
+              title: (movie as Record<string, unknown>).title as string,
               type: "movie" as const,
-              poster_path: movie.poster_path,
-              year: movie.release_date ? movie.release_date.split("-")[0] : "",
-              popularity: movie.popularity || 0,
+              poster_path: (movie as Record<string, unknown>).poster_path as string,
+              year: (movie as Record<string, unknown>).release_date ? ((movie as Record<string, unknown>).release_date as string).split("-")[0] : "",
+              popularity: ((movie as Record<string, unknown>).popularity as number) || 0,
             }))
           combinedResults.push(...movies)
         }
 
         if (showsRes.ok) {
-          const showsData: any = await showsRes.json()
-          const shows = (showsData.results || [])
-            .filter((show: any) => show.first_air_date)
+          const showsData: Record<string, unknown> = await showsRes.json()
+          const shows = ((showsData.results as unknown[]) || [])
+            .filter((show: unknown) => (show as Record<string, unknown>).first_air_date)
             .slice(0, 10)
-            .map((show: any) => ({
-              id: show.id,
-              title: show.name,
+            .map((show: unknown) => ({
+              id: (show as Record<string, unknown>).id as number,
+              title: (show as Record<string, unknown>).name as string,
               type: "tv" as const,
-              poster_path: show.poster_path,
-              year: show.first_air_date ? show.first_air_date.split("-")[0] : "",
-              popularity: show.popularity || 0,
+              poster_path: (show as Record<string, unknown>).poster_path as string,
+              year: (show as Record<string, unknown>).first_air_date ? ((show as Record<string, unknown>).first_air_date as string).split("-")[0] : "",
+              popularity: ((show as Record<string, unknown>).popularity as number) || 0,
             }))
           combinedResults.push(...shows)
         }
@@ -114,8 +114,8 @@ export default function CreateReview() {
         })
 
         setFilteredMovies(combinedResults.slice(0, 8))
-      } catch (error: any) {
-        if (error.name === "AbortError") return
+      } catch (error: unknown) {
+        if ((error as Error).name === "AbortError") return
         console.error("Error searching movies/shows:", error)
         setFilteredMovies([])
       } finally {

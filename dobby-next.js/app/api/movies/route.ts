@@ -15,9 +15,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const url = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&page=${page}`;
-
-  const tmdbSearch = async (q: string, p: string) => {
+  const tmdbSearch = async (q: string, p: string): Promise<Record<string, unknown>> => {
     const u = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(q)}&page=${p}`;
     const response = await fetch(u, get_options);
     if (!response.ok) {
@@ -36,7 +34,7 @@ export async function GET(request: Request) {
     if (movies.length === 0) {
       const variants = buildTmdbQueryVariants(query);
       const variantData = await Promise.all(
-        variants.map(async (v) => {
+        variants.map(async (v: string): Promise<Movies[]> => {
           try {
             const vd = await tmdbSearch(v, '1');
             return (vd.results ?? []) as Movies[];
@@ -50,7 +48,7 @@ export async function GET(request: Request) {
       movies = Array.from(new Map(combined.map((m) => [m.id, m])).values());
 
       // Rank locally so best match comes first.
-      movies = rankByQuery(movies, query, (m) => [m.title, (m as any).original_title]);
+      movies = rankByQuery(movies, query, (m: Movies) => [m.title, (m as unknown as Record<string, unknown>).original_title as string]);
 
       return NextResponse.json({
         results: movies,
@@ -61,7 +59,7 @@ export async function GET(request: Request) {
     }
 
     // Rank the returned page to improve ordering.
-    movies = rankByQuery(movies, query, (m) => [m.title, (m as any).original_title]);
+    movies = rankByQuery(movies, query, (m: Movies) => [m.title, (m as unknown as Record<string, unknown>).original_title as string]);
 
     return NextResponse.json({
       results: movies,

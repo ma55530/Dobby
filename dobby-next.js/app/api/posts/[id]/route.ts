@@ -76,8 +76,9 @@ export async function DELETE(
   }
 
   // Check if the user owns this post OR is an admin
-  const postUserId = (post as any).rating?.user_id;
-  if (postUserId !== user.id && !isAdmin) {
+  const postUserId = (post as Record<string, unknown>).rating as Record<string, unknown> | undefined;
+  const userId = postUserId?.user_id;
+  if (userId !== user.id && !isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

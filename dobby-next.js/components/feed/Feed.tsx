@@ -57,23 +57,23 @@ export default function Feed({
       const rawReplies = repliesResult.replies || [];
       
       // Recursively fetch replies for each reply
-      const replies = await Promise.all(rawReplies.map(async (reply: any) => {
+      const replies = await Promise.all(rawReplies.map(async (reply: Record<string, unknown>) => {
         let nestedReplies: Comment[] = [];
-        if ((reply.reply_count || 0) > 0) {
-          nestedReplies = await fetchRepliesRecursive(reply.id);
+        if (((reply.reply_count as number) || 0) > 0) {
+          nestedReplies = await fetchRepliesRecursive(reply.id as string);
         }
         
         return {
-          id: reply.id,
-          author: reply.profiles?.username || 'Unknown',
-          avatar: reply.profiles?.avatar_url,
-          content: reply.comment_text,
-          date: new Date(reply.created_at).toLocaleDateString(),
+          id: reply.id as string,
+          author: (reply.profiles as Record<string, unknown>)?.username as string || 'Unknown',
+          avatar: (reply.profiles as Record<string, unknown>)?.avatar_url as string,
+          content: reply.comment_text as string,
+          date: new Date(reply.created_at as string).toLocaleDateString(),
           likes: 0,
-          parentId: reply.parent_comment,
-          hasChildren: (reply.reply_count || 0) > 0,
+          parentId: reply.parent_comment as string,
+          hasChildren: ((reply.reply_count as number) || 0) > 0,
           children: nestedReplies,
-          userId: reply.profiles?.id
+          userId: (reply.profiles as Record<string, unknown>)?.id as string
         };
       }));
       
@@ -92,23 +92,23 @@ export default function Feed({
       const rawChildren = result.comments || result;
       
       // Transform the data to match the Comment interface and fetch all nested replies recursively
-      const children = await Promise.all(rawChildren.map(async (comment: any) => {
+      const children = await Promise.all(rawChildren.map(async (comment: Record<string, unknown>) => {
         let replies: Comment[] = [];
-        if ((comment.reply_count || 0) > 0) {
-          replies = await fetchRepliesRecursive(comment.id);
+        if (((comment.reply_count as number) || 0) > 0) {
+          replies = await fetchRepliesRecursive(comment.id as string);
         }
 
         return {
           id: comment.id,
-          author: comment.profiles?.username || 'Unknown',
-          avatar: comment.profiles?.avatar_url,
+          author: (comment.profiles as Record<string, unknown>)?.username as string || 'Unknown',
+          avatar: (comment.profiles as Record<string, unknown>)?.avatar_url as string,
           content: comment.comment_text,
-          date: new Date(comment.created_at).toLocaleDateString(),
+          date: new Date(comment.created_at as string).toLocaleDateString(),
           likes: 0,
-          hasChildren: (comment.reply_count || 0) > 0,
+          hasChildren: ((comment.reply_count as number) || 0) > 0,
           parentId: comment.parent_comment,
           children: replies,
-          userId: comment.profiles?.id
+          userId: (comment.profiles as Record<string, unknown>)?.id as string
         };
       }));
       
