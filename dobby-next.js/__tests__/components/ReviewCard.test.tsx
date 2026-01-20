@@ -2,6 +2,24 @@ import { render, screen } from '@/__tests__/test-utils';
 import ReviewCard from '@/components/cards/ReviewCard';
 import userEvent from '@testing-library/user-event';
 
+// Mock Next.js router
+jest.mock('next/navigation', () => ({
+  useRouter: jest.fn(() => ({
+    push: jest.fn(),
+    refresh: jest.fn(),
+  })),
+}));
+
+// Mock Supabase
+jest.mock('@/lib/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    },
+    from: jest.fn(),
+  })),
+}));
+
 // Mock fetch globally
 global.fetch = jest.fn();
 

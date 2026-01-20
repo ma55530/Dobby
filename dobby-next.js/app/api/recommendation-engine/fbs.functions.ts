@@ -67,11 +67,20 @@ export async function findBetterSimilar(
     
     const similarItems: any[] = await res.json();
     const candidates = similarItems
-      .filter((item: any) => item.id !== id)
-      .sort((a, b) => b.popularity - a.popularity); // Simple popularity sort
+      .filter((item: any) => item.id !== id);
 
-    // Find first good candidate
-    const bestMatch = candidates.find((item) => !isBadFunc(item));
+    // Filter to find only "good" candidates
+    const goodCandidates = candidates.filter((item: any) => !isBadFunc(item));
+
+    // Sort valid candidates by popularity descending
+    goodCandidates.sort((a: any, b: any) => b.popularity - a.popularity);
+
+    // Pick randomly from top 5 (or fewer if not enough) to add variety
+    const topCount = Math.min(goodCandidates.length, 5);
+    const bestMatch =
+      topCount > 0
+        ? goodCandidates[Math.floor(Math.random() * topCount)]
+        : null;
     
     if (bestMatch) {
       // Fetch full details of the replacement

@@ -5,10 +5,10 @@ import { get_options } from '@/lib/TMDB_API/requestOptions'
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient()
-  const userId = params.id
+  const { id: userId } = await params
 
   try {
     const { data: movieRatings, error: movieRatingsError } = await supabase

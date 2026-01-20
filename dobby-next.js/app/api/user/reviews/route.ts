@@ -135,6 +135,7 @@ export async function GET(request: Request) {
         movieType: mediaType as "movie" | "tv",
         moviePoster: posterData.poster,
         children: [],
+        userId: user.id,
       };
     });
 

@@ -1,6 +1,16 @@
 import { render, screen } from '@/__tests__/test-utils';
 import RatingCard from '@/components/cards/RatingCard';
 
+// Mock Supabase
+jest.mock('@/lib/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    },
+    from: jest.fn(),
+  })),
+}));
+
 describe('RatingCard Component', () => {
   const mockPost = {
     id: 1,

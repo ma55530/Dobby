@@ -15,6 +15,7 @@ interface Comment {
   parentId?: string;
   hasChildren?: boolean;
   children?: Comment[];
+  userId?: string;
 }
 
 interface Review {
@@ -32,6 +33,7 @@ interface Review {
   hasChildren?: boolean;
   children?: Comment[];
   commentCount?: number;
+  userId?: string;
 }
 
 export default function Feed({ 
@@ -70,7 +72,8 @@ export default function Feed({
           likes: 0,
           parentId: reply.parent_comment,
           hasChildren: (reply.reply_count || 0) > 0,
-          children: nestedReplies
+          children: nestedReplies,
+          userId: reply.profiles?.id
         };
       }));
       
@@ -104,7 +107,8 @@ export default function Feed({
           likes: 0,
           hasChildren: (comment.reply_count || 0) > 0,
           parentId: comment.parent_comment,
-          children: replies
+          children: replies,
+          userId: comment.profiles?.id
         };
       }));
       

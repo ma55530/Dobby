@@ -2,37 +2,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { get_options } from "@/lib/TMDB_API/requestOptions";
-
-// TMDB Genre IDs to names mapping
-const GENRE_MAP: Record<number, string> = {
-   28: "Action",
-   12: "Adventure",
-   16: "Animation",
-   35: "Comedy",
-   80: "Crime",
-   99: "Documentary",
-   18: "Drama",
-   10751: "Family",
-   14: "Fantasy",
-   36: "History",
-   27: "Horror",
-   10402: "Music",
-   9648: "Mystery",
-   10749: "Romance",
-   878: "Science Fiction",
-   10770: "TV Movie",
-   53: "Thriller",
-   10752: "War",
-   37: "Western",
-   10759: "Action & Adventure",
-   10762: "Kids",
-   10763: "News",
-   10764: "Reality",
-   10765: "Sci-Fi & Fantasy",
-   10766: "Soap",
-   10767: "Talk",
-   10768: "War & Politics",
-};
+import { getGenreNameById } from "@/lib/config/genres";
 
 export async function GET(request: Request) {
    const supabase = await createClient();
@@ -57,8 +27,8 @@ export async function GET(request: Request) {
         const genreIds = JSON.parse(genresParam);
         if (Array.isArray(genreIds)) {
           favoriteGenresFromClient = genreIds
-            .map((id: number) => GENRE_MAP[id])
-            .filter(Boolean);
+            .map((id: number) => getGenreNameById(id))
+            .filter(Boolean) as string[];
         }
       } catch (e) {
         console.error('Failed to parse favorite_genres param:', e);
@@ -168,7 +138,8 @@ export async function GET(request: Request) {
          [...topMovies, ...topShows].forEach((item) => {
             const genres = item.genres as Array<{ id: number; name: string }>;
             genres.forEach((genre) => {
-               const genreName = genre.name || GENRE_MAP[genre.id] || "Unknown";
+              const genreName =
+                genre.name || getGenreNameById(genre.id) || "Unknown";
                genreCount[genreName] = (genreCount[genreName] || 0) + 1;
             });
          });

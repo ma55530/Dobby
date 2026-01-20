@@ -31,8 +31,8 @@ export default function ShowsForYouPage() {
 
    const [phrase, setPhrase] = useState<string>("");
    const [isGenerating, setIsGenerating] = useState(false);
-   // Track offset for reruns. Start at 20 because fold-in consumed 0-20.
-   const [recOffset, setRecOffset] = useState(20);
+   // Track offset for reruns (unused when we always refresh full batch).
+   const [recOffset] = useState(0);
 
    useEffect(() => {
       setPhrase(phrases[Math.floor(Math.random() * phrases.length)]);
@@ -72,13 +72,11 @@ export default function ShowsForYouPage() {
       setIsGenerating(true);
       // Don't set full page loading, just button state
       try {
-         // Use current offset, then increment by limit for next time
-         const limit = 10;
+         const limit = 20;
 
          await fetch(
             `/api/recommendation-engine?limit=${limit}&offset=${recOffset}`
          );
-         setRecOffset((prev) => prev + limit);
 
          // Add a timestamp to bypass browser caching
          await fetchShows(false);

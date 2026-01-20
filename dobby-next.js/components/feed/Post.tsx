@@ -9,6 +9,7 @@ interface Comment {
   date: string;
   likes: number;
   parentId?: string;
+  userId?: string;
 }
 
 interface Review {
@@ -25,6 +26,7 @@ interface Review {
   moviePoster?: string;
   hasChildren?: boolean;
   children?: Comment[];
+  userId?: string;
 }
 
 interface PostProps {

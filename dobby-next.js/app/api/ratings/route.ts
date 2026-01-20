@@ -154,6 +154,7 @@ export async function GET(request: Request) {
         movieType: mediaType as "movie" | "tv",
         moviePoster: posterData.posterUrl,
         hasChildren: false,
+        userId: ratingItem.user_id,
       };
     });
 

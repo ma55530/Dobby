@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { TMDB_GENRES } from "@/lib/config/genres";
 
 interface Genre {
    id: number;
@@ -46,36 +47,6 @@ interface Watchlist {
    items: WatchlistItem[];
 }
 
-const TMDB_GENRES = [
-   { id: 12, name: "Adventure", modelKey: "g0" },
-   { id: 14, name: "Fantasy", modelKey: "g1" },
-   { id: 16, name: "Animation", modelKey: "g2" },
-   { id: 18, name: "Drama", modelKey: "g3" },
-   { id: 27, name: "Horror", modelKey: "g4" },
-   { id: 28, name: "Action", modelKey: "g5" },
-   { id: 35, name: "Comedy", modelKey: "g6" },
-   { id: 36, name: "History", modelKey: "g7" },
-   { id: 37, name: "Western", modelKey: "g8" },
-   { id: 53, name: "Thriller", modelKey: "g9" },
-   { id: 80, name: "Crime", modelKey: "g10" },
-   { id: 99, name: "Documentary", modelKey: "g11" },
-   { id: 878, name: "Science Fiction", modelKey: "g12" },
-   { id: 9648, name: "Mystery", modelKey: "g13" },
-   { id: 10402, name: "Music", modelKey: "g14" },
-   { id: 10749, name: "Romance", modelKey: "g15" },
-   { id: 10751, name: "Family", modelKey: "g16" },
-   { id: 10752, name: "War", modelKey: "g17" },
-   { id: 10770, name: "TV Movie", modelKey: "g18" },
-   // Extra DB genres without modelKey mapping yet
-   { id: 10759, name: "Action & Adventure" },
-   { id: 10762, name: "Kids" },
-   { id: 10763, name: "News" },
-   { id: 10764, name: "Reality" },
-   { id: 10765, name: "Sci-Fi & Fantasy" },
-   { id: 10766, name: "Soap" },
-   { id: 10767, name: "Talk" },
-   { id: 10768, name: "War & Politics" },
-];
 
 export default function MePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
