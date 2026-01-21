@@ -1,11 +1,11 @@
-# Use the official Vertex AI PyTorch GPU container
-FROM us-docker.pkg.dev/vertex-ai/prediction/pytorch-gpu.2-4:latest
+# Use the official Vertex AI PyTorch Training container (better for custom jobs than prediction)
+FROM us-docker.pkg.dev/vertex-ai/training/pytorch-gpu.2-1.py310:latest
 
 # Set working directory inside container
 WORKDIR /trainer
 
 # Copy your trainer code
-COPY trainer /trainer
+COPY trainer/ .
 
 # Install any Python dependencies (Supabase SDK, etc.)
 # It's good practice to have a requirements.txt inside /trainer
@@ -17,4 +17,4 @@ ENV PYTHONUNBUFFERED=1 \
     TZ=Europe/Zagreb
 
 # Set the entrypoint to your training module
-ENTRYPOINT ["python", "-m", "matrixFactorization"]
+CMD ["python", "matrixFactorization.py"]
