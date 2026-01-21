@@ -338,9 +338,9 @@ export default function MePage() {
       });
 
    return (
-      <main className="min-h-screen flex flex-col items-center bg-gradient-to-b from-[#1a1625] to-[#0f0c18] text-foreground">
-         <section className="w-full px-6 pt-12 pb-6 max-w-5xl">
-            <h1 className="text-4xl md:text-5xl font-extrabold text-white">
+      <main className="min-h-screen flex flex-col items-center bg-gradient-to-b from-[#1a1625] to-[#0f0c18] text-foreground overflow-x-hidden">
+         <section className="w-full px-4 sm:px-6 pt-8 sm:pt-12 pb-4 sm:pb-6 max-w-5xl mx-auto box-border">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white">
                About me
             </h1>
             <p className="text-gray-300 mt-2">
@@ -355,7 +355,7 @@ export default function MePage() {
             )}
          </section>
 
-         <section className="w-full px-6 max-w-5xl pb-16">
+         <section className="w-full px-4 sm:px-6 max-w-5xl mx-auto pb-12 sm:pb-16 box-border overflow-hidden">
             {loading ? (
                <div className="grid gap-6 md:grid-cols-3">
                   <div className="md:col-span-1 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 h-64 animate-pulse" />
@@ -363,9 +363,9 @@ export default function MePage() {
                   <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 h-40 animate-pulse" />
                </div>
             ) : profile ? (
-               <div className="grid gap-6 md:grid-cols-3">
+               <div className="grid gap-6 md:grid-cols-3 min-w-0 w-full">
                   {/* Left: profile card */}
-                  <div className="p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
+                  <div className="p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 w-full min-w-0 overflow-hidden">
                      <div className="flex flex-col items-center text-center">
                         <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-purple-400 to-yellow-400 overflow-hidden ring-2 ring-purple-400/40">
                            {profile.avatar_url ? (
@@ -765,16 +765,16 @@ export default function MePage() {
                   </div>
 
                   {/* Right: bio and lists */}
-                  <div className="md:col-span-2 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
+                  <div className="md:col-span-2 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 w-full min-w-0 overflow-hidden">
                      <h3 className="text-white font-semibold text-lg mb-3">
                         Bio
                      </h3>
-                     <p className="text-gray-300 leading-relaxed">
+                     <p className="text-gray-300 leading-relaxed break-words">
                         {profile.bio || "No bio yet."}
                      </p>
 
-                     <div className="mt-6 grid sm:grid-cols-2 gap-4">
-                        <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
+                     <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800 min-w-0 overflow-hidden">
                            <div className="flex items-center gap-2 mb-2">
                               <span className="text-white font-medium">Favorite genres</span>
                            </div>
@@ -790,18 +790,18 @@ export default function MePage() {
                               )}
                            </div>
                         </div>
-                        <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
+                        <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800 min-w-0 overflow-hidden">
                            <div className="flex items-center gap-2 mb-3">
 
                               <span className="text-white font-medium">Top movies</span>
                            </div>
                            {profileStats.topMovies.length > 0 ? (
-                              <div className="grid grid-cols-4 gap-2">
-                                 {profileStats.topMovies.slice(0, 4).map((movie) => (
+                              <div className="grid grid-cols-3 gap-2">
+                                 {profileStats.topMovies.slice(0, 3).map((movie) => (
                                     <Link
                                        key={`top-movie-${movie.id}`}
                                        href={`/movies/${movie.id}`}
-                                       className="relative group"
+                                       className="relative group aspect-[2/3] w-full"
                                        title={movie.title}
                                     >
                                        <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-zinc-800 border border-zinc-700">
@@ -831,18 +831,18 @@ export default function MePage() {
                               <span className="text-xs text-gray-500">No movie ratings yet.</span>
                            )}
                         </div>
-                        <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
+                        <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800 min-w-0 overflow-hidden">
                            <div className="flex items-center gap-2 mb-3">
 
                               <span className="text-white font-medium">Top shows</span>
                            </div>
                            {profileStats.topShows.length > 0 ? (
-                              <div className="grid grid-cols-4 gap-2">
-                                 {profileStats.topShows.slice(0, 4).map((show) => (
+                              <div className="grid grid-cols-3 gap-2">
+                                 {profileStats.topShows.slice(0, 3).map((show) => (
                                     <Link
                                        key={`top-show-${show.id}`}
                                        href={`/shows/${show.id}`}
-                                       className="relative group"
+                                       className="relative group aspect-[2/3] w-full"
                                        title={show.name}
                                     >
                                        <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-zinc-800 border border-zinc-700">
@@ -876,7 +876,7 @@ export default function MePage() {
                   </div>
 
                   {/* Watchlists Section */}
-                  <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
+                  <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 w-full min-w-0 overflow-hidden">
                      <div className="flex items-center mb-4">
                         <h3 className="text-white font-semibold text-lg flex items-center gap-2">
                            <Bookmark className="w-5 h-5" />
@@ -891,13 +891,13 @@ export default function MePage() {
                         </div>
                      ) : (
                         <div className="space-y-4">
-                           {watchlists.slice(0, 2).map((watchlist) => (
+                           {watchlists.map((watchlist) => (
                               <div
                                  key={watchlist.id}
-                                 className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800"
+                                 className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800 min-w-0 overflow-hidden"
                               >
                                  <div className="flex items-center justify-between mb-3">
-                                    <h4 className="text-white font-medium">
+                                    <h4 className="text-white font-medium truncate pr-4">
                                        {watchlist.name}
                                     </h4>
                                     <span className="text-sm text-gray-400">
@@ -957,35 +957,23 @@ export default function MePage() {
                                  )}
                               </div>
                            ))}
-
-                           {watchlists.length > 2 && (
-                              <div className="text-center pt-2">
-                                 <Link href="/watchlist">
-                                    <Button
-                                       variant="outline"
-                                       className="border-zinc-700 hover:bg-zinc-800 text-purple-400 cursor-pointer"
-                                    >
-                                       +{watchlists.length - 2} more watchlists
-                                    </Button>
-                                 </Link>
-                              </div>
-                           )}
                         </div>
                      )}
                   </div>
 
-                  <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
+                  <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 w-full min-w-0 overflow-hidden">
                      <h3 className="text-white font-semibold text-lg mb-4 text-center">
                         Recent activity
                      </h3>
                      {userReviews.length > 0 ? (
-                        <div className="space-y-6 flex flex-col items-center">
+                        <div className="space-y-6 flex flex-col items-center w-full">
                            {userReviews.map((review) => (
-                              <ReviewCard
-                                 key={review.id}
-                                 post={review}
-                                 isNested={true}
-                              />
+                              <div key={review.id} className="w-full flex justify-center overflow-hidden">
+                                 <ReviewCard
+                                    post={review}
+                                    isNested={true}
+                                 />
+                              </div>
                            ))}
                         </div>
                      ) : (

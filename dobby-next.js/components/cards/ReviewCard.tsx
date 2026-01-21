@@ -739,7 +739,7 @@ const ReviewCard = ({ post, onLoadMore, nestedComments, isNested = false }: Revi
                 key="delete-button"
                 variant="ghost" 
                 size="default" 
-                className="gap-1 sm:gap-2 flex-1 text-xs sm:text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                className="gap-1 sm:gap-2 col-span-2 sm:col-span-1 sm:flex-1 text-xs sm:text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 justify-center"
                 onClick={handleDeleteClick}
                 disabled={isDeleting}
               >
