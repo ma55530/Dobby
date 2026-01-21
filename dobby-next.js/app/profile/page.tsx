@@ -214,7 +214,31 @@ export default function MePage() {
       fetchData();
       fetchWatchlists();
       fetchUserReviews();
-   }, []);
+
+      // Listen for review deletions and refresh stats
+      const handleReviewDeleted = () => {
+         const savedGenresData = localStorage.getItem(
+            `favorite_genres_${profile?.id}`
+         );
+         const genresParam = savedGenresData
+            ? `?favorite_genres=${encodeURIComponent(savedGenresData)}`
+            : "";
+
+         fetch(`/api/user/profile-stats${genresParam}`)
+            .then(res => res.ok && res.json())
+            .then(stats => stats && setProfileStats(stats))
+            .catch(err => console.error("Failed to refresh profile stats:", err));
+
+         // Also refresh reviews
+         fetch("/api/user/reviews?limit=10")
+            .then(res => res.ok && res.json())
+            .then(data => data && setUserReviews(data.reviews || []))
+            .catch(err => console.error("Failed to refresh reviews:", err));
+      };
+
+      window.addEventListener("reviewDeleted", handleReviewDeleted);
+      return () => window.removeEventListener("reviewDeleted", handleReviewDeleted);
+   }, [profile?.id]);
 
    const fetchFollowList = async (type: "followers" | "following") => {
       try {
