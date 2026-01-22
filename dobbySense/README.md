@@ -1,3 +1,4 @@
+
 # DobbySense: Advanced Hybrid Recommender System
 
 **DobbySense** is the algorithmic heart of the Dobby platform. It is a sophisticated recommendation engine built on PyTorch that moves beyond simple Collaborative Filtering by integrating content-based features (Genres) directly into the latent factor learning process. This hybrid approach solves the classic "Cold Start" problem while maintaining the high accuracy of Matrix Factorization.
@@ -12,7 +13,7 @@ At its core, DobbySense builds upon Probabilistic Matrix Factorization (PMF). In
 
 The predicted rating $\hat{r}_{ui}$ for user $u$ and item $i$ is given by:
 
-$$ \hat{r}\_{ui} = \mathbf{p}\_u \cdot \mathbf{q}\_i + b_u + b_i + \mu $$
+$$ \hat{r}_{ui} = \mathbf{p}_u \cdot \mathbf{q}_i + b_u + b_i + \mu $$
 
 Where:
 
@@ -29,15 +30,15 @@ Standard MF fails when an item has few ratings (item cold start) or when we want
 We represent the genres of movie $i$ as a multi-hot vector $\mathbf{g}_i \in \{0,1\}^N$, where $N$ is the number of total genres. The model learns a linear transformation to map these discrete logical features into the continuous latent space of the model.
 
 Let $f_{genre}(\cdot)$ be our learned linear mapping:
-$$ f\_{genre}(\mathbf{x}) = \mathbf{W}\_g \mathbf{x} + \mathbf{b}\_g $$
+$$ f_{genre}(\mathbf{x}) = \mathbf{W}_g \mathbf{x} + \mathbf{b}_g $$
 
 The model modifies the effective item representation used for prediction. The effective item vector $\mathbf{q}'_i$ becomes a weighted sum of its unique identity vector and its semantic content vector:
 
-$$ \mathbf{q}'_i = \mathbf{q}\_i + \lambda \cdot f_{genre}(\mathbf{g}\_i) $$
+$$ \mathbf{q}'_i = \mathbf{q}_i + \lambda \cdot f_{genre}(\mathbf{g}_i) $$
 
 Substituting this back into the prediction equation:
 
-$$ \hat{r}\_{ui} = \mathbf{p}\_u \cdot \left( \mathbf{q}\_i + \lambda (\mathbf{W}\_g \mathbf{g}\_i + \mathbf{b}\_g) \right) + b_u + b_i + \mu $$
+$$ \hat{r}_{ui} = \mathbf{p}_u \cdot \left( \mathbf{q}_i + \lambda (\mathbf{W}_g \mathbf{g}_i + \mathbf{b}_g) \right) + b_u + b_i + \mu $$
 
 - $\mathbf{W}_g$: A learnable weight matrix of shape $(k \times N)$ representing genre embeddings.
 - $\lambda$: A hyperparameter (`GENRE_WEIGHT`) controlling how much genres influence the recommendation versus pure user behavior.
@@ -49,16 +50,16 @@ $$ \hat{r}\_{ui} = \mathbf{p}\_u \cdot \left( \mathbf{q}\_i + \lambda (\mathbf{W
 The system is implemented as a PyTorch `nn.Module` (`HybridMatrixFactorization`) with the following components:
 
 1. **User Embedding Layer**: `nn.Embedding(num_users, latent_dim)`
-   - Learns a specialized vector for every known user ID.
+	- Learns a specialized vector for every known user ID.
 2. **Movie Identity Layer**: `nn.Embedding(num_movies, latent_dim)`
-   - Learns unique characteristics of a movie that _aren't_ explained by its genres (e.g., acting quality, direction style).
+	- Learns unique characteristics of a movie that _aren't_ explained by its genres (e.g., acting quality, direction style).
 3. **Genre Projection Layer**: `nn.Linear(num_genres, latent_dim)`
-   - Learns what "Action" or "Romance" looks like in the abstract vector space.
+	- Learns what "Action" or "Romance" looks like in the abstract vector space.
 4. **Bias Layers**:
-   - User and Movie biases are learned as scalar embeddings (`latent_dim=1`).
+	- User and Movie biases are learned as scalar embeddings (`latent_dim=1`).
 5. **Regularization**:
-   - **Dropout**: Applied to user and item vectors during training to prevent overfitting.
-   - **L2 Regularization** (Weight Decay): Applied via the Adam optimizer to constrain the magnitude of the latent vectors.
+	- **Dropout**: Applied to user and item vectors during training to prevent overfitting.
+	- **L2 Regularization** (Weight Decay): Applied via the Adam optimizer to constrain the magnitude of the latent vectors.
 
 ---
 
@@ -78,11 +79,11 @@ If a new user selects "Sci-Fi" and "Thriller" during onboarding, we don't need t
 2. **User Input**: User selects a set of preferred genres $S_{prefs}$.
 3. **Synthesis**: We calculate the "Center of Gravity" for those genres in the latent space.
 
-$$ \mathbf{p}_{new} \approx \frac{1}{|S_{prefs}|} \sum*{j \in S*{prefs}} (\mathbf{W}\_{g}[:, j] + \mathbf{b}\_g) $$
+$$ \mathbf{p}_{new} \approx \frac{1}{|S_{prefs}|} \sum_{j \in S_{prefs}} (\mathbf{W}_{g}[:, j] + \mathbf{b}_g) $$
 
 This synthesized vector $\mathbf{p}_{new}$ is mathematically compatible with all existing movie vectors $\mathbf{q}'_i$. We can immediately perform Cosine Similarity searches to generate recommendations:
 
-$$ \text{Score}(u*{new}, i) = \cos(\mathbf{p}*{new}, \mathbf{q}'\_i) $$
+$$ \text{Score}(u_{new}, i) = \cos(\mathbf{p}_{new}, \mathbf{q}'_i) $$
 
 This allows Dobby to provide highly personalized recommendations **milliseconds** after account creation.
 
@@ -97,12 +98,12 @@ The training process is orchestrated via Jupyter Notebooks (`matrixFactorization
 The model is trained on a massive merge of movie and TV show data:
 
 1. **The Movies Dataset (Kaggle)**:
-   - Source: [Rounak Banik on Kaggle](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset)
-   - Content: Metadata and **26M+ ratings** from 270,000 users for all movies listed in the Full MovieLens Dataset. This provides the deep historical behavior data needed for collaborative filtering.
+	- Source: [Rounak Banik on Kaggle](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset)
+	- Content: Metadata and **26M+ ratings** from 270,000 users for all movies listed in the Full MovieLens Dataset. This provides the deep historical behavior data needed for collaborative filtering.
 
 2. **Full TMDB TV Shows Dataset (Kaggle)**:
-   - Source: [Asaniczka on Kaggle](https://www.kaggle.com/datasets/asaniczka/full-tmdb-tv-shows-dataset-2023-150k-shows/data)
-   - Content: Comprehensive metadata for over 150,000 TV shows. This allows Dobby to recommend shows alongside movies using the same genre-based vector space.
+	- Source: [Asaniczka on Kaggle](https://www.kaggle.com/datasets/asaniczka/full-tmdb-tv-shows-dataset-2023-150k-shows/data)
+	- Content: Comprehensive metadata for over 150,000 TV shows. This allows Dobby to recommend shows alongside movies using the same genre-based vector space.
 
 3. **Dynamic Data**: Real-time user ratings fetched from Supabase (`movie_ratings` table) are merged with the Kaggle data at training time, ensuring the model adapts to current Dobby users.
 
@@ -127,9 +128,9 @@ The model is trained on a massive merge of movie and TV show data:
 
 1. **Data Ingestion**: Load CSVs from GCS + Fetch Supabase table.
 2. **Preprocessing**:
-   - **Re-indexing**: Maps raw user/movie IDs to continuous 0..N integers. This is crucial for embedding lookup efficiency.
-   - **Multi-Hot Encoding**: Converts raw genre strings (e.g., "Action|Sci-Fi") into a binary matrix where each column represents a genre.
-   - **Alignment**: Ensures that the `genre_matrix` is perfectly aligned with the `movie_idx` used in the PyTorch model.
+	- **Re-indexing**: Maps raw user/movie IDs to continuous 0..N integers. This is crucial for embedding lookup efficiency.
+	- **Multi-Hot Encoding**: Converts raw genre strings (e.g., "Action|Sci-Fi") into a binary matrix where each column represents a genre.
+	- **Alignment**: Ensures that the `genre_matrix` is perfectly aligned with the `movie_idx` used in the PyTorch model.
 3. **Training**: Run Adam optimizer on `MSELoss`.
 4. **Export**: Save artifacts to Supabase.
 
@@ -151,6 +152,7 @@ The system calls a PostgreSQL RPC function (`get_top_movies_for_user`) which per
 - **Process**: Index scan on the `vectors` column.
 - **Output**: Top $K$ raw ID candidates (e.g., top 20 movies) closest to the user's taste.
 
+
 ### 5.2 The FBS (Filter, Better-Similar) Algorithm
 
 A common issue with pure Collaborative Filtering is that it may recommend "mathematically correct" but "qualitatively poor" items. For example, it might recommend a C-grade Sci-Fi movie simply because it has the perfect vector coordinates for a Sci-Fi fan.
@@ -166,7 +168,7 @@ An item is flagged as **"Bad"** if:
 1. **Low Rating**: `vote_average` < `minVoteAverage` (e.g., 5.0).
 2. **Too Old**: `year` < `minYear` (e.g., 1980).
 3. **Mid-Tier Trap**: `vote_average` < `midTierRating` **AND** `year` <= `midTierYear`.
-   - _Rationale_: Older movies (e.g., from 1990) are acceptable if they are classics (high rating), but mediocre old movies are usually irrelevant to modern users.
+	- _Rationale_: Older movies (e.g., from 1990) are acceptable if they are classics (high rating), but mediocre old movies are usually irrelevant to modern users.
 
 #### Step B: Smart Replacement (`Better-Similar`)
 
@@ -175,18 +177,78 @@ Instead of simply discarding a "Bad" item (which would shrink the recommendation
 1. **Fetch Similar**: The system queries TMDB for items similar to the "Bad" candidate.
 2. **Filter & Sort**: The similar items are themselves filtered (removing bad ones) and sorted by **Popularity**.
 3. **Stochastic Selection**: We pick a random item from the **Top 5** best alternatives.
-   - _Why Top 5?_ Picking #1 every time reduces variety. Randomness ensures the feed feels fresh.
+	- _Why Top 5?_ Picking #1 every time reduces variety. Randomness ensures the feed feels fresh.
 
-### 5.3 Pipeline Execution Flow
+### 5.3 Fuzzy Logic Layer: Cold Start & Ranking
+
+To further improve recommendation quality—especially for new users or users with sparse history—DobbySense incorporates a fuzzy logic layer for ranking and cold start scenarios.
+
+#### Fuzzy Membership Functions
+
+For both genre match ratio and popularity, fuzzy membership functions are used to assign a degree of membership to three categories: low, mid, and high. For a value $x$ in $[0,1]$:
+
+- **Low**: $1$ if $x \leq 0.2$, linearly decreasing to $0$ at $x=0.5$
+- **Mid**: $0$ if $x \leq 0.2$, peaks at $x=0.5$, $0$ again at $x=0.8$
+- **High**: $0$ if $x \leq 0.5$, linearly increasing to $1$ at $x=0.8$
+
+#### Fuzzy Inference and Scoring
+
+A 3x3 rule matrix combines genre and popularity memberships to produce a fuzzy score:
+
+- High genre & High popularity: 1.0 (Excellent)
+- High genre & Mid popularity: 0.9 (Very Good)
+- Mid genre & High popularity: 0.8 (Good)
+- Mid genre & Mid popularity: 0.6 (Okay)
+- High genre & Low popularity: 0.5 (Hidden gem)
+- Low genre & High popularity: 0.4 (Fair)
+- Mid genre & Low popularity: 0.3 (Poor)
+- Low genre & Mid popularity: 0.2 (Very Poor)
+- Low genre & Low popularity: 0.1 (Lowest priority)
+
+The final fuzzy score is a weighted sum of all rule outputs, normalized by the sum of rule weights.
+
+#### Application in Ranking
+
+- **For users with genre preferences but little/no rating history (cold start):**
+  - The fuzzy score is weighted heavily (e.g., 85%) in the final ranking, with a small base score for list position.
+- **For users with rating history:**
+  - The fuzzy score is blended with the embedding-based rank and a small random jitter for diversity.
+
+This approach ensures that recommendations are both mathematically relevant and intuitively appealing, even for new users.
+
+
+### 5.4 Pipeline Execution Flow
+
+The DobbySense recommendation pipeline consists of three main stages, executed in order:
+
+**1. Embedding-based Candidate Selection**
+	- Retrieve top candidate movies and shows for the user using vector search in the shared embedding space (via `get_top_movies_for_user` and `get_top_shows_for_user`).
+
+**2. FBS (Filter, Better-Similar) Post-Processing**
+	- Remove or upgrade low-quality items using the FBS algorithm: filter out "bad" candidates and, where possible, replace them with better, similar alternatives.
+
+**3. Fuzzy Logic Scoring and Ranking**
+	- Apply fuzzy logic to score and rank the remaining candidates, taking into account genre match, popularity, and user preferences. This ensures recommendations are both mathematically relevant and intuitively appealing, especially for new or cold-start users.
+
+**Summary Flow:**
+
+```
+Embeddings (vector search)
+	↓
+FBS (Filter, Better-Similar)
+	↓
+Fuzzy Logic Scoring & Ranking
+```
 
 This logic lives in valid Next.js API routes (e.g., `api/recommendation-engine`):
 
 1. **Trigger**: User opens "For You" page (`/home`).
 2. **Check Cache**: System checks `movie_recommendations` table for fresh ( < 24h old) rows.
 3. **Compute**: If cache miss:
-   - Calculate Vector Logic (`get_top_movies_for_user`).
-   - Run **FBS Post-Processing** (Javascript Layer).
-   - Fetch metadata for final list.
+	- Calculate Vector Logic (`get_top_movies_for_user`).
+	- Run **FBS Post-Processing** (Javascript Layer).
+	- Apply fuzzy logic scoring and ranking.
+	- Fetch metadata for final list.
 4. **Cache & Return**: Result is saved to `movie_recommendations` and returned to UI.
 
 ---
