@@ -89,12 +89,15 @@ export default function WatchlistPage() {
       });
 
       if (res.ok) {
-        // Update local state to remove the item
-        setWatchlists(prevWatchlists => 
-          prevWatchlists.map(watchlist => ({
-            ...watchlist,
-            items: watchlist.items.filter(i => !(i.type === item.type && i.id === item.id))
-          }))
+        // Only remove from the currently selected watchlist; leave duplicates in others intact
+        setWatchlists(prevWatchlists =>
+          prevWatchlists.map(watchlist => watchlist.id === selectedWatchlist
+            ? {
+              ...watchlist,
+              items: watchlist.items.filter(i => !(i.type === item.type && i.id === item.id))
+            }
+            : watchlist
+          )
         );
       } else {
         const data = await res.json();
@@ -116,7 +119,7 @@ export default function WatchlistPage() {
 
   const currentWatchlist = watchlists.find(w => w.id === selectedWatchlist);
   const allItems = currentWatchlist?.items || [];
-  
+
   const handleCreateWatchlist = async () => {
     if (!newWatchlistName.trim()) {
       setError('Please enter a watchlist name');
@@ -199,7 +202,7 @@ export default function WatchlistPage() {
           {items.map((item) => {
             const itemKey = `${item.type}-${item.id}`;
             const isRemoving = removingItems.has(itemKey);
-            
+
             return (
               <div
                 key={itemKey}
@@ -210,68 +213,67 @@ export default function WatchlistPage() {
                   className="block cursor-pointer"
                 >
                   <div className="flex gap-4">
-                  {/* Poster */}
-                  <div className="relative w-24 h-36 flex-shrink-0 rounded-lg overflow-hidden bg-zinc-900">
-                    {item.poster_path ? (
-                      <Image
-                        src={getImageUrl(item.poster_path)}
-                        alt={item.title}
-                        fill
-                        sizes="96px"
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-600">
-                        {item.type === 'movie' ? (
-                          <Film className="w-8 h-8" />
-                        ) : (
-                          <Tv className="w-8 h-8" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="text-white font-semibold text-lg leading-tight group-hover:text-purple-400 transition-colors line-clamp-2">
-                        {item.title}
-                      </h3>
-                      <div className="flex items-center gap-1 text-yellow-400 flex-shrink-0">
-                        <Star className="w-4 h-4 fill-current" />
-                        <span className="text-sm font-medium">
-                          {item.vote_average.toFixed(1)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {item.release_date && (
-                      <div className="flex items-center gap-1 text-gray-400 text-sm mb-2">
-                        <Calendar className="w-3 h-3" />
-                        <span>{formatDate(item.release_date)}</span>
-                      </div>
-                    )}
-
-                    <p className="text-gray-400 text-sm line-clamp-3 mb-2">
-                      {item.overview || "No description available"}
-                    </p>
-
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        item.type === 'movie' 
-                          ? 'bg-blue-500/20 text-blue-400' 
-                          : 'bg-purple-500/20 text-purple-400'
-                      }`}>
-                        {item.type === 'movie' ? 'Movie' : 'TV Show'}
-                      </span>
-                      {item.added_at && (
-                        <span className="text-xs text-gray-500">
-                          Added {formatDate(item.added_at)}
-                        </span>
+                    {/* Poster */}
+                    <div className="relative w-24 h-36 flex-shrink-0 rounded-lg overflow-hidden bg-zinc-900">
+                      {item.poster_path ? (
+                        <Image
+                          src={getImageUrl(item.poster_path)}
+                          alt={item.title}
+                          fill
+                          sizes="96px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-600">
+                          {item.type === 'movie' ? (
+                            <Film className="w-8 h-8" />
+                          ) : (
+                            <Tv className="w-8 h-8" />
+                          )}
+                        </div>
                       )}
                     </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="text-white font-semibold text-lg leading-tight group-hover:text-purple-400 transition-colors line-clamp-2">
+                          {item.title}
+                        </h3>
+                        <div className="flex items-center gap-1 text-yellow-400 flex-shrink-0">
+                          <Star className="w-4 h-4 fill-current" />
+                          <span className="text-sm font-medium">
+                            {item.vote_average.toFixed(1)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {item.release_date && (
+                        <div className="flex items-center gap-1 text-gray-400 text-sm mb-2">
+                          <Calendar className="w-3 h-3" />
+                          <span>{formatDate(item.release_date)}</span>
+                        </div>
+                      )}
+
+                      <p className="text-gray-400 text-sm line-clamp-3 mb-2">
+                        {item.overview || "No description available"}
+                      </p>
+
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs px-2 py-1 rounded-full ${item.type === 'movie'
+                            ? 'bg-blue-500/20 text-blue-400'
+                            : 'bg-purple-500/20 text-purple-400'
+                          }`}>
+                          {item.type === 'movie' ? 'Movie' : 'TV Show'}
+                        </span>
+                        {item.added_at && (
+                          <span className="text-xs text-gray-500">
+                            Added {formatDate(item.added_at)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
                 </Link>
 
                 {/* Remove Button */}
@@ -337,60 +339,60 @@ export default function WatchlistPage() {
                   Create Watchlist
                 </Button>
               </DialogTrigger>
-                <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
-                  <DialogHeader>
-                    <DialogTitle>Create New Watchlist</DialogTitle>
-                    <DialogDescription className="text-gray-400">
-                      Give your watchlist a name like &quot;Best stuff for when I&apos;m sad&quot;
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 mt-4">
-                    <div>
-                      <Label htmlFor="watchlistName" className="text-gray-300">
-                        Watchlist Name
-                      </Label>
-                      <Input
-                        id="watchlistName"
-                        value={newWatchlistName}
-                        onChange={(e) => setNewWatchlistName(e.target.value)}
-                        placeholder="e.g., Best stuff for when I'm sad"
-                        className="bg-zinc-800 border-zinc-700 text-white mt-2 cursor-text"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleCreateWatchlist();
-                          }
-                        }}
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        onClick={() => {
-                          setCreateDialogOpen(false);
-                          setNewWatchlistName('');
-                        }}
-                        variant="outline"
-                        className="border-zinc-700 hover:bg-zinc-800 cursor-pointer"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={handleCreateWatchlist}
-                        disabled={creatingWatchlist || !newWatchlistName.trim()}
-                        className="bg-purple-600 hover:bg-purple-700 cursor-pointer"
-                      >
-                        {creatingWatchlist ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Creating...
-                          </>
-                        ) : (
-                          'Create'
-                        )}
-                      </Button>
-                    </div>
+              <DialogContent className="bg-zinc-900 border-zinc-800 text-white">
+                <DialogHeader>
+                  <DialogTitle>Create New Watchlist</DialogTitle>
+                  <DialogDescription className="text-gray-400">
+                    Give your watchlist a name like &quot;Best stuff for when I&apos;m sad&quot;
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <Label htmlFor="watchlistName" className="text-gray-300">
+                      Watchlist Name
+                    </Label>
+                    <Input
+                      id="watchlistName"
+                      value={newWatchlistName}
+                      onChange={(e) => setNewWatchlistName(e.target.value)}
+                      placeholder="e.g., Best stuff for when I'm sad"
+                      className="bg-zinc-800 border-zinc-700 text-white mt-2 cursor-text"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleCreateWatchlist();
+                        }
+                      }}
+                    />
                   </div>
-                </DialogContent>
-              </Dialog>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      onClick={() => {
+                        setCreateDialogOpen(false);
+                        setNewWatchlistName('');
+                      }}
+                      variant="outline"
+                      className="border-zinc-700 hover:bg-zinc-800 cursor-pointer"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleCreateWatchlist}
+                      disabled={creatingWatchlist || !newWatchlistName.trim()}
+                      className="bg-purple-600 hover:bg-purple-700 cursor-pointer"
+                    >
+                      {creatingWatchlist ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Creating...
+                        </>
+                      ) : (
+                        'Create'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Watchlist Tabs */}
             {watchlists.length > 1 && (
@@ -398,11 +400,10 @@ export default function WatchlistPage() {
                 {watchlists.map((watchlist) => (
                   <div
                     key={watchlist.id}
-                    className={`group rounded-lg font-medium transition-all cursor-pointer flex items-center pl-4 pr-2 py-2 ${
-                      selectedWatchlist === watchlist.id
+                    className={`group rounded-lg font-medium transition-all cursor-pointer flex items-center pl-4 pr-2 py-2 ${selectedWatchlist === watchlist.id
                         ? "bg-purple-600 text-white"
                         : "bg-zinc-800/60 text-gray-300 hover:bg-zinc-700"
-                    }`}
+                      }`}
                   >
                     <button
                       onClick={() => setSelectedWatchlist(watchlist.id)}
@@ -413,7 +414,7 @@ export default function WatchlistPage() {
                         ({watchlist.items.length})
                       </span>
                     </button>
-                    
+
                     {/* Delete icon on hover - inside border, to the right */}
                     {selectedWatchlist === watchlist.id && (
                       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

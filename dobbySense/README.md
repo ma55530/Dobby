@@ -87,6 +87,15 @@ $$ \text{Score}(u_{new}, i) = \cos(\mathbf{p}_{new}, \mathbf{q}'_i) $$
 
 This allows Dobby to provide highly personalized recommendations **milliseconds** after account creation.
 
+### 3.3 TV Show Embeddings (Pure Content-Based Fold-In)
+
+While movies have millions of user ratings allowing us to learn their identity vectors ($\mathbf{q}_i$), **TV Shows** in our dataset often lack sufficient interaction data for full collaborative filtering. To generate embeddings for TV shows, we treat them as "Cold Start Items" and use a projection technique similar to the User Fold-In.
+
+1.  **Genre Extraction**: For every show in `shows.csv`, we construct its multi-hot genre vector $\mathbf{g}_{show}$.
+2.  **Projection**: We pass this vector through the **already trained** Genre Layer ($\mathbf{W}_g$) to project the show into the same latent space as the movies.
+    $$ \mathbf{q}_{show} = \lambda \cdot (\mathbf{W}_g \mathbf{g}_{show} + \mathbf{b}_g) $$
+3.  **Result**: This creates a vector representation for every TV show that is mathematically compatible with user vectors. A user who likes "Sci-Fi Movies" will vector-match with "Sci-Fi Shows" purely because the model understands what "Sci-Fi" implies in the latent space.
+
 ---
 
 ## 4. Training Pipeline
@@ -153,7 +162,7 @@ The system calls a PostgreSQL RPC function (`get_top_movies_for_user`) which per
 - **Output**: Top $K$ raw ID candidates (e.g., top 20 movies) closest to the user's taste.
 
 
-### 5.2 The FBS (Filter, Better-Similar) Algorithm
+### 5.2 The FBS (Find Better Similar) Algorithm
 
 A common issue with pure Collaborative Filtering is that it may recommend "mathematically correct" but "qualitatively poor" items. For example, it might recommend a C-grade Sci-Fi movie simply because it has the perfect vector coordinates for a Sci-Fi fan.
 
@@ -253,7 +262,99 @@ This logic lives in valid Next.js API routes (e.g., `api/recommendation-engine`)
 
 ---
 
-## 6. References & Further Reading
+## 6. Implementation & Deployment (MLOps)
+
+DobbySense utilizes a serverless, containerized MLOps pipeline hosted on **Google Cloud Platform (GCP)**. The architecture is designed for "Set and Forget" automation, ensuring the model is constantly retrained on newly generated user data without manual intervention.
+
+### 6.1 Cloud Architecture (Vertex AI)
+
+The deployment strategy leverages Google's managed AI services to handle the heavy lifting of GPU provisioning and container orchestration.
+
+1. **Container Registry (Artifact Registry)**:
+   - We do not run training scripts directly on a VM. Instead, the entire training environment (code, dependencies, configuration) is packaged into a Docker image defined in `Dockerfile`.
+   - These images are versioned and stored in GCP Artifact Registry.
+   - **Base Image**: We utilize the official `vertex-ai/training/pytorch-gpu` container to leverage pre-optimized CUDA drivers and PyTorch binaries.
+
+2. **Compute Engine (Vertex AI Training)**:
+   - The actual model training occurs on **Vertex AI Custom Jobs**.
+   - **Hardware**: The pipeline dynamically provisions `n1-standard-4` instances attached with **NVIDIA Tesla T4 GPUs**. This provides the necessary CUDA acceleration for the matrix factorization operations.
+   - **Ephemeral**: Resources are provisioned only for the duration of the training (typically 10-15 minutes) and then destroyed immediately, optimizing cloud costs.
+
+3. **Orchestration (Cloud Scheduler)**:
+   - A cron job defined in Cloud Scheduler triggers the Vertex AI pipeline every day (configured for `15:00` in the script).
+   - This ensures the model incorporates the latest ratings from the last 24 hours (fetched from Supabase) into the daily build.
+
+### 6.2 The Deployment Script (`deploy_and_train.ps1`)
+
+The entire infrastructure setup and code deployment is automated via a PowerShell script. This "Infrastructure as Code" approach handles:
+
+1. **API Enablement**: Automatically enables required GCP services (AI Platform, Artifact Registry, Cloud Build).
+2. **Image Build**: Submits the build context to Google Cloud Build, which creates the Docker image and pushes it to the registry.
+3. **Job Submission**: Immediately triggers a "One-Off" test run to verify the code works in the remote environment.
+4. **Schedule Update**: Creates or updates the Cloud Scheduler cron job to point to the newly built image version.
+
+### 6.3 Replication Guide (How to Deploy)
+
+To deploy your own instance of the DobbySense trainer, follow these steps:
+
+#### Prerequisites
+
+1. **GCP Project**: Create a project in Google Cloud Console.
+2. **Google Cloud SDK**: Install the `gcloud` CLI and authenticate via `gcloud auth login`.
+3. **Quotas**: Ensure your project has a quota for `NVIDIA_TESLA_T4` GPUs in your target region (e.g., `us-central1`).
+4. **GCS Bucket**: Create a Google Cloud Storage bucket and upload your CSV datasets (`ratings.csv`, `movies.csv`, `shows.csv`).
+
+#### Configuration (Required)
+
+You must manually update the placeholders in the codebase with your specific project details before running any scripts.
+
+**1. Deployment Script (`deploy_and_train.ps1`)**
+Update top-level variables and secrets:
+
+```powershell
+$PROJECT_ID   = "your-gcp-project-id"
+$REGION       = "us-central1"
+$REPO_NAME    = "dobby-models"
+$SUPABASE_URL = "your-supabase-url"
+$SUPABASE_KEY = "your-service-role-key"
+```
+
+**2. Training Script (`trainer/matrixFactorization.py`)**
+Update GCS paths (ensure these match where you uploaded your CSVs):
+
+```python
+RATINGS_PATH = os.environ.get("RATINGS_PATH", "gs://your-bucket/ratings.csv")
+MOVIES_PATH  = os.environ.get("MOVIES_PATH", "gs://your-bucket/movies.csv")
+SHOWS_PATH   = os.environ.get("SHOWS_PATH", "gs://your-bucket/shows.csv")
+```
+
+**3. Notebook (`trainer/matrixFactorization.ipynb`)**
+If running interactively (Colab/local), update the configuration block:
+
+```python
+RATINGS_PATH = "gs://your-bucket/ratings.csv"
+SUPABASE_URL = "your-supabase-url"
+SUPABASE_KEY = "your-service-role-key"
+```
+
+#### Execution
+
+Run the script from a PowerShell terminal within the `dobbySense` directory:
+
+```powershell
+.\deploy_and_train.ps1
+```
+
+**What happens next?**
+
+1. The script will build your Docker image from the `Dockerfile`.
+2. It uploads the image to your GCP project.
+3. It spins up a T4 GPU instance on Vertex AI to run the first training session.
+4. It registers a daily schedule to repeat this process automatically.
+
+---
+
+## 7. References & Further Reading
 
 - Koren, Y., Bell, R., & Volinsky, C. (2009). Matrix factorization techniques for recommender systems.
 - He, X., et al. (2017). Neural Collaborative Filtering.

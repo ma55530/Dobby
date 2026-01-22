@@ -49,29 +49,29 @@ interface Watchlist {
 
 
 export default function MePage() {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [updatedProfile, setUpdatedProfile] = useState<Partial<UserProfile>>({});
-  const [open, setOpen] = useState(false);
-  const [allGenres, setAllGenres] = useState<Genre[]>([]);
-  const [favoriteGenreIds, setFavoriteGenreIds] = useState<number[]>([]);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
-  const [profileStats, setProfileStats] = useState<{
-    favoriteGenres: string[];
-    topMovies: Array<{ id: number; title: string; poster_path: string | null; rating: number | null; genres: Array<{ id: number; name: string }> }>;
-    topShows: Array<{ id: number; name: string; poster_path: string | null; rating: number | null; genres: Array<{ id: number; name: string }> }>;
-  }>({
-    favoriteGenres: [],
-    topMovies: [],
-    topShows: [],
-  });
-  const [userReviews, setUserReviews] = useState<any[]>([]);
-  const [followDialog, setFollowDialog] = useState<{ open: boolean; type: 'followers' | 'following' | null }>({ open: false, type: null });
-  const [followList, setFollowList] = useState<any[]>([]);
-  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
+   const [profile, setProfile] = useState<UserProfile | null>(null);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState<string | null>(null);
+   const [updatedProfile, setUpdatedProfile] = useState<Partial<UserProfile>>({});
+   const [open, setOpen] = useState(false);
+   const [allGenres, setAllGenres] = useState<Genre[]>([]);
+   const [favoriteGenreIds, setFavoriteGenreIds] = useState<number[]>([]);
+   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
+   const [profileStats, setProfileStats] = useState<{
+      favoriteGenres: string[];
+      topMovies: Array<{ id: number; title: string; poster_path: string | null; rating: number | null; genres: Array<{ id: number; name: string }> }>;
+      topShows: Array<{ id: number; name: string; poster_path: string | null; rating: number | null; genres: Array<{ id: number; name: string }> }>;
+   }>({
+      favoriteGenres: [],
+      topMovies: [],
+      topShows: [],
+   });
+   const [userReviews, setUserReviews] = useState<any[]>([]);
+   const [followDialog, setFollowDialog] = useState<{ open: boolean; type: 'followers' | 'following' | null }>({ open: false, type: null });
+   const [followList, setFollowList] = useState<any[]>([]);
+   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
 
    const getImageUrl = (path: string | null) => {
       if (!path) return "/assets/placeholder.png";
@@ -214,7 +214,31 @@ export default function MePage() {
       fetchData();
       fetchWatchlists();
       fetchUserReviews();
-   }, [favoriteGenreIds.length]);
+
+      // Listen for review deletions and refresh stats
+      const handleReviewDeleted = () => {
+         const savedGenresData = localStorage.getItem(
+            `favorite_genres_${profile?.id}`
+         );
+         const genresParam = savedGenresData
+            ? `?favorite_genres=${encodeURIComponent(savedGenresData)}`
+            : "";
+
+         fetch(`/api/user/profile-stats${genresParam}`)
+            .then(res => res.ok && res.json())
+            .then(stats => stats && setProfileStats(stats))
+            .catch(err => console.error("Failed to refresh profile stats:", err));
+
+         // Also refresh reviews
+         fetch("/api/user/reviews?limit=10")
+            .then(res => res.ok && res.json())
+            .then(data => data && setUserReviews(data.reviews || []))
+            .catch(err => console.error("Failed to refresh reviews:", err));
+      };
+
+      window.addEventListener("reviewDeleted", handleReviewDeleted);
+      return () => window.removeEventListener("reviewDeleted", handleReviewDeleted);
+   }, [profile?.id]);
 
    const fetchFollowList = async (type: "followers" | "following") => {
       try {
@@ -314,9 +338,9 @@ export default function MePage() {
       });
 
    return (
-      <main className="min-h-screen flex flex-col items-center bg-gradient-to-b from-[#1a1625] to-[#0f0c18] text-foreground">
-         <section className="w-full px-6 pt-12 pb-6 max-w-5xl">
-            <h1 className="text-4xl md:text-5xl font-extrabold text-white">
+      <main className="min-h-screen flex flex-col items-center bg-gradient-to-b from-[#1a1625] to-[#0f0c18] text-foreground overflow-x-hidden">
+         <section className="w-full px-4 sm:px-6 pt-8 sm:pt-12 pb-4 sm:pb-6 max-w-5xl mx-auto box-border">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white">
                About me
             </h1>
             <p className="text-gray-300 mt-2">
@@ -331,7 +355,7 @@ export default function MePage() {
             )}
          </section>
 
-         <section className="w-full px-6 max-w-5xl pb-16">
+         <section className="w-full px-4 sm:px-6 max-w-5xl mx-auto pb-12 sm:pb-16 box-border overflow-hidden">
             {loading ? (
                <div className="grid gap-6 md:grid-cols-3">
                   <div className="md:col-span-1 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 h-64 animate-pulse" />
@@ -339,9 +363,9 @@ export default function MePage() {
                   <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 h-40 animate-pulse" />
                </div>
             ) : profile ? (
-               <div className="grid gap-6 md:grid-cols-3">
+               <div className="grid gap-6 md:grid-cols-3 min-w-0 w-full">
                   {/* Left: profile card */}
-                  <div className="p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
+                  <div className="p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 w-full min-w-0 overflow-hidden">
                      <div className="flex flex-col items-center text-center">
                         <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-purple-400 to-yellow-400 overflow-hidden ring-2 ring-purple-400/40">
                            {profile.avatar_url ? (
@@ -624,23 +648,22 @@ export default function MePage() {
                                                       const newGenres =
                                                          isSelected
                                                             ? favoriteGenreIds.filter(
-                                                                 (id) =>
-                                                                    id !==
-                                                                    genre.id
-                                                              )
+                                                               (id) =>
+                                                                  id !==
+                                                                  genre.id
+                                                            )
                                                             : [
-                                                                 ...favoriteGenreIds,
-                                                                 genre.id,
-                                                              ];
+                                                               ...favoriteGenreIds,
+                                                               genre.id,
+                                                            ];
                                                       setFavoriteGenreIds(
                                                          newGenres
                                                       );
                                                    }}
-                                                   className={`px-3 py-1 text-xs rounded-full border transition ${
-                                                      isSelected
-                                                         ? "bg-purple-600 border-purple-400 text-white"
-                                                         : "bg-zinc-800 border-zinc-700 text-gray-300 hover:border-purple-400"
-                                                   }`}
+                                                   className={`px-3 py-1 text-xs rounded-full border transition ${isSelected
+                                                      ? "bg-purple-600 border-purple-400 text-white"
+                                                      : "bg-zinc-800 border-zinc-700 text-gray-300 hover:border-purple-400"
+                                                      }`}
                                                 >
                                                    {genre.name}
                                                 </button>
@@ -727,11 +750,10 @@ export default function MePage() {
                                           }
                                        }}
                                        disabled={favoriteGenreIds.length < 3}
-                                       className={`px-3 py-1.5 rounded-md transition ${
-                                          favoriteGenreIds.length < 3
-                                             ? "bg-gray-600/80 border border-gray-500 text-gray-400 cursor-not-allowed opacity-50"
-                                             : "bg-purple-600/80 border border-purple-400 text-white hover:bg-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-400/60"
-                                       }`}
+                                       className={`px-3 py-1.5 rounded-md transition ${favoriteGenreIds.length < 3
+                                          ? "bg-gray-600/80 border border-gray-500 text-gray-400 cursor-not-allowed opacity-50"
+                                          : "bg-purple-600/80 border border-purple-400 text-white hover:bg-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-400/60"
+                                          }`}
                                     >
                                        Save Changes
                                     </button>
@@ -743,118 +765,118 @@ export default function MePage() {
                   </div>
 
                   {/* Right: bio and lists */}
-                  <div className="md:col-span-2 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
+                  <div className="md:col-span-2 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 w-full min-w-0 overflow-hidden">
                      <h3 className="text-white font-semibold text-lg mb-3">
                         Bio
                      </h3>
-                     <p className="text-gray-300 leading-relaxed">
+                     <p className="text-gray-300 leading-relaxed break-words">
                         {profile.bio || "No bio yet."}
                      </p>
 
-              <div className="mt-6 grid sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-white font-medium">Favorite genres</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {profileStats.favoriteGenres.length > 0 ? (
-                      profileStats.favoriteGenres.map((g) => (
-                        <span key={g} className="text-xs px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-gray-300">
-                          {g}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-gray-500">No genres yet. Watch some movies or shows!</span>
-                    )}
-                  </div>
-                </div>
-                <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
-                  <div className="flex items-center gap-2 mb-3">
-                    
-                    <span className="text-white font-medium">Top movies</span>
-                  </div>
-                  {profileStats.topMovies.length > 0 ? (
-                    <div className="grid grid-cols-4 gap-2">
-                      {profileStats.topMovies.slice(0, 4).map((movie) => (
-                        <Link
-                          key={`top-movie-${movie.id}`}
-                          href={`/movies/${movie.id}`}
-                          className="relative group"
-                          title={movie.title}
-                        >
-                          <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-zinc-800 border border-zinc-700">
-                            {movie.poster_path ? (
-                              <Image
-                                src={getImageUrl(movie.poster_path)}
-                                alt={movie.title}
-                                fill
-                                sizes="96px"
-                                className="object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                <Film className="w-5 h-5" />
+                     <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800 min-w-0 overflow-hidden">
+                           <div className="flex items-center gap-2 mb-2">
+                              <span className="text-white font-medium">Favorite genres</span>
+                           </div>
+                           <div className="flex flex-wrap gap-2">
+                              {profileStats.favoriteGenres.length > 0 ? (
+                                 profileStats.favoriteGenres.map((g) => (
+                                    <span key={g} className="text-xs px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-gray-300">
+                                       {g}
+                                    </span>
+                                 ))
+                              ) : (
+                                 <span className="text-xs text-gray-500">No genres yet. Watch some movies or shows!</span>
+                              )}
+                           </div>
+                        </div>
+                        <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800 min-w-0 overflow-hidden">
+                           <div className="flex items-center gap-2 mb-3">
+
+                              <span className="text-white font-medium">Top movies</span>
+                           </div>
+                           {profileStats.topMovies.length > 0 ? (
+                              <div className="grid grid-cols-3 gap-2">
+                                 {profileStats.topMovies.slice(0, 3).map((movie) => (
+                                    <Link
+                                       key={`top-movie-${movie.id}`}
+                                       href={`/movies/${movie.id}`}
+                                       className="relative group aspect-[2/3] w-full"
+                                       title={movie.title}
+                                    >
+                                       <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-zinc-800 border border-zinc-700">
+                                          {movie.poster_path ? (
+                                             <Image
+                                                src={getImageUrl(movie.poster_path)}
+                                                alt={movie.title}
+                                                fill
+                                                sizes="96px"
+                                                className="object-cover"
+                                             />
+                                          ) : (
+                                             <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                                <Film className="w-5 h-5" />
+                                             </div>
+                                          )}
+                                       </div>
+                                       {typeof movie.rating === 'number' && (
+                                          <span className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-black/70 text-yellow-300">
+                                             {movie.rating.toFixed(1)}
+                                          </span>
+                                       )}
+                                    </Link>
+                                 ))}
                               </div>
-                            )}
-                          </div>
-                          {typeof movie.rating === 'number' && (
-                            <span className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-black/70 text-yellow-300">
-                              {movie.rating.toFixed(1)}
-                            </span>
-                          )}
-                        </Link>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-gray-500">No movie ratings yet.</span>
-                  )}
-                </div>
-                <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800">
-                  <div className="flex items-center gap-2 mb-3">
-                    
-                    <span className="text-white font-medium">Top shows</span>
-                  </div>
-                  {profileStats.topShows.length > 0 ? (
-                    <div className="grid grid-cols-4 gap-2">
-                      {profileStats.topShows.slice(0, 4).map((show) => (
-                        <Link
-                          key={`top-show-${show.id}`}
-                          href={`/shows/${show.id}`}
-                          className="relative group"
-                          title={show.name}
-                        >
-                          <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-zinc-800 border border-zinc-700">
-                            {show.poster_path ? (
-                              <Image
-                                src={getImageUrl(show.poster_path)}
-                                alt={show.name}
-                                fill
-                                sizes="96px"
-                                className="object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-500">
-                                <Tv className="w-5 h-5" />
+                           ) : (
+                              <span className="text-xs text-gray-500">No movie ratings yet.</span>
+                           )}
+                        </div>
+                        <div className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800 min-w-0 overflow-hidden">
+                           <div className="flex items-center gap-2 mb-3">
+
+                              <span className="text-white font-medium">Top shows</span>
+                           </div>
+                           {profileStats.topShows.length > 0 ? (
+                              <div className="grid grid-cols-3 gap-2">
+                                 {profileStats.topShows.slice(0, 3).map((show) => (
+                                    <Link
+                                       key={`top-show-${show.id}`}
+                                       href={`/shows/${show.id}`}
+                                       className="relative group aspect-[2/3] w-full"
+                                       title={show.name}
+                                    >
+                                       <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-zinc-800 border border-zinc-700">
+                                          {show.poster_path ? (
+                                             <Image
+                                                src={getImageUrl(show.poster_path)}
+                                                alt={show.name}
+                                                fill
+                                                sizes="96px"
+                                                className="object-cover"
+                                             />
+                                          ) : (
+                                             <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                                <Tv className="w-5 h-5" />
+                                             </div>
+                                          )}
+                                       </div>
+                                       {typeof show.rating === 'number' && (
+                                          <span className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-black/70 text-yellow-300">
+                                             {show.rating.toFixed(1)}
+                                          </span>
+                                       )}
+                                    </Link>
+                                 ))}
                               </div>
-                            )}
-                          </div>
-                          {typeof show.rating === 'number' && (
-                            <span className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-black/70 text-yellow-300">
-                              {show.rating.toFixed(1)}
-                            </span>
-                          )}
-                        </Link>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-gray-500">No show ratings yet.</span>
-                  )}
-                </div>
-              </div>
-            </div>
+                           ) : (
+                              <span className="text-xs text-gray-500">No show ratings yet.</span>
+                           )}
+                        </div>
+                     </div>
+                  </div>
 
                   {/* Watchlists Section */}
-                  <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
+                  <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 w-full min-w-0 overflow-hidden">
                      <div className="flex items-center mb-4">
                         <h3 className="text-white font-semibold text-lg flex items-center gap-2">
                            <Bookmark className="w-5 h-5" />
@@ -869,13 +891,13 @@ export default function MePage() {
                         </div>
                      ) : (
                         <div className="space-y-4">
-                           {watchlists.slice(0, 2).map((watchlist) => (
+                           {watchlists.map((watchlist) => (
                               <div
                                  key={watchlist.id}
-                                 className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800"
+                                 className="p-4 rounded-lg bg-zinc-900/50 border border-zinc-800 min-w-0 overflow-hidden"
                               >
                                  <div className="flex items-center justify-between mb-3">
-                                    <h4 className="text-white font-medium">
+                                    <h4 className="text-white font-medium truncate pr-4">
                                        {watchlist.name}
                                     </h4>
                                     <span className="text-sm text-gray-400">
@@ -890,11 +912,10 @@ export default function MePage() {
                                           .map((item) => (
                                              <Link
                                                 key={`${watchlist.id}-${item.type}-${item.id}`}
-                                                href={`/${
-                                                   item.type === "movie"
-                                                      ? "movies"
-                                                      : "shows"
-                                                }/${item.id}`}
+                                                href={`/${item.type === "movie"
+                                                   ? "movies"
+                                                   : "shows"
+                                                   }/${item.id}`}
                                                 className="flex-shrink-0 cursor-pointer hover:opacity-80 transition"
                                              >
                                                 <div className="relative w-20 h-28 rounded-md overflow-hidden bg-zinc-900 hover:ring-2 hover:ring-purple-400 transition">
@@ -911,7 +932,7 @@ export default function MePage() {
                                                    ) : (
                                                       <div className="w-full h-full flex items-center justify-center text-gray-600">
                                                          {item.type ===
-                                                         "movie" ? (
+                                                            "movie" ? (
                                                             <Film className="w-6 h-6" />
                                                          ) : (
                                                             <Tv className="w-6 h-6" />
@@ -936,35 +957,23 @@ export default function MePage() {
                                  )}
                               </div>
                            ))}
-
-                           {watchlists.length > 2 && (
-                              <div className="text-center pt-2">
-                                 <Link href="/watchlist">
-                                    <Button
-                                       variant="outline"
-                                       className="border-zinc-700 hover:bg-zinc-800 text-purple-400 cursor-pointer"
-                                    >
-                                       +{watchlists.length - 2} more watchlists
-                                    </Button>
-                                 </Link>
-                              </div>
-                           )}
                         </div>
                      )}
                   </div>
 
-                  <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700">
+                  <div className="md:col-span-3 p-6 rounded-xl bg-zinc-800/60 border border-zinc-700 w-full min-w-0 overflow-hidden">
                      <h3 className="text-white font-semibold text-lg mb-4 text-center">
                         Recent activity
                      </h3>
                      {userReviews.length > 0 ? (
-                        <div className="space-y-6 flex flex-col items-center">
+                        <div className="space-y-6 flex flex-col items-center w-full">
                            {userReviews.map((review) => (
-                              <ReviewCard
-                                 key={review.id}
-                                 post={review}
-                                 isNested={true}
-                              />
+                              <div key={review.id} className="w-full flex justify-center overflow-hidden">
+                                 <ReviewCard
+                                    post={review}
+                                    isNested={true}
+                                 />
+                              </div>
                            ))}
                         </div>
                      ) : (

@@ -216,21 +216,22 @@ export default function MoviesPage() {
             {loadingDefault ? (
               <div className="text-gray-400">Loading...</div>
             ) : (
-              <div className="flex flex-wrap gap-6 justify-center">
+              <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
                 {popular
                   .sort((a, b) => b.vote_average - a.vote_average)
                   .slice(0, 5)
                   .map((movie) => (
-                    <TrackCard
-                      id={movie.id}
-                      key={movie.id}
-                      title={movie.title}
-                      poster={movie.poster_path}
-                      rating={movie.vote_average}
-                      year={movie.release_date}
-                      infoAboutTrack={""}
-                      href={`/movies/${movie.id}`}
-                    />
+                    <div key={movie.id} className="flex-none snap-start">
+                      <TrackCard
+                        id={movie.id}
+                        title={movie.title}
+                        poster={movie.poster_path}
+                        rating={movie.vote_average}
+                        year={movie.release_date}
+                        infoAboutTrack={""}
+                        href={`/movies/${movie.id}`}
+                      />
+                    </div>
                   ))}
               </div>
             )}
@@ -242,21 +243,22 @@ export default function MoviesPage() {
             {loadingDefault ? (
               <div className="text-gray-400">Loading...</div>
             ) : (
-              <div className="flex flex-wrap gap-6 justify-center">
+              <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
                 {upcoming
                   .sort((a, b) => b.vote_average - a.vote_average)
                   .slice(0, 5)
                   .map((movie) => (
-                    <TrackCard
-                      id={movie.id}
-                      key={movie.id}
-                      title={movie.title}
-                      poster={movie.poster_path}
-                      rating={movie.vote_average}
-                      year={movie.release_date}
-                      infoAboutTrack={""}
-                      href={`/movies/${movie.id}`}
-                    />
+                    <div key={movie.id} className="flex-none snap-start">
+                      <TrackCard
+                        id={movie.id}
+                        title={movie.title}
+                        poster={movie.poster_path}
+                        rating={movie.vote_average}
+                        year={movie.release_date}
+                        infoAboutTrack={""}
+                        href={`/movies/${movie.id}`}
+                      />
+                    </div>
                   ))}
               </div>
             )}
@@ -268,21 +270,22 @@ export default function MoviesPage() {
             {loadingDefault ? (
               <div className="text-gray-400">Loading...</div>
             ) : (
-              <div className="flex flex-wrap gap-6 justify-center">
+              <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
                 {trending
                   .sort((a, b) => b.vote_average - a.vote_average)
                   .slice(0, 5)
                   .map((movie) => (
-                    <TrackCard
-                      id={movie.id}
-                      key={movie.id}
-                      title={movie.title}
-                      poster={movie.poster_path}
-                      rating={movie.vote_average}
-                      year={movie.release_date}
-                      infoAboutTrack={""}
-                      href={`/movies/${movie.id}`}
-                    />
+                    <div key={movie.id} className="flex-none snap-start">
+                      <TrackCard
+                        id={movie.id}
+                        title={movie.title}
+                        poster={movie.poster_path}
+                        rating={movie.vote_average}
+                        year={movie.release_date}
+                        infoAboutTrack={""}
+                        href={`/movies/${movie.id}`}
+                      />
+                    </div>
                   ))}
               </div>
             )}

@@ -216,21 +216,22 @@ export default function ShowsPage() {
             {loadingDefault ? (
               <div className="text-gray-400">Loading...</div>
             ) : (
-              <div className="flex flex-wrap gap-6 justify-center">
+              <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
                 {popular
                   .sort((a, b) => b.vote_average - a.vote_average)
                   .slice(0, 5)
                   .map((show) => (
-                    <TrackCard
-                      id={show.id}
-                      key={show.id}
-                      title={show.name}
-                      poster={show.poster_path}
-                      rating={show.vote_average}
-                      year={show.first_air_date}
-                      infoAboutTrack={""}
-                      href={`/shows/${show.id}`}
-                    />
+                    <div key={show.id} className="flex-none snap-start">
+                      <TrackCard
+                        id={show.id}
+                        title={show.name}
+                        poster={show.poster_path}
+                        rating={show.vote_average}
+                        year={show.first_air_date}
+                        infoAboutTrack={""}
+                        href={`/shows/${show.id}`}
+                      />
+                    </div>
                   ))}
               </div>
             )}
@@ -242,21 +243,22 @@ export default function ShowsPage() {
             {loadingDefault ? (
               <div className="text-gray-400">Loading...</div>
             ) : (
-              <div className="flex flex-wrap gap-6 justify-center">
+              <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
                 {upcoming
                   .sort((a, b) => b.vote_average - a.vote_average)
                   .slice(0, 5)
                   .map((show) => (
-                    <TrackCard
-                      id={show.id}
-                      key={show.id}
-                      title={show.name}
-                      poster={show.poster_path}
-                      rating={show.vote_average}
-                      year={show.first_air_date}
-                      infoAboutTrack={""}
-                      href={`/shows/${show.id}`}
-                    />
+                    <div key={show.id} className="flex-none snap-start">
+                      <TrackCard
+                        id={show.id}
+                        title={show.name}
+                        poster={show.poster_path}
+                        rating={show.vote_average}
+                        year={show.first_air_date}
+                        infoAboutTrack={""}
+                        href={`/shows/${show.id}`}
+                      />
+                    </div>
                   ))}
               </div>
             )}
@@ -268,21 +270,22 @@ export default function ShowsPage() {
             {loadingDefault ? (
               <div className="text-gray-400">Loading...</div>
             ) : (
-              <div className="flex flex-wrap gap-6 justify-center">
+              <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
                 {trending
                   .sort((a, b) => b.vote_average - a.vote_average)
                   .slice(0, 5)
                   .map((show) => (
-                    <TrackCard
-                      id={show.id}
-                      key={show.id}
-                      title={show.name}
-                      poster={show.poster_path}
-                      rating={show.vote_average}
-                      year={show.first_air_date}
-                      infoAboutTrack={""}
-                      href={`/shows/${show.id}`}
-                    />
+                    <div key={show.id} className="flex-none snap-start">
+                      <TrackCard
+                        id={show.id}
+                        title={show.name}
+                        poster={show.poster_path}
+                        rating={show.vote_average}
+                        year={show.first_air_date}
+                        infoAboutTrack={""}
+                        href={`/shows/${show.id}`}
+                      />
+                    </div>
                   ))}
               </div>
             )}

@@ -123,10 +123,7 @@
     @apply border-border outline-ring/50;
   }
 }
-  @tailwind base;
-  @tailwind components;
-  @tailwind utilities;
-
+  
   :root {
     --background: #0d0d0f;
     --foreground: #f1f1f1;
