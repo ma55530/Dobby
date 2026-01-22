@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { get_options } from "@/lib/TMDB_API/requestOptions";
@@ -71,43 +70,45 @@ export async function GET(
         }
 
         // Fetch details from TMDB for each item
+        type ItemRow = { movie_id?: number | null; show_id?: number | null; added_at?: string | null };
+
         const itemsWithDetails = await Promise.all(
-          (items || []).map(async (item) => {
+          (items || []).map(async (itemRaw: ItemRow) => {
             try {
-              if (item.movie_id) {
+              if (itemRaw.movie_id) {
                 const res = await fetch(
-                  `https://api.themoviedb.org/3/movie/${item.movie_id}`,
+                  `https://api.themoviedb.org/3/movie/${itemRaw.movie_id}`,
                   get_options
                 );
                 if (res.ok) {
-                  const movie = await res.json();
+                  const movie = (await res.json()) as Record<string, unknown>;
                   return {
-                    movie_id: movie.id,
+                    movie_id: (movie.id as number) ?? null,
                     show_id: null,
                     movies: {
-                      title: movie.title,
-                      poster_path: movie.poster_path,
+                      title: (movie.title as string) ?? undefined,
+                      poster_path: (movie.poster_path as string) ?? undefined,
                     },
                     shows: null,
-                    added_at: item.added_at,
+                    added_at: itemRaw.added_at,
                   };
                 }
-              } else if (item.show_id) {
+              } else if (itemRaw.show_id) {
                 const res = await fetch(
-                  `https://api.themoviedb.org/3/tv/${item.show_id}`,
+                  `https://api.themoviedb.org/3/tv/${itemRaw.show_id}`,
                   get_options
                 );
                 if (res.ok) {
-                  const show = await res.json();
+                  const show = (await res.json()) as Record<string, unknown>;
                   return {
                     movie_id: null,
-                    show_id: show.id,
+                    show_id: (show.id as number) ?? null,
                     movies: null,
                     shows: {
-                      name: show.name,
-                      poster_path: show.poster_path,
+                      name: (show.name as string) ?? undefined,
+                      poster_path: (show.poster_path as string) ?? undefined,
                     },
-                    added_at: item.added_at,
+                    added_at: itemRaw.added_at,
                   };
                 }
               }
