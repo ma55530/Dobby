@@ -1025,7 +1025,7 @@ export default function MePage() {
                      followList.map((user) => (
                         <Link
                            key={user.id}
-                           href={`/users/${user.id}`}
+                           href={`/users/${user.username}`}
                            className="flex items-center gap-3 p-3 rounded-lg bg-zinc-800/60 hover:bg-zinc-800 transition-colors"
                            onClick={() =>
                               setFollowDialog({ open: false, type: null })
