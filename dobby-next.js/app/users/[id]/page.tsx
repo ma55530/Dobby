@@ -30,6 +30,20 @@ interface FollowCounts {
   following: number;
 }
 
+interface Comment {
+  id: string;
+  author: string;
+  avatar?: string;
+  rating?: number;
+  content: string;
+  date: string;
+  likes: number;
+  parentId?: string;
+  hasChildren?: boolean;
+  children?: Comment[];
+  userId?: string;
+}
+
 interface ProfileStats {
   favoriteGenres: string[];
   topMovies: Array<{ id: number; title: string; poster_path: string | null; rating: number | null }>;
@@ -49,6 +63,34 @@ interface Watchlist {
   items: WatchlistItem[];
 }
 
+interface Review {
+  id: string;
+  author: string;
+  avatar?: string;
+  rating: number;
+  content: string;
+  date: string;
+  likes: number;
+  movieId?: number;
+  movieTitle?: string;
+  movieType?: "movie" | "tv";
+  moviePoster?: string;
+  hasChildren?: boolean;
+  children?: Comment[];
+  commentCount?: number;
+  userId?: string;
+}
+
+type RawWatchlistItem = {
+  movie_id?: number | null;
+  show_id?: number | null;
+  added_at?: string | null;
+  movies?: { title?: string; poster_path?: string | null } | null;
+  shows?: { name?: string; poster_path?: string | null } | null;
+};
+
+type RawWatchlist = { id: string; name: string; watchlist_items?: RawWatchlistItem[] };
+
 export default function UserProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const unwrappedParams = use(params);
   const router = useRouter();
@@ -61,7 +103,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [profileStats, setProfileStats] = useState<ProfileStats>({ favoriteGenres: [], topMovies: [], topShows: [] });
   const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
-  const [userReviews, setUserReviews] = useState<any[]>([]);
+  const [userReviews, setUserReviews] = useState<Review[]>([]);
 
   const getImageUrl = (path: string | null) => {
     if (!path) return "/assets/placeholder.png";
@@ -120,12 +162,12 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
         if (watchlistsRes.ok) {
           const watchlistsData = await watchlistsRes.json();
           setWatchlists(
-            watchlistsData.map((w: any) => ({
+            (watchlistsData as RawWatchlist[]).map((w) => ({
               ...w,
               items:
-                w.watchlist_items?.map((i: any) => ({
+                (w.watchlist_items || []).map((i) => ({
                   type: i.movie_id ? "movie" : "show",
-                  id: i.movie_id || i.show_id,
+                  id: (i.movie_id ?? i.show_id) as number,
                   title: i.movies?.title || i.shows?.name || "Unknown",
                   poster_path: i.movies?.poster_path || i.shows?.poster_path || null,
                 })) || [],
